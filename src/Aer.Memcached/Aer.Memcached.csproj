@@ -7,6 +7,7 @@
         <PackageId>Aerx.Memcached</PackageId>
         <Company>Aer</Company>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/aliexpressru/memcached</RepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>
