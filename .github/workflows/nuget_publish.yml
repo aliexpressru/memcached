@@ -1,0 +1,31 @@
+name: .NET
+
+on:
+  push:
+    tags: 
+    - 'v*'
+
+env:
+  NUGET_SOURCE_URL: 'https://api.nuget.org/v3/index.json'
+
+jobs:
+
+  publish_nuget:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    - name: Get version
+      id: version
+      uses: battila7/get-version-action@v2
+    - name 'Push package'
+      run: dotnet nuget push \*.nupkg -s ${{ env.NUGET_SOURCE_URL }} -k ${{ secrets.NUGET_API_KEY }}
