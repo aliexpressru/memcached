@@ -7,6 +7,7 @@ on:
 
 env:
   NUGET_SOURCE_URL: 'https://api.nuget.org/v3/index.json'
+  PACKAGE_OUTPUT_DIRECTORY: ${{ github.workspace }}\output
 
 jobs:
 
@@ -28,6 +29,6 @@ jobs:
       id: get_version
       uses: battila7/get-version-action@v2
     - name: Pack project AER.Memcached
-      run: dotnet pack Aer.Memcached --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }}
+      run: dotnet pack memcached/src/Aer.Memcached/Aer.Memcached.csproj --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }} --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
     - name: Push package
-      run: dotnet nuget push **/*.nupkg -s ${{ env.NUGET_SOURCE_URL }} -k ${{ secrets.NUGET_API_KEY }}
+      run: dotnet nuget push ${{ env.PACKAGE_OUTPUT_DIRECTORY }}\*.nupkg -s ${{ env.NUGET_SOURCE_URL }} -k ${{ secrets.NUGET_API_KEY }}
