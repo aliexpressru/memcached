@@ -25,9 +25,9 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
     - name: Get version
-      id: version
+      id: get_version
       uses: battila7/get-version-action@v2
     - name: Pack projects
-      run: dotnet pack --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.version.outputs.versions-without-v }}
+      run: dotnet pack --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }}
     - name: Push package
       run: dotnet nuget push **/*.nupkg -s ${{ env.NUGET_SOURCE_URL }} -k ${{ secrets.NUGET_API_KEY }}
