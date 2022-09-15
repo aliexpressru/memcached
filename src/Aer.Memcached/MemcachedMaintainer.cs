@@ -101,23 +101,23 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         }
 
         nodesInLocator = _nodeLocator.GetAllNodes();
-        
-        _logger.Log(
-            _config.Diagnostics.DisableRebuildNodesStateLogging
-                ? LogLevel.None
-                : LogLevel.Information,
-            $"Nodes in locator: {string.Join(";", nodesInLocator.Select(n => n.GetKey()))}");
-        
+
+        if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
+        {
+            _logger.LogInformation(
+                $"Nodes in locator: {string.Join(";", nodesInLocator.Select(n => n.GetKey()))}");
+        }
+
         // 1 socket per 15 seconds seems to be ok for now. We can tune this strategy if needed.
         _commandExecutor.DestroyAvailableSockets(1, CancellationToken.None).GetAwaiter().GetResult();
 
         var socketPools = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
-        
-        _logger.Log(
-            _config.Diagnostics.DisableRebuildNodesStateLogging
-                ? LogLevel.None
-                : LogLevel.Information,
-            $"Created sockets statistics: {string.Join(";", socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"))}");
+
+        if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
+        {
+            _logger.LogInformation(
+                $"Created sockets statistics: {string.Join(";", socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"))}");
+        }
     }
 
     private void CheckNodesHealth(object state)
