@@ -27,7 +27,7 @@ jobs:
     - name: Get version
       id: get_version
       uses: battila7/get-version-action@v2
-    - name: Pack projects
-      run: dotnet pack Aer.Memcached.csproj -IncludeReferencedProjects --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }}
+    - name: Pack project AER.Memcached
+      run: dotnet pack Aer.Memcached --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }}
     - name: Push package
       run: dotnet nuget push **/*.nupkg -s ${{ env.NUGET_SOURCE_URL }} -k ${{ secrets.NUGET_API_KEY }}
