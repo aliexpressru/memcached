@@ -20,12 +20,17 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
     public async Task<bool> CheckNodeIsDeadAsync(TNode node)
     {
         var connectionRetries = 3;
-            
-        var socket = new PooledSocket(node.GetEndpoint(), _config.ConnectionTimeout, _logger);
-        try
+        
+        while (connectionRetries > 0)
         {
-            while (connectionRetries > 0)
+            PooledSocket socket = null;
+
+            try
             {
+                // We need to recreate it each time to resolve the exception:
+                // System.PlatformNotSupportedException: Sockets on this platform are invalid for use after a failed connection attempt.
+                socket = new PooledSocket(node.GetEndpoint(), _config.ConnectionTimeout, _logger);
+                
                 try
                 {
                     await socket.ConnectAsync(CancellationToken.None);
@@ -41,12 +46,12 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
                     }
                 }
             }
+            finally
+            {
+                socket?.Destroy();
+            }
+        }
 
-            return true;
-        }
-        finally
-        {
-            socket.Destroy();
-        }
+        return true;
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Aer.ConsistentHash;
@@ -11,6 +12,12 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
     private static readonly NodeEqualityComparer<TNode> Comparer = new();
     
     private static ConcurrentBag<string> ValueFactory(TNode _) => new();
+
+    /// <summary>
+    /// In <see cref="GetNodeInternal"/> there is a moment when _hashToNodeMap is already updated (node removed)
+    /// but _sortedNodeHashKeys is not yet. So we need Read/Write lock after all. 
+    /// </summary>
+    private readonly ReaderWriterLockSlim _locker;
 
     private readonly IHashCalculator _hashCalculator;
     private readonly int _numberOfVirtualNodes;
@@ -23,6 +30,8 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
     /// <param name="numberOfVirtualNodes">Number of virtual nodes by one physical node</param>
     public HashRing(IHashCalculator hashCalculator, int numberOfVirtualNodes = 256)
     {
+        _locker = new ReaderWriterLockSlim();
+        
         _hashCalculator = hashCalculator;
         _numberOfVirtualNodes = numberOfVirtualNodes;
 
@@ -32,31 +41,49 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
     public TNode GetNode(string key)
     {
-        if (_sortedNodeHashKeys == null || _sortedNodeHashKeys.Length == 0)
+        try
         {
-            return null;
-        }
+            _locker.EnterReadLock();
             
-        var node = GetNodeInternal(key);
-        return node;
+            if (_sortedNodeHashKeys == null || _sortedNodeHashKeys.Length == 0)
+            {
+                return null;
+            }
+            
+            var node = GetNodeInternal(key);
+            return node;
+        }
+        finally
+        {
+            _locker.ExitReadLock();
+        }
     }
 
     public IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys)
     {
         var result = new ConcurrentDictionary<TNode, ConcurrentBag<string>>(Comparer);
-        
-        if (_sortedNodeHashKeys == null || _sortedNodeHashKeys.Length == 0)
+
+        try
         {
-            return result;
+            _locker.EnterReadLock();
+            
+            if (_sortedNodeHashKeys == null || _sortedNodeHashKeys.Length == 0)
+            {
+                return result;
+            }
+
+            Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 16 },key =>
+            {
+                var node = GetNodeInternal(key);
+
+                var bag = result.GetOrAdd(node, (Func<TNode, ConcurrentBag<string>>) ValueFactory);
+                bag.Add(key);
+            });
         }
-
-        Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 16 },key =>
+        finally
         {
-            var node = GetNodeInternal(key);
-
-            var bag = result.GetOrAdd(node, (Func<TNode, ConcurrentBag<string>>) ValueFactory);
-            bag.Add(key);
-        });
+            _locker.ExitReadLock();
+        }
 
         return result;
     }
@@ -68,43 +95,79 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
     public void AddNode(TNode node)
     {
-        AddNodeToCollections(node);
-        UpdateSortedNodeHashKeys();
+        try
+        {
+            _locker.EnterWriteLock();
+            
+            AddNodeToCollections(node);
+            UpdateSortedNodeHashKeys();
+        }
+        finally
+        {
+            _locker.ExitWriteLock();
+        }
     }
 
     public void AddNodes(IEnumerable<TNode> nodes)
     {
-        foreach (var node in nodes)
+        try
         {
-            AddNodeToCollections(node);
-        }
+            _locker.EnterWriteLock();
+            
+            foreach (var node in nodes)
+            {
+                AddNodeToCollections(node);
+            }
         
-        UpdateSortedNodeHashKeys();
+            UpdateSortedNodeHashKeys();
+        }
+        finally
+        {
+            _locker.ExitWriteLock();
+        }
     }
 
     public void RemoveNode(TNode node)
     {
-        if (TryRemoveNodeFromCollections(node))
+        try
         {
-            UpdateSortedNodeHashKeys();
+            _locker.EnterWriteLock();
+            
+            if (TryRemoveNodeFromCollections(node))
+            {
+                UpdateSortedNodeHashKeys();
+            }
+        }
+        finally
+        {
+            _locker.ExitWriteLock();
         }
     }
 
     public void RemoveNodes(IEnumerable<TNode> nodes)
     {
-        bool updateNeeded = false;
-        foreach (var node in nodes)
+        try
         {
-            var isRemoved = TryRemoveNodeFromCollections(node);
-            if (isRemoved)
+            _locker.EnterWriteLock();
+            
+            bool updateNeeded = false;
+            foreach (var node in nodes)
             {
-                updateNeeded = true;
+                var isRemoved = TryRemoveNodeFromCollections(node);
+                if (isRemoved)
+                {
+                    updateNeeded = true;
+                }
+            }
+
+            if (updateNeeded)
+            {
+                UpdateSortedNodeHashKeys();
             }
         }
-
-        if (updateNeeded)
+        finally
         {
-            UpdateSortedNodeHashKeys();
+            _locker.ExitWriteLock();
         }
     }
 

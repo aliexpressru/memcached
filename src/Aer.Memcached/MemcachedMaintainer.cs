@@ -72,104 +72,118 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
     private void RebuildNodes(object state)
     {
-        var currentNodes = _nodeProvider.GetNodes();
-        var nodesInLocator = _nodeLocator.GetAllNodes();
-
         try
         {
-            _locker.EnterReadLock();
-            currentNodes = currentNodes.Except(_deadNodes, Comparer).ToArray();
+            var currentNodes = _nodeProvider.GetNodes();
+            var nodesInLocator = _nodeLocator.GetAllNodes();
+
+            try
+            {
+                _locker.EnterReadLock();
+                currentNodes = currentNodes.Except(_deadNodes, Comparer).ToArray();
+            }
+            finally
+            {
+                _locker.ExitReadLock();
+            }
+
+            var nodesToAdd = currentNodes.Except(nodesInLocator, Comparer).ToArray();
+            var nodesToRemove = nodesInLocator.Except(currentNodes, Comparer).ToArray();
+
+            if (nodesToRemove.Any())
+            {
+                _nodeLocator.RemoveNodes(nodesToRemove);
+                _logger.LogInformation($"Removed nodes: {string.Join(";", nodesToRemove.Select(n => n.GetKey()))}");
+            }
+
+            if (nodesToAdd.Any())
+            {
+                _nodeLocator.AddNodes(nodesToAdd);
+                _logger.LogInformation($"Added nodes: {string.Join(";", nodesToAdd.Select(n => n.GetKey()))}");
+            }
+
+            nodesInLocator = _nodeLocator.GetAllNodes();
+
+            if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
+            {
+                _logger.LogInformation(
+                    $"Nodes in locator: {string.Join(";", nodesInLocator.Select(n => n.GetKey()))}");
+            }
+
+            // 1 socket per 15 seconds seems to be ok for now. We can tune this strategy if needed.
+            _commandExecutor.DestroyAvailableSockets(1, CancellationToken.None).GetAwaiter().GetResult();
+
+            var socketPools = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
+
+            if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
+            {
+                _logger.LogInformation(
+                    $"Created sockets statistics: {string.Join(";", socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"))}");
+            }
         }
-        finally
+        catch (Exception e)
         {
-            _locker.ExitReadLock();
-        }
-
-        var nodesToAdd = currentNodes.Except(nodesInLocator, Comparer).ToArray();
-        var nodesToRemove = nodesInLocator.Except(currentNodes, Comparer).ToArray();
-
-        if (nodesToRemove.Any())
-        {
-            _nodeLocator.RemoveNodes(nodesToRemove);
-            _logger.LogInformation($"Removed nodes: {string.Join(";", nodesToRemove.Select(n => n.GetKey()))}");
-        }
-
-        if (nodesToAdd.Any())
-        {
-            _nodeLocator.AddNodes(nodesToAdd);
-            _logger.LogInformation($"Added nodes: {string.Join(";", nodesToAdd.Select(n => n.GetKey()))}");
-        }
-
-        nodesInLocator = _nodeLocator.GetAllNodes();
-
-        if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
-        {
-            _logger.LogInformation(
-                $"Nodes in locator: {string.Join(";", nodesInLocator.Select(n => n.GetKey()))}");
-        }
-
-        // 1 socket per 15 seconds seems to be ok for now. We can tune this strategy if needed.
-        _commandExecutor.DestroyAvailableSockets(1, CancellationToken.None).GetAwaiter().GetResult();
-
-        var socketPools = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
-
-        if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
-        {
-            _logger.LogInformation(
-                $"Created sockets statistics: {string.Join(";", socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"))}");
+            _logger.LogError(e, $"Error occured in {nameof(RebuildNodes)} task");
         }
     }
 
     private void CheckNodesHealth(object state)
     {
-        var currentNodes = _nodeProvider.GetNodes();
-        var recheckDeadNodesActionBlock = new ActionBlock<TNode>(node =>
-        {
-            if(!currentNodes.Contains(node, Comparer))
-            {
-                return;
-            }
-            
-            if (CheckNodeIsDead(node))
-            {
-                _deadNodes.Add(node);
-            }
-        }, new ExecutionDataflowBlockOptions
-        {
-            MaxDegreeOfParallelism = 16
-        });
-
         try
         {
-            _locker.EnterWriteLock();
-
-            // Takes node from bag and returns it back if it is still dead
-            while (_deadNodes.TryTake(out var node))
+            var currentNodes = _nodeProvider.GetNodes();
+            var recheckDeadNodesActionBlock = new ActionBlock<TNode>(node =>
             {
-                recheckDeadNodesActionBlock.Post(node);
+                if(!currentNodes.Contains(node, Comparer))
+                {
+                    return;
+                }
+            
+                if (CheckNodeIsDead(node))
+                {
+                    _deadNodes.Add(node);
+                }
+            }, new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = 16
+            });
+
+            try
+            {
+                _locker.EnterWriteLock();
+
+                // Takes node from bag and returns it back if it is still dead
+                while (_deadNodes.TryTake(out var node))
+                {
+                    recheckDeadNodesActionBlock.Post(node);
+                }
+
+                recheckDeadNodesActionBlock.Complete();
+                recheckDeadNodesActionBlock.Completion.GetAwaiter().GetResult();
+            }
+            finally
+            {
+                _locker.ExitWriteLock();
             }
 
-            recheckDeadNodesActionBlock.Complete();
-            recheckDeadNodesActionBlock.Completion.GetAwaiter().GetResult();
-        }
-        finally
-        {
-            _locker.ExitWriteLock();
-        }
-
-        var nodesInLocator = _nodeLocator.GetAllNodes();
-        nodesInLocator = nodesInLocator.Except(_deadNodes, Comparer).ToArray();
-        Parallel.ForEach(nodesInLocator, new ParallelOptions{MaxDegreeOfParallelism = 16}, node =>
-        {
-            if (CheckNodeIsDead(node))
+            var nodesInLocator = _nodeLocator.GetAllNodes();
+            nodesInLocator = nodesInLocator.Except(_deadNodes, Comparer).ToArray();
+            Parallel.ForEach(nodesInLocator, new ParallelOptions{MaxDegreeOfParallelism = 16}, node =>
             {
-                _deadNodes.Add(node);
-            }
-        });
+                if (CheckNodeIsDead(node))
+                {
+                    _deadNodes.Add(node);
+                }
+            });
 
-        if (_deadNodes.Count() != 0)
+            if (_deadNodes.Count() != 0)
+            {
+                _logger.LogWarning($"Dead nodes: {string.Join(";", _deadNodes.Select(n => n.GetKey()))}");
+            }
+        }
+        catch (Exception e)
         {
-            _logger.LogWarning($"Dead nodes: {string.Join(";", _deadNodes.Select(n => n.GetKey()))}");
+            _logger.LogError(e, $"Error occured in {nameof(CheckNodesHealth)} task");
         }
     }
 
