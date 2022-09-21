@@ -1,0 +1,38 @@
+name: .NET
+
+on:
+  push:
+    tags: 
+    - 'v*'
+
+env:
+  NUGET_SOURCE_URL: 'https://api.nuget.org/v3/index.json'
+  PACKAGE_OUTPUT_DIRECTORY: ${{ github.workspace }}/output
+
+jobs:
+
+  publish_nuget:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    - name: Get version
+      id: get_version
+      uses: battila7/get-version-action@v2
+    - name: Pack project Aer.ConsistentHash
+      run: dotnet pack src/Aer.ConsistentHash/Aer.ConsistentHash.csproj --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }} --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
+    - name: Pack project Aer.Memcached.Client
+      run: dotnet pack src/Aer.Memcached.Client/Aer.Memcached.Client.csproj --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }} --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
+    - name: Pack project Aer.Memcached
+      run: dotnet pack src/Aer.Memcached/Aer.Memcached.csproj --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }} --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
+    - name: Push package
+      run: dotnet nuget push ${{ env.PACKAGE_OUTPUT_DIRECTORY }}/*.nupkg -s ${{ env.NUGET_SOURCE_URL }} -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate
