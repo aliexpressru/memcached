@@ -52,90 +52,103 @@ In case you have only one instance deployed in k8s specify consistent dns name o
 ```
 
 
-# How to use
+## Usage
+
+This client supports single-key `get` and `store` operaions as well as their multiple keys counterparts.
+In addition to get and store operations this library exposes `flush` operation to clear the cache.
+
+### Store
+
+Stores specified key-value of multiple key-value pairs to the cache.
 
 ```c#
-public void ConfigureServices(IServiceCollection services)
-{
-    ...
-    
-    services.AddMemcached(Configuration);
+Task<MemcachedClientResult> StoreAsync<T>(
+   string key,
+   T value,
+   TimeSpan? expirationTime,
+   CancellationToken token,
+   StoreMode storeMode = StoreMode.Set);
+```
+
+- `key` : the entry key to store value for
+- `value` : the value to store under specified key
+- `expirationTime` : the absolute expiration time for the key-value entry
+- `token` : the cancellation token
+- `storeMode` : the mode under which the store operation is performed
+
+```c#
+Task MultiStoreAsync<T>(
+   Dictionary<string, T> keyValues,
+   TimeSpan? expirationTime,
+   CancellationToken token,
+   StoreMode storeMode = StoreMode.Set,
+   BatchingOptions batchingOptions = null);
+```
+
+- `keyValues` : the entry key-value pairs to store
+- `expirationTime` : the absolute expiration time for the key-value entry
+- `token` : the cancellation token
+- `storeMode` : the mode under which the store operation is performed
+- `batchingOptions` : optional batching options. The batching will be covered in the later part of this documentation
+
+### Get
+
+Gets the value for the specified key or set of keys from cache. If value is not found by the key - returns null (or in case of multiple keys simply doesn't return anything for absent key)
+
+```c#
+Task<MemcachedClientGetResult<T>> GetAsync<T>(
+    string key, 
+    CancellationToken token);
+```
+
+- `key` : the key to get the value for
+- `token` : the cancellation token
+
+```c#
+Task<IDictionary<string, T>> MultiGetAsync<T>(
+    IEnumerable<string> keys, 
+    CancellationToken token,
+    BatchingOptions batchingOptions = null);
+```
+
+- `keys` : the keys to deb values for
+- `token` : the cancellation token
+- `batchingOptions` : optional batching options. The batching will be covered in the later part of this documentation
+
+### Flush
+
+Clears the cache on all the memcached cluster nodes.
+
+```c#
+Task FlushAsync(CancellationToken token);
+```
+
+### Batching
+
+For `MultiStoreAsync` and `MultiGetAsync` method there is an optional argument `batchingOptions`. If this argument is specified the store and get operations split input key or key-value collection into batches an processe every batch on every memcached node in parallel with specified maximum degree of parallelism (`Environment.ProcessorCount` by default).
+Batching is requered to lower the load on memcached nodes in high-load scenarios when keys are long and values are even longer than keys. There is an empyric default value of batch size : `20` which is optimal for the most cases.
+By default batching is off for all the operations.
+
+To use the dafault values simply pass the new instance :
+
+```c#
+await _client.MultiStoreAsync(
+    keyValues,
+    TimeSpan.FromSeconds(10),
+    CancellationToken.None,
+    batchingOptions: new BatchingOptions());
+```
+
+To configure the batch size for one physical memcached operation or change the maximum degree of parallelism - change the batchingOptions properties accordingly.
+
+```c#
+new BatchingOptions(){
+    BatchSize = 100,
+    MaxDegreeOfParallelism = 4
 }
 ```
 
-Then inject `IMemcachedClient` whenever you need it.
-
-Web API example:
-```c#
-using Aer.Memcached.Client.Interfaces;
-using Microsoft.AspNetCore.Mvc;
-
-namespace Aer.Memcached.WebApi.Controllers;
-
-[ApiController]
-[Route("[controller]")]
-public class MemcachedController : ControllerBase
-{
-    private readonly IMemcachedClient _memcachedClient;
-
-    public MemcachedController(IMemcachedClient memcachedClient)
-    {
-        _memcachedClient = memcachedClient;
-    }
-
-    [HttpGet(Name = "GetByKey")]
-    public async Task<string> Get(string key)
-    {
-        var getResult = await _memcachedClient.GetAsync<string>(key, CancellationToken.None);
-        var value = getResult.Result;
-
-        if (value == null)
-        {
-            await _memcachedClient.StoreAsync(
-                key, 
-                Guid.NewGuid().ToString(), 
-                TimeSpan.FromSeconds(30), 
-                CancellationToken.None);
-        }
-
-        return value;
-    }
-}
-```
-
-Console example:
-```c#
-var hashCalculator = new HashCalculator();
-var nodeLocator = new HashRing<Pod>(hashCalculator);
-nodeLocator.AddNodes(new Pod[]
-{
-    new()
-    {
-        IpAddress = "localhost"
-    }
-});
-
-using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
-
-var config = new MemcachedConfiguration();
-var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
-
-var client = new MemcachedClient<Pod>(
-    nodeLocator, 
-    new CommandExecutor<Pod>(new OptionsWrapper<MemcachedConfiguration>(config), authProvider, commandExecutorLogger));
-
-await client.MultiStoreAsync(keyValues, TimeSpan.FromMinutes(10), CancellationToken.None);
-var result = await client.MultiGetAsync<string>(keyValues.Keys.ToArray(), CancellationToken.None);
-
-foreach (var keyValue in keyValues)
-{
-    if (!result.ContainsKey(keyValue.Key))
-    {
-        Console.WriteLine($"value with key: {keyValue.Key} not found.");
-    }
-}
-```
+Note that the batch size lower than zero is invalid and `MaxDegreeOfParallelism` lower then zero is equivalent to `Environment.ProcessorCount`.
 
 To enable diagnostics:
 ```c#
