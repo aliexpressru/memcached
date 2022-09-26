@@ -8,6 +8,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Aer.ConsistentHash\Aer.ConsistentHash.csproj" />
+      <ProjectReference Include="..\..\src\Aer.Memcached.Client\Aer.Memcached.Client.csproj" />
     </ItemGroup>
 
     <ItemGroup>

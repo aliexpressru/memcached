@@ -8,7 +8,12 @@ namespace Aer.Memcached.Client.Commands;
 
 internal class MultiGetCommand: MemcachedCommandBase
 {
-    private readonly IList<string> _keys;
+    private readonly IEnumerable<string> _keys;
+    
+    // this field exists as an optimization for subsequent lists creation
+    // this is here due to allocation optimization for batch split case. Batches are IEnumerable<string>.
+    // to not generate another collection in this case we simply pass keys count this command
+    private readonly int _keysCount;
     private Dictionary<int, string> _idToKey;
     private int _noopId;
     
@@ -17,26 +22,26 @@ internal class MultiGetCommand: MemcachedCommandBase
     
     public Dictionary<string, CacheItemResult> Result { get; private set; }
     
-    public MultiGetCommand(IList<string> keys): base(OpCode.GetQ)
+    public MultiGetCommand(IEnumerable<string> keys, int keysCount): base(OpCode.GetQ)
     {
         _keys = keys;
+        _keysCount = keysCount;
     }
 
     public override IList<ArraySegment<byte>> GetBuffer()
     {
         var keys = _keys;
-
-        if (keys == null || keys.Count == 0)
+        
+        if (keys == null)
         {
             return Array.Empty<ArraySegment<byte>>();
         }
-
+        
         // map the command's correlationId to the item key,
         // so we can use GetQ (which only returns the item data)
         _idToKey = new Dictionary<int, string>();
 
-        // get ops have 2 segments, header + key
-        var buffers = new List<ArraySegment<byte>>(keys.Count * 2);
+        var buffers = new List<ArraySegment<byte>>(_keysCount * 2); // get ops have 2 segments, header + key
 
         foreach (var key in keys)
         {
