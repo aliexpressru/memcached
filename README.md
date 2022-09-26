@@ -54,6 +54,18 @@ In case you have only one instance deployed in k8s specify consistent dns name o
 
 ## Usage
 
+```c#
+public void ConfigureServices(IServiceCollection services)
+{
+    ...
+    
+    services.AddMemcached(Configuration);
+}
+```
+
+Then inject `IMemcachedClient` whenever you need it.
+
+
 This client supports single-key `get` and `store` operaions as well as their multiple keys counterparts.
 In addition to get and store operations this library exposes `flush` operation to clear the cache.
 
