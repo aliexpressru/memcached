@@ -2,6 +2,7 @@ using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Models;
 using Aer.Memcached.Tests.Models;
 using AutoFixture;
 using FluentAssertions;
@@ -13,9 +14,6 @@ using Moq;
 namespace Aer.Memcached.Tests;
 
 
-/// <summary>
-/// Use docker-compose.yaml in the root of the solution
-/// </summary>
 [TestClass]
 public class MemcachedClientTests
 {
@@ -141,6 +139,49 @@ public class MemcachedClientTests
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
     }
+
+    [TestMethod]
+    public async Task StoreAndGet_ValueExpired()
+    {
+        var key = Guid.NewGuid().ToString();
+        string value = "test";
+
+        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        await Task.Delay(TimeSpan.FromSeconds(ExpirationInSeconds * 2));
+        
+        await _client.GetAsync<string>(key, CancellationToken.None);
+        
+        var getValue = await _client.GetAsync<string>(key, CancellationToken.None);
+
+        getValue.Result.Should().BeNull();
+        getValue.Success.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task MultiStoreAndGet_ValueExpired()
+    {
+        var key = Guid.NewGuid().ToString();
+        string value = "test";
+
+        await _client.MultiStoreAsync(
+            new Dictionary<string, string>()
+            {
+                [key] = value
+            },
+            TimeSpan.FromSeconds(ExpirationInSeconds),
+            CancellationToken.None);
+
+        var getValue = await _client.MultiGetAsync<string>(new[] {key}, CancellationToken.None);
+
+        getValue.Count.Should().Be(1);
+        
+        await Task.Delay(TimeSpan.FromSeconds(ExpirationInSeconds * 2));
+
+        getValue = await _client.MultiGetAsync<string>(new[]{key}, CancellationToken.None);
+
+        getValue.Count.Should().Be(0);
+    }
     
     [TestMethod]
     public async Task StoreAndGet_EmptyString()
@@ -230,7 +271,49 @@ public class MemcachedClientTests
             getValues[keyValue.Key].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].DateTimeValue, TimeSpan.FromMilliseconds(1));
         }
     }
-    
+
+    [TestMethod]
+    public async Task MultiStoreAndGetBatched_InvalidBatchSize()
+    {
+        Func<Task> act = async () => await _client.MultiGetAsync<string>(
+            new[] {"some_key"}, // this value is not important since we are checking method parameters validation
+            CancellationToken.None,
+            new BatchingOptions()
+            {
+                BatchSize = -100 // invalid batch size
+            });
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .Where(e => e.Message.Contains("should be > 0"));
+    }
+
+    [TestMethod]
+    public async Task MultiStoreAndGetBatched()
+    {
+        var keyValues = new Dictionary<string, string>();
+
+        foreach (var _ in Enumerable.Range(0, 10_000))
+        {
+            keyValues[Guid.NewGuid().ToString()] = Guid.NewGuid().ToString();
+        }
+
+        await _client.MultiStoreAsync(
+            keyValues,
+            TimeSpan.FromSeconds(ExpirationInSeconds),
+            CancellationToken.None,
+            batchingOptions: new BatchingOptions());
+
+        var getValues = await _client.MultiGetAsync<string>(
+            keyValues.Keys,
+            CancellationToken.None,
+            new BatchingOptions());
+
+        foreach (var keyValue in keyValues)
+        {
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
+        }
+    }
+
     [TestMethod]
     public async Task StoreAndGet_ObjectWithCollections()
     {
