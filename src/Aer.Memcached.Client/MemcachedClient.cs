@@ -149,12 +149,12 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     }
 
     /// <inheritdoc />
-    public async Task<MemcachedClientGetResult<T>> GetAsync<T>(string key, CancellationToken token)
+    public async Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token)
     {
         var node = _nodeLocator.GetNode(key);
         if (node == null)
         {
-            return MemcachedClientGetResult<T>.Unsuccessful;
+            return MemcachedClientValueResult<T>.Unsuccessful;
         }
 
         using (var command = new GetCommand(key))
@@ -162,11 +162,11 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
             if (!commandExecutionResult.Success)
             {
-                return MemcachedClientGetResult<T>.Unsuccessful;
+                return MemcachedClientValueResult<T>.Unsuccessful;
             }
 
             var result = BinaryConverter.Deserialize<T>(command.Result);
-            return new MemcachedClientGetResult<T>
+            return new MemcachedClientValueResult<T>
             {
                 Success = true,
                 Result = result
@@ -283,6 +283,152 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             });
 
         return ret;
+    }
+    
+    /// <inheritdoc />
+    public async Task<MemcachedClientResult> DeleteAsync(string key, CancellationToken token)
+    {
+        var node = _nodeLocator.GetNode(key);
+        if (node == null)
+        {
+            return MemcachedClientResult.Unsuccessful;
+        }
+
+        using (var command = new DeleteCommand(key))
+        {
+            var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+            
+            return new MemcachedClientResult
+            {
+                Success = commandExecutionResult.Success
+            };
+        }
+    }
+    
+    /// <inheritdoc />
+    public async Task MultiDeleteAsync(
+        IEnumerable<string> keys,
+        CancellationToken token,
+        BatchingOptions batchingOptions = null)
+    {
+        var nodes = _nodeLocator.GetNodes(keys);
+        if (nodes.Keys.Count == 0)
+        {
+            return;
+        }
+
+        if (batchingOptions is not null)
+        {
+            await MultiDeleteBatchedInternalAsync(nodes, batchingOptions, token);
+        }
+
+        var deleteTasks = new List<Task>(nodes.Count);
+        foreach (var (node, keysToDelete) in nodes)
+        {
+            using (var command = new MultiDeleteCommand(keysToDelete, keysToDelete.Count))
+            {
+                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+                deleteTasks.Add(executeTask);
+            }
+        }
+
+        await Task.WhenAll(deleteTasks);
+    }
+
+    private async Task MultiDeleteBatchedInternalAsync(
+        IDictionary<TNode, ConcurrentBag<string>> nodes,
+        BatchingOptions batchingOptions,
+        CancellationToken token)
+    {
+        // means batching is enabled - use separate logic
+        if (batchingOptions.BatchSize <= 0)
+        {
+            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
+        }
+
+        await Parallel.ForEachAsync(
+            nodes,
+            new ParallelOptions()
+            {
+                CancellationToken = token,
+                MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
+            },
+            async (nodeWithKeys, cancellationToken) =>
+            {
+                var node = nodeWithKeys.Key;
+                var keysToGet = nodeWithKeys.Value;
+
+                foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
+                {
+                    // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
+                    using (var command = new MultiDeleteCommand(keysBatch, batchingOptions.BatchSize))
+                    {
+                        await _commandExecutor.ExecuteCommandAsync(
+                            node,
+                            command,
+                            cancellationToken);
+                    }
+                }
+            });
+    }
+    
+    /// <inheritdoc />
+    public async Task<MemcachedClientValueResult<ulong>> IncrAsync(
+        string key, 
+        ulong amountToAdd, 
+        ulong initialValue,
+        TimeSpan? expirationTime,
+        CancellationToken token)
+    {
+        var node = _nodeLocator.GetNode(key);
+
+        if (node == null)
+        {
+            return MemcachedClientValueResult<ulong>.Unsuccessful;
+        }
+
+        var expiration = GetExpiration(expirationTime);
+
+        using (var command = new IncrCommand(key, amountToAdd, initialValue, expiration))
+        {
+            var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+            return new MemcachedClientValueResult<ulong>
+            {
+                Success = result.Success,
+                Result = command.Result
+            };
+        }
+    }
+    
+    /// <inheritdoc />
+    public async Task<MemcachedClientValueResult<ulong>> DecrAsync(
+        string key, 
+        ulong amountToSubtract, 
+        ulong initialValue,
+        TimeSpan? expirationTime,
+        CancellationToken token)
+    {
+        var node = _nodeLocator.GetNode(key);
+
+        if (node == null)
+        {
+            return MemcachedClientValueResult<ulong>.Unsuccessful;
+        }
+
+        var expiration = GetExpiration(expirationTime);
+
+        using (var command = new DecrCommand(key, amountToSubtract, initialValue, expiration))
+        {
+            var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+            return new MemcachedClientValueResult<ulong>
+            {
+                Success = result.Success,
+                Result = command.Result
+            };
+        }
     }
 
     public async Task FlushAsync(CancellationToken token)

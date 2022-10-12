@@ -53,7 +53,7 @@ internal static class BinaryConverter
         return (offsetSpan[0] << 24) | (offsetSpan[1] << 16) | (offsetSpan[2] << 8) | offsetSpan[3];
     }
 
-    public static ulong DecodeUInt64(Span<byte> span, int offset)
+    public static ulong DecodeUInt64(ReadOnlySpan<byte> span, int offset)
     {
         var offsetSpan = span[offset..];
         
@@ -71,6 +71,20 @@ internal static class BinaryConverter
         offsetSpan[1] = (byte)(value >> 16);
         offsetSpan[2] = (byte)(value >> 8);
         offsetSpan[3] = (byte)(value & 255);
+    }
+    
+    public static void EncodeUInt64(ulong value, Span<byte> span, int offset)
+    {
+        var offsetSpan = span[offset..];
+
+        offsetSpan[0] = (byte)(value >> 56);
+        offsetSpan[1] = (byte)(value >> 48);
+        offsetSpan[2] = (byte)(value >> 40);
+        offsetSpan[3] = (byte)(value >> 32);
+        offsetSpan[4] = (byte)(value >> 24);
+        offsetSpan[5] = (byte)(value >> 16);
+        offsetSpan[6] = (byte)(value >> 8);
+        offsetSpan[7] = (byte)(value & 255);
     }
 
     public static byte[] Encode(string value)

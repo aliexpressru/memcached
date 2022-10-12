@@ -2,9 +2,9 @@ using Aer.Memcached.Client.Interfaces;
 
 namespace Aer.Memcached.Client.Models;
 
-public class MemcachedClientGetResult<T>: IMemcachedClientResult
+public class MemcachedClientValueResult<T>: IMemcachedClientResult
 {
-    public static MemcachedClientGetResult<T> Unsuccessful { get; } = new()
+    public static MemcachedClientValueResult<T> Unsuccessful { get; } = new()
     {
         Success = false,
         Result = default
