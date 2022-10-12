@@ -42,7 +42,7 @@ public interface IMemcachedClient
 	/// <param name="key">Key</param>
 	/// <param name="token">Cancellation token</param>
 	/// <returns>Value by key and if operation was successful or not. If operation was unsuccessful default value is returned</returns>
-	Task<MemcachedClientGetResult<T>> GetAsync<T>(string key, CancellationToken token);
+	Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token);
 
 	/// <summary>
 	/// Gets multiple values by keys
@@ -55,6 +55,56 @@ public interface IMemcachedClient
 		IEnumerable<string> keys, 
 		CancellationToken token,
 		BatchingOptions batchingOptions = null);
+
+	/// <summary>
+	/// Deletes one value by key
+	/// </summary>
+	/// <param name="key">Key</param>
+	/// <param name="token">Cancellation token</param>
+	Task<MemcachedClientResult> DeleteAsync(string key, CancellationToken token);
+
+	/// <summary>
+	/// Deletes multiple values by keys
+	/// </summary>
+	/// <param name="keys">Keys</param>
+	/// <param name="token">Cancellation token</param>
+	/// <param name="batchingOptions">The options that configure internal keys batching</param>
+	Task MultiDeleteAsync(
+		IEnumerable<string> keys,
+		CancellationToken token,
+		BatchingOptions batchingOptions = null);
+
+	/// <summary>
+	/// Increments value by key
+	/// </summary>
+	/// <param name="key">Key</param>
+	/// <param name="amountToAdd">Amount to add</param>
+	/// <param name="initialValue">Initial value if key doesn't exist</param>
+	/// <param name="expirationTime">Expiration time</param>
+	/// <param name="token">Cancellation token</param>
+	/// <returns>Incremented value</returns>
+	Task<MemcachedClientValueResult<ulong>> IncrAsync(
+		string key,
+		ulong amountToAdd,
+		ulong initialValue,
+		TimeSpan? expirationTime,
+		CancellationToken token);
+
+	/// <summary>
+	/// Increments value by key
+	/// </summary>
+	/// <param name="key">Key</param>
+	/// <param name="amountToSubtract">Amount to subtract</param>
+	/// <param name="initialValue">Initial value if key doesn't exist</param>
+	/// <param name="expirationTime">Expiration time</param>
+	/// <param name="token">Cancellation token</param>
+	/// <returns>Decremented value</returns>
+	Task<MemcachedClientValueResult<ulong>> DecrAsync(
+		string key,
+		ulong amountToSubtract,
+		ulong initialValue,
+		TimeSpan? expirationTime,
+		CancellationToken token);
 
 	/// <summary>
 	/// Flush memcached data

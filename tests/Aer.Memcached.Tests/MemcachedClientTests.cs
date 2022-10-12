@@ -13,7 +13,6 @@ using Moq;
 
 namespace Aer.Memcached.Tests;
 
-
 [TestClass]
 public class MemcachedClientTests
 {
@@ -473,6 +472,209 @@ public class MemcachedClientTests
         getValues.Should().BeEmpty();
     }
     
+    [TestMethod]
+    public async Task Delete_Successful()
+    {
+        var key = Guid.NewGuid().ToString();
+        var value = _fixture.Create<SimpleObject>();
+
+        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        var getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+
+        getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
+        getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
+
+        await _client.DeleteAsync(key, CancellationToken.None);
+        
+        getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+        getValue.Success.Should().BeTrue();
+        getValue.Result.Should().BeNull();
+    }
+    
+    [TestMethod]
+    public async Task MultiDelete_OneKey_Successful()
+    {
+        var key = Guid.NewGuid().ToString();
+        var value = _fixture.Create<SimpleObject>();
+
+        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        var getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+
+        getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
+        getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
+
+        await _client.MultiDeleteAsync(new [] { key }, CancellationToken.None);
+        
+        getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+        getValue.Success.Should().BeTrue();
+        getValue.Result.Should().BeNull();
+    }
+    
+    [TestMethod]
+    public async Task MultiDelete_MultipleKeys_Successful()
+    {
+        var keyValues = new Dictionary<string, SimpleObject>();
+    
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<SimpleObject>();
+        }
+    
+        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+    
+        var getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+    
+        foreach (var keyValue in keyValues)
+        {
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key], options => options.Excluding(info => info.DateTimeValue));
+            getValues[keyValue.Key].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].DateTimeValue, TimeSpan.FromMilliseconds(1));
+        }
+        
+        await _client.MultiDeleteAsync(keyValues.Keys, CancellationToken.None);
+        
+        getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+
+        getValues.Count.Should().Be(0);
+    }
+    
+    [TestMethod]
+    public async Task MultiDelete_MultipleKeys_WithBatching_Successful()
+    {
+        var keyValues = new Dictionary<string, SimpleObject>();
+    
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<SimpleObject>();
+        }
+    
+        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+    
+        var getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+    
+        foreach (var keyValue in keyValues)
+        {
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key], options => options.Excluding(info => info.DateTimeValue));
+            getValues[keyValue.Key].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].DateTimeValue, TimeSpan.FromMilliseconds(1));
+        }
+        
+        await _client.MultiDeleteAsync(keyValues.Keys, CancellationToken.None, new BatchingOptions());
+        
+        getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+
+        getValues.Count.Should().Be(0);
+    }
+    
+    [TestMethod]
+    public async Task Incr_Successful()
+    {
+        var key = Guid.NewGuid().ToString();
+        ulong initialValue = 0;
+
+        var incrValue = await _client.IncrAsync(
+            key, 
+            1, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(initialValue);
+        
+        incrValue = await _client.IncrAsync(
+            key, 
+            15, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(15);
+    }
+    
+    [TestMethod]
+    public async Task Incr_InitialValueNotZero_Successful()
+    {
+        var key = Guid.NewGuid().ToString();
+        ulong initialValue = 15;
+
+        var incrValue = await _client.IncrAsync(
+            key, 
+            1, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(initialValue);
+        
+        incrValue = await _client.IncrAsync(
+            key, 
+            1, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(initialValue + 1);
+        
+        incrValue = await _client.IncrAsync(
+            key, 
+            1, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(initialValue + 2);
+    }
+    
+    [TestMethod]
+    public async Task Decr_Successful()
+    {
+        var key = Guid.NewGuid().ToString();
+        ulong initialValue = 15;
+
+        var incrValue = await _client.DecrAsync(
+            key, 
+            1, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(initialValue);
+        
+        incrValue = await _client.DecrAsync(
+            key, 
+            2, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(initialValue - 2);
+    }
+    
+    [TestMethod]
+    public async Task Decr_ToLessThanZero_DecrementedToZero()
+    {
+        var key = Guid.NewGuid().ToString();
+        ulong initialValue = 5;
+
+        var incrValue = await _client.DecrAsync(
+            key, 
+            1, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(initialValue);
+        
+        incrValue = await _client.DecrAsync(
+            key, 
+            10, 
+            initialValue, 
+            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        
+        incrValue.Success.Should().BeTrue();
+        incrValue.Result.Should().Be(0);
+    }
+
     private async Task<string[]> MultiStoreAndGetKeys()
     {
         var keyValues = Enumerable.Range(0, 10).Select(_ => (key: Guid.NewGuid().ToString("N"), value: Guid.NewGuid().ToString("N")))

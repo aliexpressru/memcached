@@ -8,7 +8,7 @@ internal class BinaryRequest
     private const ushort Reserved = 0;
     
     private readonly byte _operation;
-    private static int _instanceCounter; // TODO: that's probably not the best solution cause int has a limit after all.
+    private static int _instanceCounter;
 
     public string Key { get; init; }
     
