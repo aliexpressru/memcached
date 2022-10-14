@@ -10,7 +10,7 @@ public class BatchingOptions
 	/// <summary>
 	/// The default keys batch size.
 	/// </summary>
-	public const int DefaultBatchSize = 20;
+	public const int DefaultBatchSize = 15;
 	
 	/// <summary>
 	/// The size of the keys or key-values batches that the incoming keys or key-values set is spit into.
