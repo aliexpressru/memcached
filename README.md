@@ -66,7 +66,7 @@ public void ConfigureServices(IServiceCollection services)
 Then inject `IMemcachedClient` whenever you need it.
 
 
-This client supports single-key `get`, `store`, `delete`, `inc`, `decr`, `flush` operaions as well as their multiple keys counterparts. multiple keys counterparts are available for `get`, `store` and `delete` operations. 
+This client supports single-key `get`, `store`, `delete`, `inc`, `decr`, `flush` operaions. Multiple keys counterparts are available for `get`, `store` and `delete` operations. 
 
 ### Store
 
@@ -134,7 +134,7 @@ Deletes the value for the specified key or set of keys from cache.
 Task<MemcachedClientResult> DeleteAsync(string key, CancellationToken token);
 ```
 
-- `key` : the key to get the value for
+- `key` : the key to delete the value for
 - `token` : the cancellation token
 
 ```c#
@@ -144,7 +144,7 @@ Task MultiDeleteAsync(
     BatchingOptions batchingOptions = null);
 ```
 
-- `keys` : the keys to get values for
+- `keys` : the keys to delete values for
 - `token` : the cancellation token
 - `batchingOptions` : optional batching options. The batching will be covered in the later part of this documentation
 
@@ -357,6 +357,8 @@ network IO event (default value is 20). The application should adopt its batch
 size according to this parameter. Please note that the requests limit does not 
 affect multi-key reads, or the number of keys per get request.
 ```
+
+Each multi key client method requires addition noop operation so you need to set `-R` parameter as `BatchSize + 1`.
 
 Otherwise you can encounter the limit:
 ```
