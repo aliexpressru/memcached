@@ -337,7 +337,7 @@ services:
       - 11211:11211
 ```
 
-### Memcached tuning
+# Memcached tuning
 
 Consider setting memory limit to have all your data in cache and avoid unneccessary evictions.
 Also make sure that number of connections is enough, it will spike in moment of redeployment.
