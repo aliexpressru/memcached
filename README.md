@@ -66,8 +66,7 @@ public void ConfigureServices(IServiceCollection services)
 Then inject `IMemcachedClient` whenever you need it.
 
 
-This client supports single-key `get` and `store` operaions as well as their multiple keys counterparts.
-In addition to get and store operations this library exposes `flush` operation to clear the cache.
+This client supports single-key `get`, `store`, `delete`, `inc`, `decr`, `flush` operaions as well as their multiple keys counterparts. multiple keys counterparts are available for `get`, `store` and `delete` operations. 
 
 ### Store
 
@@ -123,9 +122,64 @@ Task<IDictionary<string, T>> MultiGetAsync<T>(
     BatchingOptions batchingOptions = null);
 ```
 
-- `keys` : the keys to deb values for
+- `keys` : the keys to get values for
 - `token` : the cancellation token
 - `batchingOptions` : optional batching options. The batching will be covered in the later part of this documentation
+
+### Delete
+
+Deletes the value for the specified key or set of keys from cache.
+
+```c#
+Task<MemcachedClientResult> DeleteAsync(string key, CancellationToken token);
+```
+
+- `key` : the key to get the value for
+- `token` : the cancellation token
+
+```c#
+Task MultiDeleteAsync(
+    IEnumerable<string> keys,
+    CancellationToken token,
+    BatchingOptions batchingOptions = null);
+```
+
+- `keys` : the keys to get values for
+- `token` : the cancellation token
+- `batchingOptions` : optional batching options. The batching will be covered in the later part of this documentation
+
+### Incr/Decr
+
+```c#
+Task<MemcachedClientValueResult<ulong>> IncrAsync(
+    string key,
+    ulong amountToAdd,
+    ulong initialValue,
+    TimeSpan? expirationTime,
+    CancellationToken token);
+```
+
+- `key` : the key to increment value for
+- `amountToAdd` : amount to add to stored value
+- `initialValue` : initial value if value does not exist
+- `expirationTime` : the absolute expiration time for the key-value entry
+- `token` : the cancellation token
+
+```c#
+Task<MemcachedClientValueResult<ulong>> DecrAsync(
+    string key,
+    ulong amountToSubtract,
+    ulong initialValue,
+    TimeSpan? expirationTime,
+    CancellationToken token);
+```
+
+- `key` : the key to increment value for
+- `amountToSubtract` : amount to subtract from stored value
+- `initialValue` : initial value if value does not exist
+- `expirationTime` : the absolute expiration time for the key-value entry
+- `token` : the cancellation token
+
 
 ### Flush
 
@@ -281,4 +335,31 @@ services:
     command: ["-m", "128"]  
     ports:  
       - 11211:11211
+```
+
+### Memcached tuning
+
+Consider setting memory limit to have all your data in cache and avoid unneccessary evictions.
+Also make sure that number of connections is enough, it will spike in moment of redeployment.
+
+```
+# MaxMemoryLimit, this should be less than the resources.limits.memory, or memcached will crash.  Default is 64MB
+- -m 8192 
+# Specify the maximum number of simultaneous connections to the memcached service. The default is 1024. 
+- -c 20000
+```
+
+In multi key client methods of the library there is a default `BatchSize = 15`, if you want to change it consider tuning the following parameter:
+```
+- -R 40
+The command-line parameter -R is in charge of the maximum number of requests per 
+network IO event (default value is 20). The application should adopt its batch 
+size according to this parameter. Please note that the requests limit does not 
+affect multi-key reads, or the number of keys per get request.
+```
+
+Otherwise you can encounter the limit:
+```
+STAT conn_yields 126672162
+Number of times any connection yielded to another due to hitting the -R limit
 ```
