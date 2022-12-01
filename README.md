@@ -237,11 +237,11 @@ To use SASL specify `MemcachedAuth` section in config:
 ```json
 {
   "MemcachedConfiguration": {
-    "HeadlessServiceAddress": "my-memchached-service-headless.namespace.svc.cluster.local",
-    "MemcachedAuth": {
+    "HeadlessServiceAddress": "my-memchached-service-headless.namespace.svc.cluster.local"
+  },
+  "MemcachedAuth": {
       "Username": "mmchdadmin",
       "Password": "pass"
-    }
   }
 }
 ```
