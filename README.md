@@ -285,8 +285,8 @@ If you need to tune it, add the following sections in config:
       "MaxPoolSize": 100
     },
     "MemcachedMaintainer": {
-      "NodesRebuildingPeriod": "00:00:15",
-      "NodesHealthCheckPeriod": "00:00:15",
+      "NodesRebuildingPeriod": "00:10:00",
+      "NodesHealthCheckPeriod": "00:10:00",
       "NodeHealthCheckEnabled": true
     }
   }

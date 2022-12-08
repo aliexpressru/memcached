@@ -118,14 +118,14 @@ public class MemcachedConfiguration
         /// <summary>
         /// Period to rebuild nodes in <see cref="INodeLocator{TNode}"/>
         /// </summary>
-        public TimeSpan? NodesRebuildingPeriod { get; set; } = TimeSpan.FromSeconds(15);
+        public TimeSpan? NodesRebuildingPeriod { get; set; } = TimeSpan.FromMinutes(10);
 
         /// <summary>
         /// Period to check if nodes are responsive
         /// If node is not responded during <see cref="SocketPoolConfiguration.ConnectionTimeout"/> it is marked as dead
         /// and will be deleted from node locator until it is responsive again
         /// </summary>
-        public TimeSpan? NodesHealthCheckPeriod { get; set; } = TimeSpan.FromSeconds(15);
+        public TimeSpan? NodesHealthCheckPeriod { get; set; } = TimeSpan.FromMinutes(10);
 
         /// <summary>
         /// Enables health check of nodes to remove dead nodes
@@ -136,8 +136,8 @@ public class MemcachedConfiguration
         {
             return new MaintainerConfiguration
             {
-                NodesRebuildingPeriod = TimeSpan.FromSeconds(15),
-                NodesHealthCheckPeriod = TimeSpan.FromSeconds(15),
+                NodesRebuildingPeriod = TimeSpan.FromMinutes(10),
+                NodesHealthCheckPeriod = TimeSpan.FromMinutes(10),
                 NodeHealthCheckEnabled = true
             };
         }
