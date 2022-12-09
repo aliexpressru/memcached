@@ -12,7 +12,7 @@ namespace Aer.Memcached.Tests;
 [TestClass]
 public class NodeLocatorMaintainerTests
 {
-    private const int PeriodToRunInMilliseconds = 300;
+    private const int PeriodToRunInMilliseconds = 2000;
 
     private readonly Mock<INodeProvider<Node>> _nodeProviderMock;
     private readonly Mock<ICommandExecutor<Node>> _commandExecutorMock;
