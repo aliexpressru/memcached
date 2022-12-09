@@ -145,7 +145,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 }
             }, new ExecutionDataflowBlockOptions
             {
-                MaxDegreeOfParallelism = 16
+                MaxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism
             });
 
             try
@@ -168,7 +168,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
             var nodesInLocator = _nodeLocator.GetAllNodes();
             nodesInLocator = nodesInLocator.Except(_deadNodes, Comparer).ToArray();
-            Parallel.ForEach(nodesInLocator, new ParallelOptions{MaxDegreeOfParallelism = 16}, node =>
+            Parallel.ForEach(nodesInLocator, new ParallelOptions{MaxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism}, node =>
             {
                 if (CheckNodeIsDead(node))
                 {

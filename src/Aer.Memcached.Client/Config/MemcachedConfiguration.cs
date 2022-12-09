@@ -132,13 +132,19 @@ public class MemcachedConfiguration
         /// </summary>
         public bool NodeHealthCheckEnabled { get; set; } = true;
 
+        /// <summary>
+        /// Number of concurrent operations during checks
+        /// </summary>
+        public int MaxDegreeOfParallelism { get; set; } = 4;
+
         public static MaintainerConfiguration DefaultConfiguration()
         {
             return new MaintainerConfiguration
             {
                 NodesRebuildingPeriod = TimeSpan.FromMinutes(10),
                 NodesHealthCheckPeriod = TimeSpan.FromMinutes(10),
-                NodeHealthCheckEnabled = true
+                NodeHealthCheckEnabled = true,
+                MaxDegreeOfParallelism = 4
             };
         }
     }
