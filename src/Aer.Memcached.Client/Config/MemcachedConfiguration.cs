@@ -32,6 +32,8 @@ public class MemcachedConfiguration
     /// </summary>
     public MemcachedDiagnosticsSettings Diagnostics { get; set; } = new();
 
+    public HashRingConfiguration HashRing { get; set; } = HashRingConfiguration.DefaultConfiguration();
+
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified
     /// </summary>
@@ -118,27 +120,33 @@ public class MemcachedConfiguration
         /// <summary>
         /// Period to rebuild nodes in <see cref="INodeLocator{TNode}"/>
         /// </summary>
-        public TimeSpan? NodesRebuildingPeriod { get; set; } = TimeSpan.FromSeconds(15);
+        public TimeSpan? NodesRebuildingPeriod { get; set; } = TimeSpan.FromMinutes(10);
 
         /// <summary>
         /// Period to check if nodes are responsive
         /// If node is not responded during <see cref="SocketPoolConfiguration.ConnectionTimeout"/> it is marked as dead
         /// and will be deleted from node locator until it is responsive again
         /// </summary>
-        public TimeSpan? NodesHealthCheckPeriod { get; set; } = TimeSpan.FromSeconds(15);
+        public TimeSpan? NodesHealthCheckPeriod { get; set; } = TimeSpan.FromMinutes(10);
 
         /// <summary>
         /// Enables health check of nodes to remove dead nodes
         /// </summary>
         public bool NodeHealthCheckEnabled { get; set; } = true;
 
+        /// <summary>
+        /// Number of concurrent operations during checks
+        /// </summary>
+        public int MaxDegreeOfParallelism { get; set; } = 4;
+
         public static MaintainerConfiguration DefaultConfiguration()
         {
             return new MaintainerConfiguration
             {
-                NodesRebuildingPeriod = TimeSpan.FromSeconds(15),
-                NodesHealthCheckPeriod = TimeSpan.FromSeconds(15),
-                NodeHealthCheckEnabled = true
+                NodesRebuildingPeriod = TimeSpan.FromMinutes(10),
+                NodesHealthCheckPeriod = TimeSpan.FromMinutes(10),
+                NodeHealthCheckEnabled = true,
+                MaxDegreeOfParallelism = 4
             };
         }
     }
@@ -148,5 +156,21 @@ public class MemcachedConfiguration
         public string Username { get; set; }
         
         public string Password { get; set; }
+    }
+
+    public class HashRingConfiguration
+    {
+        /// <summary>
+        /// Number of concurrent operations for getting nodes
+        /// </summary>
+        public int MaxDegreeOfParallelism { get; set; } = 16;
+
+        public static HashRingConfiguration DefaultConfiguration()
+        {
+            return new HashRingConfiguration
+            {
+                MaxDegreeOfParallelism = 16
+            };
+        }
     }
 }

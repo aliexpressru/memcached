@@ -28,7 +28,9 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
     /// <param name="hashCalculator">Calculates hash for nodes and keys</param>
     /// <param name="numberOfVirtualNodes">Number of virtual nodes by one physical node</param>
-    public HashRing(IHashCalculator hashCalculator, int numberOfVirtualNodes = 256)
+    public HashRing(
+        IHashCalculator hashCalculator,
+        int numberOfVirtualNodes = 256)
     {
         _locker = new ReaderWriterLockSlim();
         
