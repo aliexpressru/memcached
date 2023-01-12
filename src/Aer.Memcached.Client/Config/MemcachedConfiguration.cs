@@ -32,6 +32,8 @@ public class MemcachedConfiguration
     /// </summary>
     public MemcachedDiagnosticsSettings Diagnostics { get; set; } = new();
 
+    public HashRingConfiguration HashRing { get; set; } = HashRingConfiguration.DefaultConfiguration();
+
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified
     /// </summary>
@@ -154,5 +156,21 @@ public class MemcachedConfiguration
         public string Username { get; set; }
         
         public string Password { get; set; }
+    }
+
+    public class HashRingConfiguration
+    {
+        /// <summary>
+        /// Number of concurrent operations for getting nodes
+        /// </summary>
+        public int MaxDegreeOfParallelism { get; set; } = 16;
+
+        public static HashRingConfiguration DefaultConfiguration()
+        {
+            return new HashRingConfiguration
+            {
+                MaxDegreeOfParallelism = 16
+            };
+        }
     }
 }
