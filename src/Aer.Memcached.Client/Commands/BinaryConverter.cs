@@ -9,13 +9,13 @@ using Newtonsoft.Json.Serialization;
 
 namespace Aer.Memcached.Client.Commands;
 
-internal static class BinaryConverter
+public static class BinaryConverter
 {
     private const uint RawDataFlag = 0xfa52;
     private const uint TypeCodeSerializationMask = 0x0100;
     private const uint TypeCodeDeserializationMask = 0xff;
-
-    private static readonly JsonSerializer Serializer = JsonSerializer.Create(new JsonSerializerSettings
+    
+    private static readonly JsonSerializer DefaultSerializer = JsonSerializer.Create(new JsonSerializerSettings
     {
         Converters = new List<JsonConverter>(new[] { new StringEnumConverter() }),
         NullValueHandling = NullValueHandling.Ignore,
@@ -25,6 +25,8 @@ internal static class BinaryConverter
         }
     });
 
+    public static JsonSerializer Serializer = DefaultSerializer;
+    
     public static ushort DecodeUInt16(Span<byte> span, int offset)
     {
         var offsetSpan = span[offset..];

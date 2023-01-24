@@ -10,6 +10,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Serialization;
 
 namespace Aer.Memcached.Tests;
 
@@ -45,6 +48,16 @@ public class MemcachedClientTests
                     config), authProvider, commandExecutorLogger));
         
         _fixture = new Fixture();
+        
+        BinaryConverterConfigurator.SetSerializer(JsonSerializer.Create(new JsonSerializerSettings
+        {
+            Converters = new List<JsonConverter>(new[] { new StringEnumConverter() }),
+            NullValueHandling = NullValueHandling.Ignore,
+            ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new SnakeCaseNamingStrategy()
+            }
+        }));
     }
 
     [TestMethod]
@@ -391,6 +404,33 @@ public class MemcachedClientTests
             getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key], options => options.Excluding(info => info.ComplexObject.SimpleObject.DateTimeValue));
             getValues[keyValue.Key].ComplexObject.SimpleObject.DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].ComplexObject.SimpleObject.DateTimeValue, TimeSpan.FromMilliseconds(1));
         }
+    }
+
+    [TestMethod]
+    public async Task StoreAndGet_RecursiveModel()
+    {
+        var key = Guid.NewGuid().ToString();
+        var value = new RecursiveModel
+        {
+            Embedded = new RecursiveModel
+            {
+                Embedded = new RecursiveModel
+                {
+                    Embedded = new RecursiveModel
+                    {
+                        X = 10,
+                        Y = 20
+                    }
+                }
+            }
+        };
+
+        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        var getValue = await _client.GetAsync<RecursiveModel>(key, CancellationToken.None);
+
+        getValue.Result.Should().BeEquivalentTo(value);
+        getValue.Success.Should().BeTrue();
     }
 
     [TestMethod]
