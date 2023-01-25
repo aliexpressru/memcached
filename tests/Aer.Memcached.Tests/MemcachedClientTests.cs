@@ -56,7 +56,8 @@ public class MemcachedClientTests
             ContractResolver = new DefaultContractResolver
             {
                 NamingStrategy = new SnakeCaseNamingStrategy()
-            }
+            },
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore
         }));
     }
 
@@ -430,6 +431,21 @@ public class MemcachedClientTests
         var getValue = await _client.GetAsync<RecursiveModel>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value);
+        getValue.Success.Should().BeTrue();
+    }
+    
+    [TestMethod]
+    public async Task StoreAndGet_ObjectWithNested_IgnoreReferenceLoopHandling()
+    {
+        var key = Guid.NewGuid().ToString();
+        var value = new ObjectWithNested { X = 1, Y = 2 };
+        value.Nested = value;
+
+        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+
+        var getValue = await _client.GetAsync<RecursiveModel>(key, CancellationToken.None);
+
+        getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(o => o.Nested));
         getValue.Success.Should().BeTrue();
     }
 
