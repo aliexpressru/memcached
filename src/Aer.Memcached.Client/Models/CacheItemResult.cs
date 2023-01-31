@@ -3,7 +3,7 @@ namespace Aer.Memcached.Client.Models;
 /// <summary>
 /// Represents an object either being retrieved from the cache
 /// </summary>
-internal class CacheItemResult
+public class CacheItemResult
 {
     /// <summary>
     /// The data representing the item being stored/retrieved.
