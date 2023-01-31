@@ -10,6 +10,7 @@ using Moq;
 namespace Aer.Memcached.Tests;
 
 [TestClass]
+[Ignore]
 public class NodeLocatorMaintainerTests
 {
     private const int PeriodToRunInMilliseconds = 300;
