@@ -4,8 +4,8 @@ namespace Aer.Memcached.Diagnostics;
 
 public class MemcachedMetrics
 {
-    private readonly Histogram _commandDurationSeconds;
-    private readonly Counter _commandsTotal;
+    private readonly IMetricFamily<IHistogram> _commandDurationSeconds;
+    private readonly IMetricFamily<ICounter> _commandsTotal;
 
     private const string CommandNameLabel = "command_name";
     private const string IsSuccessfulLabel = "is_successful";
@@ -38,7 +38,7 @@ public class MemcachedMetrics
     public void CommandDurationSecondsObserve(string commandName, double duration)
     {
         _commandDurationSeconds
-            .Labels(commandName)
+            .WithLabels(commandName)
             .Observe(duration);
     }
 
@@ -50,7 +50,7 @@ public class MemcachedMetrics
     public void CommandsTotalObserve(string commandName, string isSuccessful)
     {
         _commandsTotal
-            .Labels(commandName, isSuccessful)
+            .WithLabels(commandName, isSuccessful)
             .Inc();
     }
 }

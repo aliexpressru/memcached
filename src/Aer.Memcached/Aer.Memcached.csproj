@@ -12,7 +12,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DiagnosticAdapter" Version="3.1.4" />
-        <PackageReference Include="Prometheus.Client" Version="3.1.0" />
+        <PackageReference Include="Prometheus.Client" Version="5.2.0" />
     </ItemGroup>
 
     <ItemGroup>
