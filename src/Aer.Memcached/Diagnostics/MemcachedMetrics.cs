@@ -11,7 +11,7 @@ public class MemcachedMetrics
     private const string IsSuccessfulLabel = "is_successful";
     
     
-    public MemcachedMetrics(MetricFactory metricFactory)
+    public MemcachedMetrics(IMetricFactory metricFactory)
     {
         if (metricFactory == null)
         {
