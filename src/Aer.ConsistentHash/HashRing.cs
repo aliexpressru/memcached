@@ -186,39 +186,74 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
     private TNode GetNodeInternal(string key)
     {
-        var index = GetNodeIndex(key);
-        var hashNodeKey = _sortedNodeHashKeys[index];
+        var keyToNodeHash = GetNodeHash(key);
 
-        return _hashToNodeMap[hashNodeKey];
+        return _hashToNodeMap[keyToNodeHash];
     }
 
     private ICollection<TNode> GetNodesInternal(string key, int replicationFactor = 0)
     {
-        if (_nodeHashToVirtualNodeHashesMap.Keys.Count <= replicationFactor)
+        if (_nodeHashToVirtualNodeHashesMap.Keys.Count - 1 <= replicationFactor)
         {
             return _hashToNodeMap.Values;
         }
         
         var result = new List<TNode>();
         
-        var index = GetNodeIndex(key);
-        var hashNodeKey = _sortedNodeHashKeys[index];
-        var node = _hashToNodeMap[hashNodeKey];
+        var keyToNodeHash = GetNodeHash(key);
+        var node = _hashToNodeMap[keyToNodeHash];
 
         result.Add(node);
-
-        for (int replicateNum = 1; replicateNum < replicationFactor + 1; replicateNum++)
+        
+        var nodeHash = GetNodeHash(node);
+        var nodeFound = false;
+        var totalReplicas = 0;
+        foreach (var currentNodeHash in _nodeHashToVirtualNodeHashesMap.Keys)
         {
-            var replicaHashNodeKey = _sortedNodeHashKeys[index + replicateNum];
-            var replicaNode = _hashToNodeMap[replicaHashNodeKey];
-            
-            result.Add(replicaNode);
+            if (nodeHash == currentNodeHash)
+            {
+                // we already have this one
+                nodeFound = true;
+                continue;
+            }
+
+            if (totalReplicas >= replicationFactor)
+            {
+                break;
+            }
+
+            if (!nodeFound)
+            {
+                continue;
+            }
+
+            var currentNode = _hashToNodeMap[currentNodeHash];
+            result.Add(currentNode);
+
+            totalReplicas++;
         }
 
+        if (totalReplicas < replicationFactor)
+        {
+            // still not enough replicas. Find more replicas at the beginning of array
+            foreach (var currentNodeHash in _nodeHashToVirtualNodeHashesMap.Keys)
+            {
+                if (totalReplicas >= replicationFactor)
+                {
+                    break;
+                }
+                
+                var currentNode = _hashToNodeMap[currentNodeHash];
+                result.Add(currentNode);
+
+                totalReplicas++;
+            }
+        }
+        
         return result;
     }
 
-    private int GetNodeIndex(string key)
+    private ulong GetNodeHash(string key)
     {
         var keyHash = GetHash(key);
 
@@ -237,7 +272,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
             }
         }
 
-        return index;
+        return _sortedNodeHashKeys[index];
     }
 
     private bool TryRemoveNodeFromCollections(TNode node)

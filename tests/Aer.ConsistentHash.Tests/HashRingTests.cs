@@ -165,6 +165,30 @@ public class HashRingTests
         }
     }
 
+    [DataTestMethod]
+    [DataRow(5, 1, 2)]
+    [DataRow(5, 2, 3)]
+    [DataRow(5, 3, 4)]
+    [DataRow(5, 4, 5)]
+    [DataRow(5, 5, 5)]
+    [DataRow(5, 10, 5)]
+    [DataRow(5, -1, 1)]
+    [DataRow(5, 0, 1)]
+    public void GetNodes_WithReplication(int nodesNumber, int replicationFactor, int totalNodes)
+    {
+        var hashRing = GetHashRing();
+
+        var nodesToAdd = Enumerable.Range(0, nodesNumber).Select(i => new Node()).ToArray();
+        hashRing.AddNodes(nodesToAdd);
+        var nodes = hashRing.GetNodes(new[] { "test" }, replicationFactor: replicationFactor);
+
+        nodes.Count.Should().Be(totalNodes);
+        foreach (var node in nodes)
+        {
+            nodesToAdd.Should().Contain(node.Key);
+        }
+    }
+
     private HashRing<Node> GetHashRing()
     {
         var hashCalculator = new HashCalculator();
