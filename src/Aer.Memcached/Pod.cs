@@ -18,4 +18,28 @@ public class Pod: INode
     {
         return new DnsEndPoint(IpAddress, MemcachedPort);
     }
+
+    protected bool Equals(Pod other)
+    {
+        return IpAddress == other.IpAddress;
+    }
+
+    public bool Equals(INode other)
+    {
+        return GetKey() == other?.GetKey();
+    }
+
+    public override bool Equals(object obj)
+    {
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != this.GetType()) return false;
+
+        return Equals((Pod)obj);
+    }
+
+    public override int GetHashCode()
+    {
+        return (IpAddress != null ? IpAddress.GetHashCode() : 0);
+    }
 }

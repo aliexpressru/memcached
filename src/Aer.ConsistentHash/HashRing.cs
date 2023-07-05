@@ -198,7 +198,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
             return _hashToNodeMap.Values;
         }
         
-        var result = new List<TNode>();
+        var result = new HashSet<TNode>();
         
         var keyToNodeHash = GetNodeHash(key);
         var node = _hashToNodeMap[keyToNodeHash];
