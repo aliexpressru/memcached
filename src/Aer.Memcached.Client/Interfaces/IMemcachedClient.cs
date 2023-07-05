@@ -29,12 +29,14 @@ public interface IMemcachedClient
 	/// <param name="token">Cancellation token</param>
 	/// <param name="storeMode">Store mode</param>
 	/// <param name="batchingOptions">The options that configure internal key-values batching</param>
+	/// <param name="replicationFactor">Number of physical nodes replication of data</param>
 	Task MultiStoreAsync<T>(
-		Dictionary<string, T> keyValues,
-		TimeSpan? expirationTime,
-		CancellationToken token,
+		Dictionary<string, T> keyValues, 
+		TimeSpan? expirationTime, 
+		CancellationToken token, 
 		StoreMode storeMode = StoreMode.Set,
-		BatchingOptions batchingOptions = null);
+		BatchingOptions batchingOptions = null,
+		int replicationFactor = 0);
 
 	/// <summary>
 	/// Gets one value by key
@@ -50,11 +52,13 @@ public interface IMemcachedClient
 	/// <param name="keys">Keys</param>
 	/// <param name="token">Cancellation token</param>
 	/// <param name="batchingOptions">The options that configure internal keys batching</param>
+	/// <param name="replicaFallback">Gets data from actual node and its replica. If actual node is not available gets data from replica</param>
 	/// <returns>Values by keys. Only found in memcached keys are returned</returns>
 	Task<IDictionary<string, T>> MultiGetAsync<T>(
-		IEnumerable<string> keys, 
+		IEnumerable<string> keys,
 		CancellationToken token,
-		BatchingOptions batchingOptions = null);
+		BatchingOptions batchingOptions = null,
+		bool replicaFallback = false);
 
 	/// <summary>
 	/// Deletes one value by key
@@ -69,10 +73,12 @@ public interface IMemcachedClient
 	/// <param name="keys">Keys</param>
 	/// <param name="token">Cancellation token</param>
 	/// <param name="batchingOptions">The options that configure internal keys batching</param>
+	/// <param name="replicationFactor">Number of physical nodes to try delete keys</param>
 	Task MultiDeleteAsync(
 		IEnumerable<string> keys,
 		CancellationToken token,
-		BatchingOptions batchingOptions = null);
+		BatchingOptions batchingOptions = null,
+		int replicationFactor = 0);
 
 	/// <summary>
 	/// Increments value by key

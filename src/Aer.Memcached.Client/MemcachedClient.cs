@@ -57,9 +57,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         TimeSpan? expirationTime, 
         CancellationToken token, 
         StoreMode storeMode = StoreMode.Set,
-        BatchingOptions batchingOptions = null)
+        BatchingOptions batchingOptions = null,
+        int replicationFactor = 0)
     {
-        var nodes = _nodeLocator.GetNodes(keyValues.Keys);
+        var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
         if (nodes.Keys.Count == 0)
         {
             return;
@@ -106,48 +107,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             commandBase.Dispose();
         }
     }
-
-    private async Task MultiStoreBatchedInternalAsync<T>(
-        IDictionary<TNode, ConcurrentBag<string>> nodes,
-        Dictionary<string, T> keyValues,
-        BatchingOptions batchingOptions,
-        uint expiration,
-        StoreMode storeMode,
-        CancellationToken token)
-    {
-        if (batchingOptions.BatchSize <= 0)
-        {
-            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
-        }
-
-        await Parallel.ForEachAsync(
-            nodes,
-            new ParallelOptions()
-            {
-                CancellationToken = token,
-                MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
-            },
-            async (nodeWithKeys, cancellationToken) =>
-            {
-                var node = nodeWithKeys.Key;
-                var keysToStore = nodeWithKeys.Value;
-
-                foreach (var keysBatch in
-                         keysToStore.Batch(batchingOptions.BatchSize))
-                {
-                    var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
-                    foreach (var key in keysBatch)
-                    {
-                        keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
-                    }
-
-                    using var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration);
-
-                    await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
-                }
-            });
-    }
-
+    
     /// <inheritdoc />
     public async Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token)
     {
@@ -178,9 +138,11 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     public async Task<IDictionary<string, T>> MultiGetAsync<T>(
         IEnumerable<string> keys,
         CancellationToken token,
-        BatchingOptions batchingOptions = null)
+        BatchingOptions batchingOptions = null,
+        bool replicaFallback = false)
     {
-        var nodes = _nodeLocator.GetNodes(keys);
+        var replicationFactor = replicaFallback ? 1 : 0;
+        var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
         if (nodes.Keys.Count == 0)
         {
             return new Dictionary<string, T>();
@@ -220,7 +182,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 var key = item.Key;
                 var cacheItem = item.Value;
 
-                result[key] = BinaryConverter.Deserialize<T>(cacheItem);
+                if (!result.ContainsKey(key))
+                {
+                    result[key] = BinaryConverter.Deserialize<T>(cacheItem);
+                }
             }
         }
 
@@ -231,58 +196,6 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }
 
         return result;
-    }
-
-    private async Task<IDictionary<string, T>> MultiGetBatchedInternalAsync<T>(
-        IDictionary<TNode, ConcurrentBag<string>> nodes,
-        BatchingOptions batchingOptions,
-        CancellationToken token)
-    {
-        // means batching is enabled - use separate logic
-        if (batchingOptions.BatchSize <= 0)
-        {
-            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
-        }
-        
-        var ret = new ConcurrentDictionary<string, T>();
-
-        await Parallel.ForEachAsync(
-            nodes,
-            new ParallelOptions()
-            {
-                CancellationToken = token,
-                MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
-            },
-            async (nodeWithKeys, cancellationToken) =>
-            {
-                var node = nodeWithKeys.Key;
-                var keysToGet = nodeWithKeys.Value;
-
-                foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
-                {
-                    // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
-                    using (var command = new MultiGetCommand(keysBatch, batchingOptions.BatchSize))
-                    {
-                        var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(
-                            node,
-                            command,
-                            cancellationToken);
-
-                        if (commandExecutionResult.Success)
-                        {
-                            foreach (var item in command.Result)
-                            {
-                                var key = item.Key;
-                                var cachedValue = BinaryConverter.Deserialize<T>(item.Value);
-
-                                ret.TryAdd(key, cachedValue);
-                            }
-                        }
-                    }
-                }
-            });
-
-        return ret;
     }
     
     /// <inheritdoc />
@@ -309,9 +222,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     public async Task MultiDeleteAsync(
         IEnumerable<string> keys,
         CancellationToken token,
-        BatchingOptions batchingOptions = null)
+        BatchingOptions batchingOptions = null,
+        int replicationFactor = 0)
     {
-        var nodes = _nodeLocator.GetNodes(keys);
+        var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
         if (nodes.Keys.Count == 0)
         {
             return;
@@ -336,43 +250,6 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         await Task.WhenAll(deleteTasks);
     }
 
-    private async Task MultiDeleteBatchedInternalAsync(
-        IDictionary<TNode, ConcurrentBag<string>> nodes,
-        BatchingOptions batchingOptions,
-        CancellationToken token)
-    {
-        // means batching is enabled - use separate logic
-        if (batchingOptions.BatchSize <= 0)
-        {
-            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
-        }
-
-        await Parallel.ForEachAsync(
-            nodes,
-            new ParallelOptions()
-            {
-                CancellationToken = token,
-                MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
-            },
-            async (nodeWithKeys, cancellationToken) =>
-            {
-                var node = nodeWithKeys.Key;
-                var keysToGet = nodeWithKeys.Value;
-
-                foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
-                {
-                    // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
-                    using (var command = new MultiDeleteCommand(keysBatch, batchingOptions.BatchSize))
-                    {
-                        await _commandExecutor.ExecuteCommandAsync(
-                            node,
-                            command,
-                            cancellationToken);
-                    }
-                }
-            });
-    }
-    
     /// <inheritdoc />
     public async Task<MemcachedClientValueResult<ulong>> IncrAsync(
         string key, 
@@ -454,6 +331,136 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         {
             commandBase.Dispose();
         }        
+    }
+    
+    private async Task MultiStoreBatchedInternalAsync<T>(
+        IDictionary<TNode, ConcurrentBag<string>> nodes,
+        Dictionary<string, T> keyValues,
+        BatchingOptions batchingOptions,
+        uint expiration,
+        StoreMode storeMode,
+        CancellationToken token)
+    {
+        if (batchingOptions.BatchSize <= 0)
+        {
+            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
+        }
+
+        await Parallel.ForEachAsync(
+            nodes,
+            new ParallelOptions()
+            {
+                CancellationToken = token,
+                MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
+            },
+            async (nodeWithKeys, cancellationToken) =>
+            {
+                var node = nodeWithKeys.Key;
+                var keysToStore = nodeWithKeys.Value;
+
+                foreach (var keysBatch in
+                         keysToStore.Batch(batchingOptions.BatchSize))
+                {
+                    var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
+                    foreach (var key in keysBatch)
+                    {
+                        keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                    }
+
+                    using var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration);
+
+                    await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
+                }
+            });
+    }
+
+    private async Task<IDictionary<string, T>> MultiGetBatchedInternalAsync<T>(
+        IDictionary<TNode, ConcurrentBag<string>> nodes,
+        BatchingOptions batchingOptions,
+        CancellationToken token)
+    {
+        // means batching is enabled - use separate logic
+        if (batchingOptions.BatchSize <= 0)
+        {
+            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
+        }
+        
+        var ret = new ConcurrentDictionary<string, T>();
+
+        await Parallel.ForEachAsync(
+            nodes,
+            new ParallelOptions()
+            {
+                CancellationToken = token,
+                MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
+            },
+            async (nodeWithKeys, cancellationToken) =>
+            {
+                var node = nodeWithKeys.Key;
+                var keysToGet = nodeWithKeys.Value;
+
+                foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
+                {
+                    // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
+                    using (var command = new MultiGetCommand(keysBatch, batchingOptions.BatchSize))
+                    {
+                        var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(
+                            node,
+                            command,
+                            cancellationToken);
+
+                        if (commandExecutionResult.Success)
+                        {
+                            foreach (var item in command.Result)
+                            {
+                                var key = item.Key;
+                                var cachedValue = BinaryConverter.Deserialize<T>(item.Value);
+
+                                ret.TryAdd(key, cachedValue);
+                            }
+                        }
+                    }
+                }
+            });
+
+        return ret;
+    }
+
+    private async Task MultiDeleteBatchedInternalAsync(
+        IDictionary<TNode, ConcurrentBag<string>> nodes,
+        BatchingOptions batchingOptions,
+        CancellationToken token)
+    {
+        // means batching is enabled - use separate logic
+        if (batchingOptions.BatchSize <= 0)
+        {
+            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
+        }
+
+        await Parallel.ForEachAsync(
+            nodes,
+            new ParallelOptions()
+            {
+                CancellationToken = token,
+                MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
+            },
+            async (nodeWithKeys, cancellationToken) =>
+            {
+                var node = nodeWithKeys.Key;
+                var keysToGet = nodeWithKeys.Value;
+
+                foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
+                {
+                    // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
+                    using (var command = new MultiDeleteCommand(keysBatch, batchingOptions.BatchSize))
+                    {
+                        await _commandExecutor.ExecuteCommandAsync(
+                            node,
+                            command,
+                            cancellationToken);
+                    }
+                }
+            });
     }
 
     private uint GetExpiration(TimeSpan? expirationTime)

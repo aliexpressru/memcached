@@ -59,7 +59,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         }
     }
 
-    public IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys)
+    public IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys, int replicationFactor = 0)
     {
         var result = new ConcurrentDictionary<TNode, ConcurrentBag<string>>(Comparer);
 
@@ -74,10 +74,23 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
             Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 16 },key =>
             {
-                var node = GetNodeInternal(key);
+                if (replicationFactor >= 0)
+                {
+                    var node = GetNodeInternal(key);
 
-                var bag = result.GetOrAdd(node, (Func<TNode, ConcurrentBag<string>>) ValueFactory);
-                bag.Add(key);
+                    var bag = result.GetOrAdd(node, (Func<TNode, ConcurrentBag<string>>) ValueFactory);
+                    bag.Add(key);
+                }
+                else
+                {
+                    var nodes = GetNodesInternal(key, replicationFactor);
+
+                    foreach (var node in nodes)
+                    {
+                        var bag = result.GetOrAdd(node, (Func<TNode, ConcurrentBag<string>>) ValueFactory);
+                        bag.Add(key);
+                    }
+                }
             });
         }
         finally
@@ -173,6 +186,40 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
     private TNode GetNodeInternal(string key)
     {
+        var index = GetNodeIndex(key);
+        var hashNodeKey = _sortedNodeHashKeys[index];
+
+        return _hashToNodeMap[hashNodeKey];
+    }
+
+    private ICollection<TNode> GetNodesInternal(string key, int replicationFactor = 0)
+    {
+        if (_hashToNodeMap.Count <= replicationFactor)
+        {
+            return _hashToNodeMap.Values;
+        }
+        
+        var result = new List<TNode>();
+        
+        var index = GetNodeIndex(key);
+        var hashNodeKey = _sortedNodeHashKeys[index];
+        var node = _hashToNodeMap[hashNodeKey];
+
+        result.Add(node);
+
+        for (int replicateNum = 1; replicateNum < replicationFactor + 1; replicateNum++)
+        {
+            var replicaHashNodeKey = _sortedNodeHashKeys[index + replicateNum];
+            var replicaNode = _hashToNodeMap[replicaHashNodeKey];
+            
+            result.Add(replicaNode);
+        }
+
+        return result;
+    }
+
+    private int GetNodeIndex(string key)
+    {
         var keyHash = GetHash(key);
 
         var index = Array.BinarySearch(_sortedNodeHashKeys, keyHash);
@@ -190,9 +237,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
             }
         }
 
-        var hashNodeKey = _sortedNodeHashKeys[index];
-
-        return _hashToNodeMap[hashNodeKey];
+        return index;
     }
 
     private bool TryRemoveNodeFromCollections(TNode node)
