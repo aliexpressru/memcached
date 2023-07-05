@@ -510,9 +510,9 @@ public class MemcachedClientTests
             keyValues[Guid.NewGuid().ToString()] = _fixture.Create<T>();
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None, replicationFactor: withReplicas ? 5 : 0);
+        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None, replicationFactor: (uint)(withReplicas ? 5 : 0));
     
-        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicaFallback: withReplicas);
+        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
     
         foreach (var keyValue in keyValues)
         {
@@ -764,7 +764,7 @@ public class MemcachedClientTests
             keyValues[Guid.NewGuid().ToString()] = _fixture.Create<T>();
         }
 
-        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicaFallback: withReplicas);
+        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
         getValues.Count.Should().Be(0);
     }
 }

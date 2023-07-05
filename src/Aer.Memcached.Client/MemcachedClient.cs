@@ -58,7 +58,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         CancellationToken token, 
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null,
-        int replicationFactor = 0)
+        uint replicationFactor = 0)
     {
         var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
         if (nodes.Keys.Count == 0)
@@ -139,9 +139,8 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         IEnumerable<string> keys,
         CancellationToken token,
         BatchingOptions batchingOptions = null,
-        bool replicaFallback = false)
+        uint replicationFactor = 0)
     {
-        var replicationFactor = replicaFallback ? 1 : 0;
         var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
         if (nodes.Keys.Count == 0)
         {
@@ -223,7 +222,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         IEnumerable<string> keys,
         CancellationToken token,
         BatchingOptions batchingOptions = null,
-        int replicationFactor = 0)
+        uint replicationFactor = 0)
     {
         var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
         if (nodes.Keys.Count == 0)
@@ -382,7 +381,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         // means batching is enabled - use separate logic
         if (batchingOptions.BatchSize <= 0)
         {
-            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
+            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0. Please check BatchingOptions documentation");
         }
         
         var ret = new ConcurrentDictionary<string, T>();

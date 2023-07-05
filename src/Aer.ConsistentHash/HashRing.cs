@@ -59,7 +59,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         }
     }
 
-    public IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys, int replicationFactor = 0)
+    public IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys, uint replicationFactor = 0)
     {
         var result = new ConcurrentDictionary<TNode, ConcurrentBag<string>>(Comparer);
 
@@ -74,11 +74,11 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
             Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 16 },key =>
             {
-                if (replicationFactor <= 0)
+                if (replicationFactor == 0)
                 {
                     var node = GetNodeInternal(key);
 
-                    var bag = result.GetOrAdd(node, (Func<TNode, ConcurrentBag<string>>) ValueFactory);
+                    var bag = result.GetOrAdd(node, ValueFactory);
                     bag.Add(key);
                 }
                 else
@@ -191,7 +191,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         return _hashToNodeMap[keyToNodeHash];
     }
 
-    private ICollection<TNode> GetNodesInternal(string key, int replicationFactor = 0)
+    private ICollection<TNode> GetNodesInternal(string key, uint replicationFactor = 0)
     {
         if (_nodeHashToVirtualNodeHashesMap.Keys.Count - 1 <= replicationFactor)
         {
@@ -206,14 +206,14 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         result.Add(node);
         
         var nodeHash = GetNodeHash(node);
-        var nodeFound = false;
+        var startingNodeFound = false;
         var totalReplicas = 0;
         foreach (var currentNodeHash in _nodeHashToVirtualNodeHashesMap.Keys)
         {
             if (nodeHash == currentNodeHash)
             {
                 // we already have this one
-                nodeFound = true;
+                startingNodeFound = true;
                 continue;
             }
 
@@ -222,7 +222,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
                 break;
             }
 
-            if (!nodeFound)
+            if (!startingNodeFound)
             {
                 continue;
             }
