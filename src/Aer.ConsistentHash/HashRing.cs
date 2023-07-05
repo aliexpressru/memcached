@@ -74,7 +74,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
             Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 16 },key =>
             {
-                if (replicationFactor >= 0)
+                if (replicationFactor <= 0)
                 {
                     var node = GetNodeInternal(key);
 
@@ -194,7 +194,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
     private ICollection<TNode> GetNodesInternal(string key, int replicationFactor = 0)
     {
-        if (_hashToNodeMap.Count <= replicationFactor)
+        if (_nodeHashToVirtualNodeHashesMap.Keys.Count <= replicationFactor)
         {
             return _hashToNodeMap.Values;
         }
