@@ -87,7 +87,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
                     foreach (var node in nodes)
                     {
-                        var bag = result.GetOrAdd(node, (Func<TNode, ConcurrentBag<string>>) ValueFactory);
+                        var bag = result.GetOrAdd(node, ValueFactory);
                         bag.Add(key);
                     }
                 }
