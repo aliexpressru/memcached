@@ -5,7 +5,7 @@ namespace Aer.Memcached;
 
 public class Pod: INode
 {
-    private static readonly int MemcachedPort = 11211;
+    public int MemcachedPort { get; init; } = 11211;
     
     public string IpAddress { get; init; }
 

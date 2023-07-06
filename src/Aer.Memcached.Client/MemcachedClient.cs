@@ -125,11 +125,12 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 return MemcachedClientValueResult<T>.Unsuccessful;
             }
 
-            var result = BinaryConverter.Deserialize<T>(command.Result);
+            var deserializationResult = BinaryConverter.Deserialize<T>(command.Result);
             return new MemcachedClientValueResult<T>
             {
                 Success = true,
-                Result = result
+                Result = deserializationResult.Result,
+                IsEmptyResult = deserializationResult.IsEmpty
             };
         }
     }
@@ -183,7 +184,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
                 if (!result.ContainsKey(key))
                 {
-                    result[key] = BinaryConverter.Deserialize<T>(cacheItem);
+                    result[key] = BinaryConverter.Deserialize<T>(cacheItem).Result;
                 }
             }
         }
@@ -413,7 +414,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                             foreach (var item in command.Result)
                             {
                                 var key = item.Key;
-                                var cachedValue = BinaryConverter.Deserialize<T>(item.Value);
+                                var cachedValue = BinaryConverter.Deserialize<T>(item.Value).Result;
 
                                 ret.TryAdd(key, cachedValue);
                             }

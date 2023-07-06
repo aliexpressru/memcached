@@ -54,8 +54,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal keys batching</param>
 	/// <param name="replicationFactor">Number of physical nodes which will be requested to obtain data</param>
 	/// <returns>Values by keys. Only found in memcached keys are returned</returns>
-	Task<IDictionary<string, T>> MultiGetAsync<T>(
-		IEnumerable<string> keys,
+	Task<IDictionary<string, T>> MultiGetAsync<T>(IEnumerable<string> keys,
 		CancellationToken token,
 		BatchingOptions batchingOptions = null,
 		uint replicationFactor = 0);
