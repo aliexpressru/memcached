@@ -7,7 +7,7 @@ public interface INodeLocator<TNode> where TNode : class, INode
 {
     TNode GetNode(string key);
 
-    IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys);
+    IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys, uint replicationFactor = 0);
 
     TNode[] GetAllNodes();
     

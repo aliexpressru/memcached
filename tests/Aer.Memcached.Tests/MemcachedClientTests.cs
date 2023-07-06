@@ -80,23 +80,25 @@ public class MemcachedClientTests
         await StoreAndGet_CheckType<float>();
     }
     
-    [TestMethod]
-    public async Task MultiStoreAndGet_CheckAllTypes()
+    [DataTestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task MultiStoreAndGet_CheckAllTypes(bool withReplicas)
     {
-        await MultiStoreAndGet_CheckType<string>();
-        await MultiStoreAndGet_CheckType<bool>();
-        await MultiStoreAndGet_CheckType<sbyte>();
-        await MultiStoreAndGet_CheckType<byte>();
-        await MultiStoreAndGet_CheckType<short>();
-        await MultiStoreAndGet_CheckType<int>();
-        await MultiStoreAndGet_CheckType<long>();
-        await MultiStoreAndGet_CheckType<ushort>();
-        await MultiStoreAndGet_CheckType<uint>();
-        await MultiStoreAndGet_CheckType<ulong>();
-        await MultiStoreAndGet_CheckType<char>();
-        await MultiStoreAndGet_CheckType<DateTime>();
-        await MultiStoreAndGet_CheckType<double>();
-        await MultiStoreAndGet_CheckType<float>();
+        await MultiStoreAndGet_CheckType<string>(withReplicas);
+        await MultiStoreAndGet_CheckType<bool>(withReplicas);
+        await MultiStoreAndGet_CheckType<sbyte>(withReplicas);
+        await MultiStoreAndGet_CheckType<byte>(withReplicas);
+        await MultiStoreAndGet_CheckType<short>(withReplicas);
+        await MultiStoreAndGet_CheckType<int>(withReplicas);
+        await MultiStoreAndGet_CheckType<long>(withReplicas);
+        await MultiStoreAndGet_CheckType<ushort>(withReplicas);
+        await MultiStoreAndGet_CheckType<uint>(withReplicas);
+        await MultiStoreAndGet_CheckType<ulong>(withReplicas);
+        await MultiStoreAndGet_CheckType<char>(withReplicas);
+        await MultiStoreAndGet_CheckType<DateTime>(withReplicas);
+        await MultiStoreAndGet_CheckType<double>(withReplicas);
+        await MultiStoreAndGet_CheckType<float>(withReplicas);
     }
 
     [TestMethod]
@@ -119,24 +121,26 @@ public class MemcachedClientTests
         await Get_CheckType<SimpleObject>();
     }
     
-    [TestMethod]
-    public async Task MultiGet_CheckAllTypes_EmptyDictionary()
+    [DataTestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task MultiGet_CheckAllTypes_EmptyDictionary(bool withReplicas)
     {
-        await MultiGet_CheckType<string>();
-        await MultiGet_CheckType<bool>();
-        await MultiGet_CheckType<sbyte>();
-        await MultiGet_CheckType<byte>();
-        await MultiGet_CheckType<short>();
-        await MultiGet_CheckType<int>();
-        await MultiGet_CheckType<long>();
-        await MultiGet_CheckType<ushort>();
-        await MultiGet_CheckType<uint>();
-        await MultiGet_CheckType<ulong>();
-        await MultiGet_CheckType<char>();
-        await MultiGet_CheckType<DateTime>();
-        await MultiGet_CheckType<double>();
-        await MultiGet_CheckType<float>();
-        await MultiGet_CheckType<SimpleObject>();
+        await MultiGet_CheckType<string>(withReplicas);
+        await MultiGet_CheckType<bool>(withReplicas);
+        await MultiGet_CheckType<sbyte>(withReplicas);
+        await MultiGet_CheckType<byte>(withReplicas);
+        await MultiGet_CheckType<short>(withReplicas);
+        await MultiGet_CheckType<int>(withReplicas);
+        await MultiGet_CheckType<long>(withReplicas);
+        await MultiGet_CheckType<ushort>(withReplicas);
+        await MultiGet_CheckType<uint>(withReplicas);
+        await MultiGet_CheckType<ulong>(withReplicas);
+        await MultiGet_CheckType<char>(withReplicas);
+        await MultiGet_CheckType<DateTime>(withReplicas);
+        await MultiGet_CheckType<double>(withReplicas);
+        await MultiGet_CheckType<float>(withReplicas);
+        await MultiGet_CheckType<SimpleObject>(withReplicas);
     }
 
     [TestMethod]
@@ -497,7 +501,7 @@ public class MemcachedClientTests
         getValue.Success.Should().BeTrue();
     }
 
-    private async Task MultiStoreAndGet_CheckType<T>()
+    private async Task MultiStoreAndGet_CheckType<T>(bool withReplicas)
     {
         var keyValues = new Dictionary<string, T>();
     
@@ -506,9 +510,9 @@ public class MemcachedClientTests
             keyValues[Guid.NewGuid().ToString()] = _fixture.Create<T>();
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None, replicationFactor: (uint)(withReplicas ? 5 : 0));
     
-        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None);
+        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
     
         foreach (var keyValue in keyValues)
         {
@@ -751,7 +755,7 @@ public class MemcachedClientTests
         getValue.Success.Should().BeTrue();
     }
 
-    private async Task MultiGet_CheckType<T>()
+    private async Task MultiGet_CheckType<T>(bool withReplicas)
     {
         var keyValues = new Dictionary<string, T>();
     
@@ -760,7 +764,7 @@ public class MemcachedClientTests
             keyValues[Guid.NewGuid().ToString()] = _fixture.Create<T>();
         }
 
-        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None);
+        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
         getValues.Count.Should().Be(0);
     }
 }

@@ -59,7 +59,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         }
     }
 
-    public IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys)
+    public IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys, uint replicationFactor = 0)
     {
         var result = new ConcurrentDictionary<TNode, ConcurrentBag<string>>(Comparer);
 
@@ -74,10 +74,23 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
             Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 16 },key =>
             {
-                var node = GetNodeInternal(key);
+                if (replicationFactor == 0)
+                {
+                    var node = GetNodeInternal(key);
 
-                var bag = result.GetOrAdd(node, (Func<TNode, ConcurrentBag<string>>) ValueFactory);
-                bag.Add(key);
+                    var bag = result.GetOrAdd(node, ValueFactory);
+                    bag.Add(key);
+                }
+                else
+                {
+                    var nodes = GetNodesInternal(key, replicationFactor);
+
+                    foreach (var node in nodes)
+                    {
+                        var bag = result.GetOrAdd(node, ValueFactory);
+                        bag.Add(key);
+                    }
+                }
             });
         }
         finally
@@ -173,6 +186,75 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
     private TNode GetNodeInternal(string key)
     {
+        var keyToNodeHash = GetNodeHash(key);
+
+        return _hashToNodeMap[keyToNodeHash];
+    }
+
+    private ICollection<TNode> GetNodesInternal(string key, uint replicationFactor = 0)
+    {
+        if (_nodeHashToVirtualNodeHashesMap.Keys.Count - 1 <= replicationFactor)
+        {
+            return _hashToNodeMap.Values;
+        }
+        
+        var result = new HashSet<TNode>();
+        
+        var keyToNodeHash = GetNodeHash(key);
+        var node = _hashToNodeMap[keyToNodeHash];
+
+        result.Add(node);
+        
+        var nodeHash = GetNodeHash(node);
+        var startingNodeFound = false;
+        var totalReplicas = 0;
+        foreach (var currentNodeHash in _nodeHashToVirtualNodeHashesMap.Keys)
+        {
+            if (nodeHash == currentNodeHash)
+            {
+                // we already have this one
+                startingNodeFound = true;
+                continue;
+            }
+
+            if (totalReplicas >= replicationFactor)
+            {
+                break;
+            }
+
+            if (!startingNodeFound)
+            {
+                continue;
+            }
+
+            var currentNode = _hashToNodeMap[currentNodeHash];
+            result.Add(currentNode);
+
+            totalReplicas++;
+        }
+
+        if (totalReplicas < replicationFactor)
+        {
+            // still not enough replicas. Find more replicas at the beginning of array
+            foreach (var currentNodeHash in _nodeHashToVirtualNodeHashesMap.Keys)
+            {
+                if (totalReplicas >= replicationFactor)
+                {
+                    break;
+                }
+                
+                var currentNode = _hashToNodeMap[currentNodeHash];
+                result.Add(currentNode);
+
+                totalReplicas++;
+            }
+        }
+        
+        return result;
+    }
+
+    private ulong GetNodeHash(string key)
+    {
         var keyHash = GetHash(key);
 
         var index = Array.BinarySearch(_sortedNodeHashKeys, keyHash);
@@ -190,9 +272,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
             }
         }
 
-        var hashNodeKey = _sortedNodeHashKeys[index];
-
-        return _hashToNodeMap[hashNodeKey];
+        return _sortedNodeHashKeys[index];
     }
 
     private bool TryRemoveNodeFromCollections(TNode node)
