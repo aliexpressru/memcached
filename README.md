@@ -38,6 +38,21 @@ For local settings or if you static amount of pods you can specify `Servers` ins
 }
 ```
 
+Default Memcached port is `11211`, but you can also specify it in config
+
+```json
+{
+    "MemcachedConfiguration": {
+        "Servers": [
+            {
+                "IpAddress": "1.1.1.1",
+                "Port": 12345
+            }
+        ]
+    }
+}
+```
+
 In case you have only one instance deployed in k8s specify consistent dns name of a pod:
 ```json
 {
@@ -104,7 +119,8 @@ Task MultiStoreAsync<T>(
 
 ### Get
 
-Gets the value for the specified key or set of keys from cache. If value is not found by the key - returns null (or in case of multiple keys simply doesn't return anything for absent key)
+Gets the value for the specified key or set of keys from cache. If value is not found by the key - `IsEmptyResult` is `true`
+In MultiGet scenarion the key in dictionary is absent.
 
 ```c#
 Task<MemcachedClientGetResult<T>> GetAsync<T>(
