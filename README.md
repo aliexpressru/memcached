@@ -207,7 +207,7 @@ Task FlushAsync(CancellationToken token);
 
 ### Batching
 
-For `MultiStoreAsync` and `MultiGetAsync` method there is an optional argument `batchingOptions`. If this argument is specified the store and get operations split input key or key-value collection into batches an processe every batch on every memcached node in parallel with specified maximum degree of parallelism (`Environment.ProcessorCount` by default).
+For `MultiStoreAsync` and `MultiGetAsync` methods there is an optional argument `batchingOptions`. If this argument is specified the store and get operations split input key or key-value collection into batches an processe every batch on every memcached node in parallel with specified maximum degree of parallelism (`Environment.ProcessorCount` by default).
 Batching is requered to lower the load on memcached nodes in high-load scenarios when keys are long and values are even longer than keys. There is an empyric default value of batch size : `20` which is optimal for the most cases.
 By default batching is off for all the operations.
 
@@ -241,6 +241,12 @@ public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     app.EnableMemcachedDiagnostics(Configuration);
 }
 ```
+
+### Replication
+
+For `MultiStoreAsync`, `MultiGetAsync` and `MultiDeleteAsync` methods there is an optional argument `replicationFactor`. If `replicationFactor > 0` a key will be stored on `replicationFactor` additional physical nodes clockwise from initial one chosen by hash. In case of `MultiGetAsync` if you need replica fallback you can specify `replicationFactor = 1` even if `replicationFactor` for `MultiStoreAsync` is more than 1. While physical node does not respond but still is on HashRing `MultiGetAsync` command will try to fetch data from both initial node and it's replica. When request to initial node is cancelled you still have data from it's replica. In case the broken node is already removed from HashRing you will have some probability to hit it's replica and with higher `replicationFactor` probability is higher as well.
+
+Be careful using this parameter as it increase workload by `x replicationFactor`. You also should consider some tunings for memcached - see `Memcached tuning` part of the README.
 
 # Restrictions
 
