@@ -148,17 +148,22 @@ public static class BinaryConverter
         return new CacheItemForRequest(TypeCodeToFlag(typeCode), data);
     }
 
-    public static T Deserialize<T>(CacheItemResult item)
+    public static DeserializationResult<T> Deserialize<T>(CacheItemResult item)
     {
         var data = item.Data;
         if (data.IsEmpty)
         {
-            return default;
+            return new DeserializationResult<T>
+            {
+                Result = default,
+                IsEmpty = false
+            };
         }
+        
         var typeCode = (TypeCode)(item.Flags & TypeCodeDeserializationMask);
         if (typeCode == TypeCode.Empty)
         {
-            return default;
+            return DeserializationResult<T>.EmptyDeserializationResult;
         }
     
         var type = typeof(T);
@@ -171,7 +176,11 @@ public static class BinaryConverter
                 return default;
             }
 
-            return (T)value;
+            return new DeserializationResult<T>
+            {
+                Result = (T)value,
+                IsEmpty = false
+            };
         }
 
         using var ms = new MemoryStream(item.Data.ToArray());
@@ -181,7 +190,11 @@ public static class BinaryConverter
             reader.ReadRootValueAsArray = true;
         }
                 
-        return Serializer.Deserialize<T>(reader);
+        return new DeserializationResult<T>
+        {
+            Result = Serializer.Deserialize<T>(reader),
+            IsEmpty = false
+        };
     }
     
     private static object Deserialize(CacheItemResult item, TypeCode typeCode)

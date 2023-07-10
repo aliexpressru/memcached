@@ -2,7 +2,7 @@ using Aer.Memcached.Client.Interfaces;
 
 namespace Aer.Memcached.Client.Models;
 
-public class MemcachedClientResult: IMemcachedClientResult
+public class MemcachedClientResult
 {
     public static MemcachedClientResult Unsuccessful { get; } = new()
     {

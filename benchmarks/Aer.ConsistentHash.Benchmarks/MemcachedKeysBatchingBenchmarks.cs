@@ -170,7 +170,7 @@ public class MemcachedKeysBatchingBenchmarks
 				var key = item.Key;
 				var cacheItem = item.Value;
 
-				result[key] = BinaryConverter.Deserialize<T>(cacheItem);
+				result[key] = BinaryConverter.Deserialize<T>(cacheItem).Result;
 			}
 		}
 

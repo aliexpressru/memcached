@@ -35,7 +35,8 @@ internal class HeadlessServiceDnsLookupNodeProvider : INodeProvider<Pod>
         {
             var staticPods = _config.Servers.Select(s => new Pod
             {
-                IpAddress = s.IpAddress
+                IpAddress = s.IpAddress,
+                MemcachedPort = s.Port
             }).ToArray();
 
             return staticPods;

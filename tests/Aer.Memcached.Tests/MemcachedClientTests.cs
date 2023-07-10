@@ -155,6 +155,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
     }
 
     [TestMethod]
@@ -173,6 +174,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeNull();
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeTrue();
     }
 
     [TestMethod]
@@ -212,6 +214,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeNull(value);
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
     }
     
     [TestMethod]
@@ -266,6 +269,8 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
         getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
+        getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
     }
     
     [TestMethod]
@@ -343,6 +348,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.SimpleObjects));
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
         for (int i = 0; i < getValue.Result.SimpleObjects.Count; i++)
         {
             getValue.Result.SimpleObjects[i].Should().BeEquivalentTo(value.SimpleObjects[i], options => options.Excluding(info => info.DateTimeValue));
@@ -387,6 +393,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.ComplexObject.SimpleObject.DateTimeValue));
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
         getValue.Result.ComplexObject.SimpleObject.DateTimeValue.Should().BeCloseTo(value.ComplexObject.SimpleObject.DateTimeValue, TimeSpan.FromMilliseconds(1));
     }
     
@@ -436,6 +443,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
     }
     
     [TestMethod]
@@ -451,6 +459,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(o => o.Nested));
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
     }
 
     [TestMethod]
@@ -485,6 +494,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeNull();
         getValue.Success.Should().BeFalse();
+        getValue.IsEmptyResult.Should().BeTrue();
         loggerMock.Invocations.Count(i => i.Method.Name == nameof(LoggerExtensions.Log) && i.Arguments.First().ToString() == LogLevel.Error.ToString()).Should().Be(2);
     }
     
@@ -499,6 +509,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
     }
 
     private async Task MultiStoreAndGet_CheckType<T>(bool withReplicas)
@@ -753,6 +764,7 @@ public class MemcachedClientTests
 
         getValue.Result.Should().BeEquivalentTo(default(T));
         getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeTrue();
     }
 
     private async Task MultiGet_CheckType<T>(bool withReplicas)
@@ -764,7 +776,7 @@ public class MemcachedClientTests
             keyValues[Guid.NewGuid().ToString()] = _fixture.Create<T>();
         }
 
-        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
+        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: (uint)(withReplicas ? 1 : 0));
         getValues.Count.Should().Be(0);
     }
 }
