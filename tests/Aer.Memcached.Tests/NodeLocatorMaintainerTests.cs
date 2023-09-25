@@ -5,33 +5,31 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
+using NSubstitute;
+using NSubstitute.ClearExtensions;
 
 namespace Aer.Memcached.Tests;
 
 [TestClass]
-[Ignore]
 public class NodeLocatorMaintainerTests
 {
     private const int PeriodToRunInMilliseconds = 300;
 
-    private readonly Mock<INodeProvider<Node>> _nodeProviderMock;
-    private readonly Mock<ICommandExecutor<Node>> _commandExecutorMock;
-    private readonly Mock<INodeHealthChecker<Node>> _healthCheckerMock;
-
-    public NodeLocatorMaintainerTests()
-    {
-        _nodeProviderMock = new Mock<INodeProvider<Node>>();
-        _commandExecutorMock = new Mock<ICommandExecutor<Node>>();
-        _healthCheckerMock = new Mock<INodeHealthChecker<Node>>();
-    }
+    private readonly INodeProvider<Node> _nodeProviderMock 
+        = Substitute.For<INodeProvider<Node>>();
+    
+    private readonly ICommandExecutor<Node> _commandExecutorMock 
+        = Substitute.For<ICommandExecutor<Node>>();
+    
+    private readonly INodeHealthChecker<Node> _healthCheckerMock 
+        = Substitute.For<INodeHealthChecker<Node>>();
 
     [TestInitialize]
     public void BeforeEachTest()
     {
-        _nodeProviderMock.Reset();
-        _commandExecutorMock.Reset();
-        _healthCheckerMock.Reset();
+        _nodeProviderMock.ClearSubstitute();
+        _commandExecutorMock.ClearSubstitute();
+        _healthCheckerMock.ClearSubstitute();
     }
     
     [TestMethod]
@@ -41,8 +39,7 @@ public class NodeLocatorMaintainerTests
         var nodeLocator = GetNodLocator();
         SetupMocks(false, nodesToProvide);
         
-        _healthCheckerMock.Setup(m => m.CheckNodeIsDeadAsync(It.IsAny<Node>()))
-            .ReturnsAsync(false);
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<Node>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -62,9 +59,8 @@ public class NodeLocatorMaintainerTests
         var nodesToProvide = Enumerable.Range(0, 5).Select(i => new Node()).ToList();
         var nodeLocator = GetNodLocator();
         SetupMocks(true, nodesToProvide);
-        
-        _healthCheckerMock.Setup(m => m.CheckNodeIsDeadAsync(It.IsAny<Node>()))
-            .ReturnsAsync(false);
+
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<Node>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -88,9 +84,8 @@ public class NodeLocatorMaintainerTests
         var nodesToProvide = Enumerable.Range(0, 5).Select(i => new Node()).ToList();
         var nodeLocator = GetNodLocator();
         SetupMocks(true, nodesToProvide);
-        
-        _healthCheckerMock.Setup(m => m.CheckNodeIsDeadAsync(It.IsAny<Node>()))
-            .ReturnsAsync(false);
+
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<Node>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -127,8 +122,7 @@ public class NodeLocatorMaintainerTests
         var nodeLocator = GetNodLocator();
         SetupMocks(true, nodesToProvide);
         
-        _healthCheckerMock.Setup(m => m.CheckNodeIsDeadAsync(It.IsAny<Node>()))
-            .ReturnsAsync(false);
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<Node>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -167,9 +161,9 @@ public class NodeLocatorMaintainerTests
         SetupMocks(true, nodesToProvide);
 
         var deadNode = nodesToProvide.First();
-        _healthCheckerMock.Setup(m => m.CheckNodeIsDeadAsync(deadNode))
-            .ReturnsAsync(true);
 
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Is(deadNode)).Returns(true);
+        
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
 
@@ -209,8 +203,9 @@ public class NodeLocatorMaintainerTests
         {
             nodesToProvide.First()
         };
-        _healthCheckerMock.Setup(m => m.CheckNodeIsDeadAsync(It.IsIn<Node>(deadNodes)))
-            .ReturnsAsync(true);
+
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Is<Node>(n => deadNodes.Contains(n)))
+            .Returns(true);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -260,12 +255,11 @@ public class NodeLocatorMaintainerTests
 
     private void SetupMocks(bool isConfigured, List<Node> nodesToProvide)
     {
-        _nodeProviderMock.Setup(m => m.GetNodes())
-            .Returns((() => nodesToProvide));
-        _nodeProviderMock.Setup(m => m.IsConfigured())
-            .Returns(isConfigured);
+        _nodeProviderMock.GetNodes().Returns(nodesToProvide);
         
-        _commandExecutorMock.Setup(m => m.GetSocketPoolsStatistics(It.IsAny<Node[]>()))
+        _nodeProviderMock.IsConfigured().Returns(isConfigured);
+
+        _commandExecutorMock.GetSocketPoolsStatistics(Arg.Any<Node[]>())
             .Returns(new Dictionary<Node, int>());
     }
 
@@ -286,10 +280,10 @@ public class NodeLocatorMaintainerTests
         });
         
         return new MemcachedMaintainer<Node>(
-            _nodeProviderMock.Object, 
+            _nodeProviderMock, 
             nodeLocator, 
-            _healthCheckerMock.Object, 
-            _commandExecutorMock.Object,
+            _healthCheckerMock, 
+            _commandExecutorMock,
             memcachedConfiguration, 
             logger);
     }

@@ -9,7 +9,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
+using NSubstitute;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
@@ -475,7 +475,8 @@ public class MemcachedClientTests
             }
         });
 
-        var loggerMock = new Mock<ILogger<CommandExecutor<Pod>>>();
+        var loggerMock = Substitute.For<ILogger<CommandExecutor<Pod>>>();
+        
         var config = new MemcachedConfiguration();
         var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
         
@@ -483,7 +484,7 @@ public class MemcachedClientTests
             nodeLocator, 
             new CommandExecutor<Pod>(
                 new OptionsWrapper<MemcachedConfiguration>(
-                    config), authProvider, loggerMock.Object));
+                    config), authProvider, loggerMock));
         
         var key = new string('*', 251);
         var value = Guid.NewGuid().ToString();
@@ -495,7 +496,16 @@ public class MemcachedClientTests
         getValue.Result.Should().BeNull();
         getValue.Success.Should().BeFalse();
         getValue.IsEmptyResult.Should().BeTrue();
-        loggerMock.Invocations.Count(i => i.Method.Name == nameof(LoggerExtensions.Log) && i.Arguments.First().ToString() == LogLevel.Error.ToString()).Should().Be(2);
+
+        loggerMock
+            .Received(2)
+            .Log(
+                Arg.Is(LogLevel.Error),
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                exception: Arg.Any<Exception>(),
+                formatter: Arg.Any<Func<object, Exception, string>>()
+            );
     }
     
     private async Task StoreAndGet_CheckType<T>()

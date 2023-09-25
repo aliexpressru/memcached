@@ -1,0 +1,9 @@
+version: "3"
+services:
+  memcached:
+    image: memcached
+    restart: always
+    container_name: memcached
+    command: ["-m", "128"]  
+    ports:  
+      - 11211:11211
