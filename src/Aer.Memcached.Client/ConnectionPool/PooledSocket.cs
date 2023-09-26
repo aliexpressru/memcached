@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.ConnectionPool;
@@ -110,8 +111,10 @@ public class PooledSocket : IDisposable
         if (available > 0)
         {
             _logger.LogWarning(
-                "Socket bound to {0} has {1} unread data! This is probably a bug in the code. InstanceID was {2}.",
-                _socket.RemoteEndPoint, available, InstanceId);
+                "Socket bound to {RemoteEndPoint} has {AvailableDataCount} unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
+                _socket.RemoteEndPoint.GetEndPointString(),
+                available,
+                InstanceId);
 
             byte[] data = ArrayPool<byte>.Shared.Rent(available);
 
@@ -147,10 +150,12 @@ public class PooledSocket : IDisposable
             }
             catch (Exception ex)
             {
-                if (ex is IOException || ex is SocketException)
+                if (ex is IOException or SocketException)
                 {
                     IsAlive = false;
                 }
+
+                _logger.LogError(ex, "An exception happened during socket read");
 
                 throw;
             }
@@ -166,20 +171,26 @@ public class PooledSocket : IDisposable
             var bytesTransferred = await _socket.SendAsync(buffers, SocketFlags.None);
             if (bytesTransferred <= 0)
             {
+                var endPointStr = _endpoint.GetEndPointString();
+                
                 IsAlive = false;
                 _logger.LogError(
-                    $"Failed to {nameof(WriteAsync)}. bytesTransferred: {bytesTransferred}");
-                throw new IOException($"Failed to write to the socket '{_endpoint}'.");
+                    "Failed to write data to the socket '{EndPoint}'. Bytes transferred until failure: {BytesTransferred}",
+                    endPointStr,
+                    bytesTransferred);
+                
+                throw new IOException($"Failed to write to the socket '{endPointStr}'.");
             }
         }
         catch (Exception ex)
         {
-            if (ex is IOException || ex is SocketException)
+            if (ex is IOException or SocketException)
             {
                 IsAlive = false;
             }
 
-            _logger.LogError(ex, nameof(WriteAsync));
+            _logger.LogError(ex, "An exception happened during socket write");
+            
             throw;
         }
     }
@@ -201,6 +212,7 @@ public class PooledSocket : IDisposable
         }
         catch
         {
+            // ignore
         }
     }
 
@@ -250,7 +262,7 @@ public class PooledSocket : IDisposable
                     ip.AddressFamily == AddressFamily.InterNetwork);
                 if (address == null)
                 {
-                    throw new ArgumentException($"Could not resolve host '{endpoint}'.");
+                    throw new ArgumentException($"Could not resolve host '{endpoint.GetEndPointString()}'.");
                 }
                 
                 return new IPEndPoint(address, dnsEndPoint.Port);
@@ -266,7 +278,7 @@ public class PooledSocket : IDisposable
     {
         if (_socket == null)
         {
-            throw new ObjectDisposedException("PooledSocket");
+            throw new ObjectDisposedException(nameof(PooledSocket));
         }
     }
 }

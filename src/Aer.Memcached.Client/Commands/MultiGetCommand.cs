@@ -12,7 +12,7 @@ internal class MultiGetCommand: MemcachedCommandBase
     
     // this field exists as an optimization for subsequent lists creation
     // this is here due to allocation optimization for batch split case. Batches are IEnumerable<string>.
-    // to not generate another collection in this case we simply pass keys count this command
+    // to not generate another collection in this case we simply pass keys count to this command
     private readonly int _keysCount;
     private Dictionary<int, string> _idToKey;
     private int _noopId;

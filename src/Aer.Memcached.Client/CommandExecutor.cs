@@ -15,6 +15,7 @@ namespace Aer.Memcached.Client;
 
 public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : class, INode
 {
+    private const int FURTHER_AUTHENTICATION_STEPS_REQUIRED_STATUS_CODE = 0x21;
     private static readonly NodeEqualityComparer<TNode> Comparer = new();
 
     private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
@@ -137,7 +138,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
 
     private async Task<PooledSocket> GetSocketAsync(TNode node, CancellationToken token)
     {
-        var socketPool = _socketPools.GetOrAdd(node, new SocketPool(node.GetEndpoint(), _config, _logger));
+        var socketPool = _socketPools.GetOrAdd(
+            node, 
+            static (n, args) =>
+                new SocketPool(n.GetEndpoint(), args.Config, args.Logger),
+            (Config: _config, Logger: _logger));
+        
         var pooledSocket = await socketPool.GetAsync(token);
 
         if (pooledSocket == null)
@@ -151,6 +157,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
 
         await AuthenticateAsync(pooledSocket);
+        
         return pooledSocket;
     }
 
@@ -165,9 +172,11 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             pooledSocket.Authenticated = true;
             return;
         }
-
-        if (startResult.StatusCode != 0x21) 
+        
+        if (startResult.StatusCode != FURTHER_AUTHENTICATION_STEPS_REQUIRED_STATUS_CODE) 
         {
+            // means that sasl start result is niether a success
+            // nor the one that indicates that additional steps required
             throw new AuthenticationException();
         }
         

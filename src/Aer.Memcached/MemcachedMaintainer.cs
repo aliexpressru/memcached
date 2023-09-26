@@ -51,18 +51,26 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
         if (!_nodeProvider.IsConfigured())
         {
-            _logger.LogWarning("Memcached is not configured");
+            _logger.LogWarning("Memcached is not configured. No maintenance will be performed");
 
             return Task.CompletedTask;
         }
+
+        _nodeRebuildingTimer = new Timer(
+            RebuildNodes,
+            null,
+            TimeSpan.Zero,
+            _config.MemcachedMaintainer.NodesRebuildingPeriod!.Value);
         
-        _nodeRebuildingTimer = new Timer(RebuildNodes, null, TimeSpan.Zero, _config.MemcachedMaintainer.NodesRebuildingPeriod!.Value);
         _logger.LogInformation($"{nameof(RebuildNodes)} task is running");
 
         if (_config.MemcachedMaintainer.NodeHealthCheckEnabled)
         {
-            _nodeHealthCheckTimer =
-                new Timer(CheckNodesHealth, null, TimeSpan.Zero, _config.MemcachedMaintainer.NodesHealthCheckPeriod!.Value);
+            _nodeHealthCheckTimer = new Timer(
+                    CheckNodesHealth,
+                    null,
+                    TimeSpan.Zero,
+                    _config.MemcachedMaintainer.NodesHealthCheckPeriod!.Value);
 
             _logger.LogInformation($"{nameof(CheckNodesHealth)} task is running");
         }
@@ -90,16 +98,20 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             var nodesToAdd = currentNodes.Except(nodesInLocator, Comparer).ToArray();
             var nodesToRemove = nodesInLocator.Except(currentNodes, Comparer).ToArray();
 
-            if (nodesToRemove.Any())
+            if (nodesToRemove.Length > 0)
             {
                 _nodeLocator.RemoveNodes(nodesToRemove);
-                _logger.LogInformation($"Removed nodes: {string.Join(";", nodesToRemove.Select(n => n.GetKey()))}");
+                _logger.LogInformation(
+                    "Removed nodes: [{RemovedNodes}]",
+                    nodesToRemove.Select(n => n.GetKey()));
             }
 
-            if (nodesToAdd.Any())
+            if (nodesToAdd.Length > 0)
             {
                 _nodeLocator.AddNodes(nodesToAdd);
-                _logger.LogInformation($"Added nodes: {string.Join(";", nodesToAdd.Select(n => n.GetKey()))}");
+                _logger.LogInformation(
+                    "Added nodes: [{AddedNodes}]",
+                    nodesToAdd.Select(n => n.GetKey()));
             }
 
             nodesInLocator = _nodeLocator.GetAllNodes();
@@ -107,7 +119,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
             {
                 _logger.LogInformation(
-                    $"Nodes in locator: {string.Join(";", nodesInLocator.Select(n => n.GetKey()))}");
+                    "Nodes in locator: [{NodesInLocator}]",
+                    nodesInLocator.Select(n => n.GetKey()));
             }
 
             // 1 socket per 15 seconds seems to be ok for now. We can tune this strategy if needed.
@@ -118,12 +131,13 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
             {
                 _logger.LogInformation(
-                    $"Created sockets statistics: {string.Join(";", socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"))}");
+                    "Created sockets statistics: [{SocketStatisctics}]",
+                    socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"));
             }
         }
         catch (Exception e)
         {
-            _logger.LogError(e, $"Error occured in {nameof(RebuildNodes)} task");
+            _logger.LogError(e, $"Error occured while rebuilding nodes");
         }
     }
 
@@ -132,21 +146,24 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         try
         {
             var currentNodes = _nodeProvider.GetNodes();
-            var recheckDeadNodesActionBlock = new ActionBlock<TNode>(node =>
-            {
-                if(!currentNodes.Contains(node, Comparer))
+
+            var recheckDeadNodesActionBlock = new ActionBlock<TNode>(
+                node =>
                 {
-                    return;
-                }
-            
-                if (CheckNodeIsDead(node))
+                    if (!currentNodes.Contains(node, Comparer))
+                    {
+                        return;
+                    }
+
+                    if (CheckNodeIsDead(node))
+                    {
+                        _deadNodes.Add(node);
+                    }
+                },
+                new ExecutionDataflowBlockOptions
                 {
-                    _deadNodes.Add(node);
-                }
-            }, new ExecutionDataflowBlockOptions
-            {
-                MaxDegreeOfParallelism = 16
-            });
+                    MaxDegreeOfParallelism = 16
+                });
 
             try
             {
@@ -168,22 +185,26 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
             var nodesInLocator = _nodeLocator.GetAllNodes();
             nodesInLocator = nodesInLocator.Except(_deadNodes, Comparer).ToArray();
-            Parallel.ForEach(nodesInLocator, new ParallelOptions{MaxDegreeOfParallelism = 16}, node =>
-            {
-                if (CheckNodeIsDead(node))
-                {
-                    _deadNodes.Add(node);
-                }
-            });
 
-            if (_deadNodes.Count() != 0)
+            Parallel.ForEach(
+                nodesInLocator,
+                new ParallelOptions {MaxDegreeOfParallelism = 16},
+                node =>
+                {
+                    if (CheckNodeIsDead(node))
+                    {
+                        _deadNodes.Add(node);
+                    }
+                });
+
+            if (!_deadNodes.IsEmpty)
             {
-                _logger.LogWarning($"Dead nodes: {string.Join(";", _deadNodes.Select(n => n.GetKey()))}");
+                _logger.LogWarning("Dead nodes: [{DeadNodes}]", _deadNodes.Select(n => n.GetKey()));
             }
         }
         catch (Exception e)
         {
-            _logger.LogError(e, $"Error occured in {nameof(CheckNodesHealth)} task");
+            _logger.LogError(e, "Error occured while checking nodes health");
         }
     }
 

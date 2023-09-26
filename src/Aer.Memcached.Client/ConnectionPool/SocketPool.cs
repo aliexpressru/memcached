@@ -1,12 +1,19 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Aer.Memcached.Client.Commands.Helpers;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.ConnectionPool;
 
 internal class SocketPool : IDisposable
 {
+    /// <summary>
+    /// A maximum number of attempts to create a socket before this SocketPool is considered poisoned.
+    /// </summary>
+    private const int MaximumFailedSocketCreationAttempts = 20;
+    
     private readonly EndPoint _endPoint;
     private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
     private readonly ILogger _logger;
@@ -14,15 +21,23 @@ internal class SocketPool : IDisposable
     private readonly SemaphoreSlim _semaphore;
     private readonly ConcurrentStack<PooledSocket> _availableSockets;
 
+    private int _failedSocketCreationAttemptsCount;
+    private bool _isEndPointBroken;
+    
     private bool _isDisposed;
     
     public int AvailableSocketsCount => _availableSockets.Count;
+
+    /// <summary>
+    /// Indicates that the underlying endpoint can't be reached continously for some time.
+    /// </summary>
+    public bool IsEndPointBroken => _isEndPointBroken; 
 
     public SocketPool(EndPoint endPoint, MemcachedConfiguration.SocketPoolConfiguration config, ILogger logger)
     {
         config.Validate();
 
-        _endPoint = endPoint;
+        _endPoint = endPoint ?? throw new ArgumentNullException(nameof(endPoint));
         _config = config;
         _logger = logger;
         _semaphore = new SemaphoreSlim(_config.MaxPoolSize, _config.MaxPoolSize);
@@ -41,18 +56,10 @@ internal class SocketPool : IDisposable
         {
             return null;
         }
-        
-        try
-        {
-            return await CreateSocketAsync(token);
-        }
-        catch (Exception e)
-        {
-            _semaphore.Release();
-            _logger.LogError("Failed to create socket. " + _endPoint, e);
 
-            return null;
-        }
+        var createdSocketOrNull = await CreateSocketAsync(token);
+
+        return createdSocketOrNull;
     }
 
     public async Task DestroyAvailableSocketAsync(CancellationToken token)
@@ -84,7 +91,7 @@ internal class SocketPool : IDisposable
 
         if (!await _semaphore.WaitAsync(_config.SocketPoolingTimeout, token))
         {
-            _logger.LogWarning("Pool is run out of sockets");
+            _logger.LogWarning("Pool ran out of sockets");
             return result;
         }
         
@@ -152,16 +159,42 @@ internal class SocketPool : IDisposable
         try
         {
             var socket = new PooledSocket(_endPoint, _config.ConnectionTimeout, _logger);
+            
             await socket.ConnectAsync(token);
+            
             socket.CleanupCallback = ReleaseSocket;
+
+            _failedSocketCreationAttemptsCount = 0;
             
             return socket;
         }
         catch (Exception ex)
         {
-            var endPointStr = _endPoint.ToString().Replace("Unspecified/", string.Empty);
-            _logger.LogError(ex, $"Failed to {nameof(CreateSocketAsync)} to {endPointStr}");
-            throw;
+            var endPointStr = _endPoint.GetEndPointString();
+
+            _logger.LogError(
+                ex,
+                "Failed to create socket to '{EndPoint}'. Attempt {AttemptNumber} / {MaxAttemptsNumber}",
+                endPointStr,
+                _failedSocketCreationAttemptsCount + 1, // +1 because we are reporting attempt number
+                MaximumFailedSocketCreationAttempts);
+            
+            if (_failedSocketCreationAttemptsCount > MaximumFailedSocketCreationAttempts)
+            {
+                _isEndPointBroken = true;
+                
+                _logger.LogError(
+                    ex,
+                    "Can't create socket to '{EndPoint}' {AttemptNumber} times in a row. Considering endpoint broken",
+                    endPointStr,
+                    _failedSocketCreationAttemptsCount);
+            }
+
+            _failedSocketCreationAttemptsCount++;
+            
+            _semaphore.Release();
+
+            return null;
         }
     }
 
@@ -173,6 +206,7 @@ internal class SocketPool : IDisposable
         }
         catch
         {
+            // ignore
         }
     }
 
@@ -192,6 +226,7 @@ internal class SocketPool : IDisposable
             }
             catch
             {
+                // ignore
             }
         }
 
