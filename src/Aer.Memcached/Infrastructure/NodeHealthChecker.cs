@@ -1,11 +1,11 @@
-using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.ConnectionPool;
 using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aer.Memcached;
+namespace Aer.Memcached.Infrastructure;
 
 internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode: class, INode
 {

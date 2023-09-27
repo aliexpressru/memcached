@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
@@ -7,6 +8,7 @@ using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Diagnostics;
 using Aer.Memcached.Diagnostics.Listeners;
+using Aer.Memcached.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +21,10 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        if (services == null) throw new ArgumentNullException(nameof(services));
+        if (services == null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
 
         services.Configure<MemcachedConfiguration>(configuration.GetSection(nameof(MemcachedConfiguration)));
         services.AddSingleton<IHashCalculator, HashCalculator>();

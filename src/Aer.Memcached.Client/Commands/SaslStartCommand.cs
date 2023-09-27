@@ -1,9 +1,10 @@
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
+using Aer.Memcached.Client.Commands.Infrastructure;
 
 namespace Aer.Memcached.Client.Commands;
 
-public class SaslStartCommand: SaslCommandBase
+internal class SaslStartCommand: SaslCommandBase
 {
     private readonly byte[] _authData;
 
@@ -11,8 +12,8 @@ public class SaslStartCommand: SaslCommandBase
     {
         _authData = authData;
     }
-    
-    public override IList<ArraySegment<byte>> GetBuffer()
+
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         var request = new BinaryRequest(OpCode)
         {

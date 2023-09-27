@@ -3,6 +3,7 @@ using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
 using Aer.Memcached.Client.Commands.Helpers;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 using Aer.Memcached.Client.Models;
 
@@ -22,8 +23,8 @@ internal class MultiStoreCommand: MemcachedCommandBase
         _keyValues = keyValues;
         _expires = expires;
     }
-    
-    public override IList<ArraySegment<byte>> GetBuffer()
+
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         if (_keyValues == null || _keyValues.Count == 0)
         {
@@ -49,7 +50,7 @@ internal class MultiStoreCommand: MemcachedCommandBase
         return buffers;
     }
 
-    public override CommandResult ReadResponse(PooledSocket socket)
+    protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
         var result = new CommandResult();
 

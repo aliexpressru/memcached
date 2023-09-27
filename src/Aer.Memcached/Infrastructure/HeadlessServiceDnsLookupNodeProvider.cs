@@ -2,7 +2,7 @@ using System.Net;
 using Aer.Memcached.Client.Config;
 using Microsoft.Extensions.Options;
 
-namespace Aer.Memcached;
+namespace Aer.Memcached.Infrastructure;
 
 internal class HeadlessServiceDnsLookupNodeProvider : INodeProvider<Pod>
 {

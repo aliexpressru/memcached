@@ -1,4 +1,4 @@
-namespace Aer.ConsistentHash;
+namespace Aer.ConsistentHash.Abstractions;
 
 public interface IHashCalculator
 {

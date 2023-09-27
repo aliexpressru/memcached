@@ -1,14 +1,18 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using MoreLinq.Extensions;
 
 namespace Aer.Memcached.Client;
 
+[SuppressMessage("ReSharper", "ConvertToUsingDeclaration", Justification = "We need to explicitly control when the command gets disposed")]
 public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INode
 {
     private readonly INodeLocator<TNode> _nodeLocator;
@@ -142,9 +146,11 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         BatchingOptions batchingOptions = null,
         uint replicationFactor = 0)
     {
-        var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
+        var nodes = _nodeLocator.GetReplicatedNodes(keys, replicationFactor);
+        
         if (nodes.Keys.Count == 0)
         {
+            // means no nodes for specified keys found
             return new Dictionary<string, T>();
         }
 
@@ -156,6 +162,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         var getTasks = new List<Task>(nodes.Count);
         var taskToCommands = new List<(Task<CommandExecutionResult> task, MultiGetCommand command)>(nodes.Count);
         var commandsToDispose = new List<MemcachedCommandBase>(nodes.Count);
+
         foreach (var (node, keysToGet) in nodes)
         {
             var command = new MultiGetCommand(keysToGet, keysToGet.Count);
@@ -177,10 +184,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 continue;
             }
 
-            foreach (var item in taskToCommand.command.Result)
+            foreach (var readItem in taskToCommand.command.Result)
             {
-                var key = item.Key;
-                var cacheItem = item.Value;
+                var key = readItem.Key;
+                var cacheItem = readItem.Value;
 
                 if (!result.ContainsKey(key))
                 {
@@ -267,6 +274,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         var expiration = GetExpiration(expirationTime);
 
+        // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
         using (var command = new IncrCommand(key, amountToAdd, initialValue, expiration))
         {
             var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
@@ -375,7 +383,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     }
 
     private async Task<IDictionary<string, T>> MultiGetBatchedInternalAsync<T>(
-        IDictionary<TNode, ConcurrentBag<string>> nodes,
+        IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         BatchingOptions batchingOptions,
         CancellationToken token)
     {
@@ -401,7 +409,6 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
                 foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
                 {
-                    // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
                     using (var command = new MultiGetCommand(keysBatch, batchingOptions.BatchSize))
                     {
                         var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(
@@ -451,7 +458,6 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
                 foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
                 {
-                    // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
                     using (var command = new MultiDeleteCommand(keysBatch, batchingOptions.BatchSize))
                     {
                         await _commandExecutor.ExecuteCommandAsync(

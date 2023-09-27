@@ -1,6 +1,8 @@
 using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
+using Aer.Memcached.Infrastructure;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

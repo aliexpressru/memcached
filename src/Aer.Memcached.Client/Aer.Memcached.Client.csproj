@@ -27,5 +27,8 @@
         <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
             <_Parameter1>Aer.ConsistentHash.Benchmarks</_Parameter1>
         </AssemblyAttribute>
+        <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+            <_Parameter1>Aer.Memcached.Tests</_Parameter1>
+        </AssemblyAttribute>
     </ItemGroup>
 </Project>

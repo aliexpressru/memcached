@@ -22,7 +22,7 @@ public class MemcachedClientTests
     private readonly MemcachedClient<Pod> _client;
     private readonly Fixture _fixture;
 
-    private const int ExpirationInSeconds = 10;
+    private const int ExpirationInSeconds = 3;
 
     public MemcachedClientTests()
     {
@@ -42,23 +42,27 @@ public class MemcachedClientTests
         var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
         _client = new MemcachedClient<Pod>(
-            nodeLocator, 
+            nodeLocator,
             new CommandExecutor<Pod>(
-                new OptionsWrapper<MemcachedConfiguration>(
-                    config), authProvider, commandExecutorLogger));
+                new OptionsWrapper<MemcachedConfiguration>(config),
+                authProvider,
+                commandExecutorLogger,
+                nodeLocator)
+        );
         
         _fixture = new Fixture();
-        
-        BinaryConverterConfigurator.SetSerializer(JsonSerializer.Create(new JsonSerializerSettings
-        {
-            Converters = new List<JsonConverter>(new[] { new StringEnumConverter() }),
-            NullValueHandling = NullValueHandling.Ignore,
-            ContractResolver = new DefaultContractResolver
+
+        Client.Commands.Infrastructure.BinaryConverter.Serializer = JsonSerializer.Create(
+            new JsonSerializerSettings
             {
-                NamingStrategy = new SnakeCaseNamingStrategy()
-            },
-            ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-        }));
+                Converters = new List<JsonConverter>(new[] {new StringEnumConverter()}),
+                NullValueHandling = NullValueHandling.Ignore,
+                ContractResolver = new DefaultContractResolver
+                {
+                    NamingStrategy = new SnakeCaseNamingStrategy()
+                },
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+            }); 
     }
 
     [TestMethod]
@@ -479,12 +483,15 @@ public class MemcachedClientTests
         
         var config = new MemcachedConfiguration();
         var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
-        
+
         var client = new MemcachedClient<Pod>(
-            nodeLocator, 
+            nodeLocator,
             new CommandExecutor<Pod>(
-                new OptionsWrapper<MemcachedConfiguration>(
-                    config), authProvider, loggerMock));
+                new OptionsWrapper<MemcachedConfiguration>(config),
+                authProvider,
+                loggerMock,
+                nodeLocator)
+        );
         
         var key = new string('*', 251);
         var value = Guid.NewGuid().ToString();

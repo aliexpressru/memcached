@@ -1,9 +1,9 @@
 using System.Buffers;
 using Aer.Memcached.Client.ConnectionPool;
 
-namespace Aer.Memcached.Client.Commands;
+namespace Aer.Memcached.Client.Commands.Infrastructure;
 
-public class BinaryResponse: IDisposable
+internal class BinaryResponse: IDisposable
 {
     private const byte MagicValue = 0x81;
     private const int HeaderLength = 24;
@@ -23,7 +23,7 @@ public class BinaryResponse: IDisposable
 
     private readonly Queue<byte[]> _rentedBufferForData = new();
     
-    public int StatusCode { get; private set; }
+    public int StatusCode { get; private set; } = -1;
 
     public int CorrelationId { get; private set; }
     
@@ -38,11 +38,6 @@ public class BinaryResponse: IDisposable
     public int KeyLength { get; private set; }
     
     public byte DataType { get; private set; }
-
-    public BinaryResponse()
-    {
-        StatusCode = -1;
-    }
 
     public bool Read(PooledSocket socket)
     {

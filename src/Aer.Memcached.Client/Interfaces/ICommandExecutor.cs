@@ -1,4 +1,5 @@
 using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Models;
 
@@ -15,6 +16,19 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     /// <returns>Command execution result</returns>
     Task<CommandExecutionResult> ExecuteCommandAsync(
         TNode node, 
+        MemcachedCommandBase command,
+        CancellationToken token);
+
+    /// <summary>
+    /// Executes command on a replicated node. Executes commands on all replicas in parallel.
+    /// If any replica command succeeds - returns successfull result.
+    /// </summary>
+    /// <param name="node">A replicated node to execute a command on</param>
+    /// <param name="command">Command to execute</param>
+    /// <param name="token">Cancellation token</param>
+    /// <returns>Command execution result</returns>
+    Task<CommandExecutionResult> ExecuteCommandAsync(
+        ReplicatedNode<TNode> node,
         MemcachedCommandBase command,
         CancellationToken token);
 

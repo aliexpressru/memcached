@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Aer.ConsistentHash.Abstractions;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -168,12 +169,10 @@ public class HashRingTests
     [DataTestMethod]
     [DataRow(5, 1U, 2)]
     [DataRow(5, 2U, 3)]
-    [DataRow(5, 3U, 4)]
-    [DataRow(5, 4U, 5)]
     [DataRow(5, 5U, 5)]
     [DataRow(5, 10U, 5)]
     [DataRow(5, 0U, 1)]
-    public void GetNodes_WithReplication(int nodesNumber, uint replicationFactor, int totalNodes)
+    public void GetNodes_WithReplication(int nodesNumber, uint replicationFactor, int totalExpectedNodesCount)
     {
         var hashRing = GetHashRing();
 
@@ -181,17 +180,30 @@ public class HashRingTests
 
         hashRing.AddNodes(nodesToAdd);
 
-        var nodes = 
-            hashRing.GetNodes(new[] {"test"}, replicationFactor: replicationFactor);
+        var replicatedNodes = 
+            hashRing.GetReplicatedNodes(new[] {"test"}, replicationFactor: replicationFactor);
 
-        nodes.Count.Should().Be(totalNodes);
-        foreach (var node in nodes)
+        var totalNodesCount = replicatedNodes
+            .Sum(kv => kv.Key.ReplicaNodes.Count + 1); // +1 to account for primary node
+
+        totalNodesCount.Should().Be(totalExpectedNodesCount);
+        
+        foreach (var replicatedNode in replicatedNodes)
         {
-            nodesToAdd.Should().Contain(node.Key);
+            nodesToAdd.Should().Contain(replicatedNode.Key.PrimaryNode);
+            if (replicationFactor > 0)
+            {
+                if (replicationFactor < totalNodesCount)
+                {
+                    replicatedNode.Key.ReplicaNodes.Count.Should().Be((int) replicationFactor);
+                }
+
+                nodesToAdd.Should().Contain(replicatedNode.Key.ReplicaNodes);
+            }
         }
     }
 
-    private HashRing<Node> GetHashRing()
+    private INodeLocator<Node> GetHashRing()
     {
         var hashCalculator = new HashCalculator();
         

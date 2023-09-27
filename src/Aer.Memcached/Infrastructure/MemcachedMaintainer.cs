@@ -1,13 +1,14 @@
 using System.Collections.Concurrent;
 using System.Threading.Tasks.Dataflow;
-using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
+using Aer.ConsistentHash.Infrastructure;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aer.Memcached;
+namespace Aer.Memcached.Infrastructure;
 
 internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TNode : class, INode
 {

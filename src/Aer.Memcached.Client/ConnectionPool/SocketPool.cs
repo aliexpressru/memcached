@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net;
-using Aer.Memcached.Client.Commands.Helpers;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;

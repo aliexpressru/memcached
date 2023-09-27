@@ -7,9 +7,9 @@ using Newtonsoft.Json.Bson;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 
-namespace Aer.Memcached.Client.Commands;
+namespace Aer.Memcached.Client.Commands.Infrastructure;
 
-public static class BinaryConverter
+internal static class BinaryConverter
 {
     private const uint RawDataFlag = 0xfa52;
     private const uint TypeCodeSerializationMask = 0x0100;

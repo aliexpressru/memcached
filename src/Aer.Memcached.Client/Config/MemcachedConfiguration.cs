@@ -1,4 +1,4 @@
-using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 
 namespace Aer.Memcached.Client.Config;
 

@@ -1,17 +1,12 @@
 using System.Net;
-using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 
 namespace Aer.Memcached.Tests;
 
 public class Node: INode
 {
-    private readonly string _key;
+    private readonly string _key = Guid.NewGuid().ToString();
 
-    public Node()
-    {
-        _key = Guid.NewGuid().ToString();
-    }
-    
     public string GetKey()
     {
         return _key;
@@ -34,9 +29,20 @@ public class Node: INode
 
     public override bool Equals(object obj)
     {
-        if (ReferenceEquals(null, obj)) return false;
-        if (ReferenceEquals(this, obj)) return true;
-        if (obj.GetType() != this.GetType()) return false;
+        if (ReferenceEquals(null, obj))
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, obj))
+        {
+            return true;
+        }
+
+        if (obj.GetType() != this.GetType())
+        {
+            return false;
+        }
 
         return Equals((Node)obj);
     }

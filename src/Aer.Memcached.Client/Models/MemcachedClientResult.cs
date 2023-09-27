@@ -1,5 +1,3 @@
-using Aer.Memcached.Client.Interfaces;
-
 namespace Aer.Memcached.Client.Models;
 
 public class MemcachedClientResult

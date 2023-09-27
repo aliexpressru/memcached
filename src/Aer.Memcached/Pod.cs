@@ -1,5 +1,5 @@
 using System.Net;
-using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 
 namespace Aer.Memcached;
 
@@ -31,9 +31,20 @@ public class Pod: INode
 
     public override bool Equals(object obj)
     {
-        if (ReferenceEquals(null, obj)) return false;
-        if (ReferenceEquals(this, obj)) return true;
-        if (obj.GetType() != this.GetType()) return false;
+        if (ReferenceEquals(null, obj))
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, obj))
+        {
+            return true;
+        }
+
+        if (obj.GetType() != this.GetType())
+        {
+            return false;
+        }
 
         return Equals((Pod)obj);
     }

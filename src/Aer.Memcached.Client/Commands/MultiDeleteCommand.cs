@@ -1,6 +1,7 @@
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 
 namespace Aer.Memcached.Client.Commands;
@@ -21,7 +22,7 @@ internal class MultiDeleteCommand: MemcachedCommandBase
         _keysCount = keysCount;
     }
 
-    public override IList<ArraySegment<byte>> GetBuffer()
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         var keys = _keys;
         
@@ -48,7 +49,7 @@ internal class MultiDeleteCommand: MemcachedCommandBase
         return buffers;
     }
 
-    public override CommandResult ReadResponse(PooledSocket socket)
+    protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
         var result = new CommandResult();
 

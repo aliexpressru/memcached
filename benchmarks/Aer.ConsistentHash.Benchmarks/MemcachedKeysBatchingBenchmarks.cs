@@ -2,6 +2,7 @@
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
@@ -52,7 +53,8 @@ public class MemcachedKeysBatchingBenchmarks
 		_commandExecutor = new CommandExecutor<Node>(
 			new OptionsWrapper<MemcachedConfiguration>(config),
 			authProvider,
-			commandExecutorLogger);
+			commandExecutorLogger,
+			_nodeLocator);
 		
 		_memcachedClient = new MemcachedClient<Node>(_nodeLocator, _commandExecutor);
 
@@ -120,7 +122,7 @@ public class MemcachedKeysBatchingBenchmarks
 				MaxDegreeOfParallelism = Environment.ProcessorCount
 			},
 			async (keysBatch, _) => {
-				await MultiGetParallelTasksAsync<string>(keysBatch, ONE_COMMAND_AUTO_BATCH_SIZE);	
+				var __ = await MultiGetParallelTasksAsync<string>(keysBatch, ONE_COMMAND_AUTO_BATCH_SIZE);	
 			});
 	}
 

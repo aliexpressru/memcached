@@ -1,6 +1,7 @@
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 using Aer.Memcached.Client.Models;
 
@@ -28,7 +29,7 @@ internal class MultiGetCommand: MemcachedCommandBase
         _keysCount = keysCount;
     }
 
-    public override IList<ArraySegment<byte>> GetBuffer()
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         var keys = _keys;
         
@@ -62,7 +63,7 @@ internal class MultiGetCommand: MemcachedCommandBase
         return buffers;
     }
 
-    public override CommandResult ReadResponse(PooledSocket socket)
+    protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
         Result = new Dictionary<string, CacheItemResult>();
         _casValues = new Dictionary<string, ulong>();
@@ -96,6 +97,23 @@ internal class MultiGetCommand: MemcachedCommandBase
 
         // finished reading but we did not find the NOOP
         return result.Fail("Failed to find the end of operations");
+    }
+
+    protected override MultiGetCommand CloneCore()
+    {
+        return new MultiGetCommand(_keys, _keysCount);
+    }
+
+    protected override void SetResultFromCore(MemcachedCommandBase source)
+    {
+        if (source is not MultiGetCommand mgc)
+        {
+            throw new InvalidOperationException($"Can't set result of {GetType()} from {source.GetType()}");
+        }
+
+        Result = mgc.Result;
+        StatusCode = mgc.StatusCode;
+        _casValues = mgc._casValues;
     }
     
     private BinaryRequest Build(string key)

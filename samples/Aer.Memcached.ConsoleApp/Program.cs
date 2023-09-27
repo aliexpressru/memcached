@@ -23,8 +23,12 @@ var config = new MemcachedConfiguration();
 var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
 var client = new MemcachedClient<Pod>(
-    nodeLocator, 
-    new CommandExecutor<Pod>(new OptionsWrapper<MemcachedConfiguration>(config), authProvider, commandExecutorLogger));
+    nodeLocator,
+    new CommandExecutor<Pod>(
+        new OptionsWrapper<MemcachedConfiguration>(config),
+        authProvider,
+        commandExecutorLogger,
+        nodeLocator));
 
 try
 {

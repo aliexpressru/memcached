@@ -1,6 +1,6 @@
 using Aer.Memcached.Client.Commands.Enums;
 
-namespace Aer.Memcached.Client.Commands;
+namespace Aer.Memcached.Client.Commands.Infrastructure;
 
 internal class BinaryRequest
 {
