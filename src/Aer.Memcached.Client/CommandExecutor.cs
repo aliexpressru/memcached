@@ -38,6 +38,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         _socketPools = new ConcurrentDictionary<TNode, SocketPool>(new NodeEqualityComparer<TNode>());
     }
 
+    /// <inheritdoc/>
     public async Task<CommandExecutionResult> ExecuteCommandAsync(
         ReplicatedNode<TNode> node,
         MemcachedCommandBase command,
@@ -123,12 +124,6 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
     }
 
-    /// <summary>
-    /// Executes command on replicated node's primary and replicas. Gets the first successfull result from any of the nodes.
-    /// </summary>
-    /// <param name="replicatedNode">The replicated node to execute command on.</param>
-    /// <param name="command">The command to execute on primary node and replica nodes.</param>
-    /// <param name="token">The cancellation token.</param>
     private async Task<CommandExecutionResult> ExecuteCommandInternalAsync(
         ReplicatedNode<TNode> replicatedNode,
         MemcachedCommandBase command,

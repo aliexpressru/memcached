@@ -18,10 +18,10 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
         TNode node, 
         MemcachedCommandBase command,
         CancellationToken token);
-
+    
     /// <summary>
     /// Executes command on a replicated node. Executes commands on all replicas in parallel.
-    /// If any replica command succeeds - returns successfull result.
+    /// If any of the primary and replicas command succeeds - returns successfull result from that node
     /// </summary>
     /// <param name="node">A replicated node to execute a command on</param>
     /// <param name="command">Command to execute</param>
@@ -46,7 +46,7 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     IDictionary<TNode, int> GetSocketPoolsStatistics(TNode[] nodes);
 
     /// <summary>
-    /// Destroys available sockets from socket pool
+    /// Destroys available sockets from socket pool.
     /// Allows to release some connections if workload is changed
     /// </summary>
     /// <param name="numberOfSocketsToDestroy">Number of sockets to destroy</param>
