@@ -375,9 +375,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
                     }
 
-                    using var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration);
-
-                    await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
+                    using (var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration))
+                    {
+                        await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
+                    }
                 }
             });
     }

@@ -62,6 +62,11 @@ public abstract class MemcachedCommandBase: IDisposable
         throw new NotSupportedException($"{nameof(SetResultFrom)} method is not supported for command of type {GetType()}");
     }
 
+    public override string ToString()
+    {
+        return OpCode.ToString();
+    }
+
     public void Dispose()
     {
         Response?.Dispose();

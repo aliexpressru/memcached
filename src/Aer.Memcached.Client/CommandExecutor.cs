@@ -55,7 +55,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Fatal error occured during replicated node command execution");
+            _logger.LogError(e, "Fatal error occured during replicated node command '{Command}' execution", command.ToString());
 
             return CommandExecutionResult.Unsuccessful;
         }
@@ -79,7 +79,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Fatal error occured during node command execution");
+            _logger.LogError(e, "Fatal error occured during node command '{Command}' execution", command.ToString());
 
             return CommandExecutionResult.Unsuccessful;
         }
@@ -184,7 +184,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error occured during command execution");
+            _logger.LogError(e, "Error occured during command '{Command}' execution", command.ToString());
 
             return CommandExecutionResult.Unsuccessful;
         }
@@ -227,7 +227,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error occured during command execution");
+            _logger.LogError(e, "Error occured during command '{Command}' execution", command.ToString());
 
             return CommandExecutionResult.Unsuccessful;
         }
