@@ -53,14 +53,14 @@ internal class MultiDeleteCommand: MemcachedCommandBase
     {
         var result = new CommandResult();
 
-        Response = new BinaryResponse();
+        ResponseReader = new BinaryResponseReader();
 
-        while (Response.Read(socket))
+        while (ResponseReader.Read(socket))
         {
-            StatusCode = Response.StatusCode;
+            StatusCode = ResponseReader.StatusCode;
 
             // found the noop, quit
-            if (Response.CorrelationId == _noopId)
+            if (ResponseReader.CorrelationId == _noopId)
             {
                 return result.Pass();
             }

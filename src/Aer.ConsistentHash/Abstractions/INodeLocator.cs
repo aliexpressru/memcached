@@ -20,6 +20,8 @@ public interface INodeLocator<TNode>
 
     void AddNodes(IEnumerable<TNode> nodes);
 
+    void AddNodes(params TNode[] nodes);
+
     void RemoveNode(TNode node);
 
     void RemoveNodes(IEnumerable<TNode> nodes);

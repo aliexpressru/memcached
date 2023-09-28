@@ -16,7 +16,7 @@ internal abstract class SingleItemCommandBase: MemcachedCommandBase
         Key = key;
     }
     
-    protected abstract CommandResult ProcessResponse(BinaryResponse response);
+    protected abstract CommandResult ProcessResponse(BinaryResponseReader responseReader);
 
     protected abstract BinaryRequest Build(string key);
 
@@ -27,11 +27,11 @@ internal abstract class SingleItemCommandBase: MemcachedCommandBase
 
     protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
-        Response = new BinaryResponse();
-        var success = Response.Read(socket);
+        ResponseReader = new BinaryResponseReader();
+        var success = ResponseReader.Read(socket);
 
-        CasValue = Response.Cas;
-        StatusCode = Response.StatusCode;
+        CasValue = ResponseReader.Cas;
+        StatusCode = ResponseReader.StatusCode;
 
         var result = new CommandResult
         {
@@ -41,7 +41,7 @@ internal abstract class SingleItemCommandBase: MemcachedCommandBase
         };
 
         CommandResult responseResult;
-        if (!(responseResult = ProcessResponse(Response)).Success)
+        if (!(responseResult = ProcessResponse(ResponseReader)).Success)
         {
             result.InnerResult = responseResult;
             responseResult.Combine(result);

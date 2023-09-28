@@ -176,11 +176,14 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         await Task.WhenAll(getTasks);
 
         var result = new Dictionary<string, T>();
+        
         foreach (var taskToCommand in taskToCommands)
         {
             var taskResult = await taskToCommand.task;
-            if (!taskResult.Success)
+            
+            if (!taskResult.Success || taskToCommand.command.Result is null or {Count: 0})
             {
+                // skip results that are not successfull reads or empty  
                 continue;
             }
 
@@ -189,10 +192,9 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 var key = readItem.Key;
                 var cacheItem = readItem.Value;
 
-                if (!result.ContainsKey(key))
-                {
-                    result[key] = BinaryConverter.Deserialize<T>(cacheItem).Result;
-                }
+                var cachedValue = BinaryConverter.Deserialize<T>(cacheItem).Result;
+
+                result.TryAdd(key, cachedValue);
             }
         }
 
@@ -394,7 +396,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0. Please check BatchingOptions documentation");
         }
         
-        var ret = new ConcurrentDictionary<string, T>();
+        var result = new ConcurrentDictionary<string, T>();
 
         await Parallel.ForEachAsync(
             nodes,
@@ -408,7 +410,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 var node = nodeWithKeys.Key;
                 var keysToGet = nodeWithKeys.Value;
 
-                foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
+                foreach (var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
                 {
                     using (var command = new MultiGetCommand(keysBatch, batchingOptions.BatchSize))
                     {
@@ -417,21 +419,25 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                             command,
                             cancellationToken);
 
-                        if (commandExecutionResult.Success)
+                        if (!commandExecutionResult.Success)
                         {
-                            foreach (var item in command.Result)
-                            {
-                                var key = item.Key;
-                                var cachedValue = BinaryConverter.Deserialize<T>(item.Value).Result;
+                            continue;
+                        }
 
-                                ret.TryAdd(key, cachedValue);
-                            }
+                        foreach (var readItem in command.Result)
+                        {
+                            var key = readItem.Key;
+                            var cacheItem = readItem.Value;
+
+                            var cachedValue = BinaryConverter.Deserialize<T>(cacheItem).Result;
+
+                            result.TryAdd(key, cachedValue);
                         }
                     }
                 }
             });
 
-        return ret;
+        return result;
     }
 
     private async Task MultiDeleteBatchedInternalAsync(

@@ -23,21 +23,21 @@ internal class DeleteCommand: SingleItemCommandBase
         return request;
     }
 
-    protected override CommandResult ProcessResponse(BinaryResponse response)
+    protected override CommandResult ProcessResponse(BinaryResponseReader responseReader)
     {
-        var status = response.StatusCode;
+        var status = responseReader.StatusCode;
         var result = new CommandResult();
 
         StatusCode = status;
 
-        if (status == BinaryResponse.SuccessfulResponseCode)
+        if (status == BinaryResponseReader.SuccessfulResponseCode)
         {
             return result.Pass();
         }
 
         CasValue = 0;
 
-        var message = ResultHelper.ProcessResponseData(response.Data);
+        var message = ResultHelper.ProcessResponseData(responseReader.Data);
         return result.Fail(message);
     }
 }

@@ -46,17 +46,17 @@ internal class StoreCommand: SingleItemCommandBase
         }
     }
 
-    protected override CommandResult ProcessResponse(BinaryResponse response)
+    protected override CommandResult ProcessResponse(BinaryResponseReader responseReader)
     {
         var result = new CommandResult();
 
-        StatusCode = response.StatusCode;
-        if (response.StatusCode == BinaryResponse.SuccessfulResponseCode)
+        StatusCode = responseReader.StatusCode;
+        if (responseReader.StatusCode == BinaryResponseReader.SuccessfulResponseCode)
         {
             return result.Pass();
         }
 
-        var message = ResultHelper.ProcessResponseData(response.Data);
+        var message = ResultHelper.ProcessResponseData(responseReader.Data);
         return result.Fail(message);
     }
 }

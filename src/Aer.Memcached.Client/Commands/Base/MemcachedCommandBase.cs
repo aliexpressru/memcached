@@ -6,7 +6,7 @@ namespace Aer.Memcached.Client.Commands.Base;
 
 public abstract class MemcachedCommandBase: IDisposable
 {
-    internal BinaryResponse Response { get; set; }
+    internal BinaryResponseReader ResponseReader { get; set; }
 
     protected int StatusCode { get; set; }
 
@@ -46,20 +46,23 @@ public abstract class MemcachedCommandBase: IDisposable
         throw new NotSupportedException($"{nameof(Clone)} method is not supported for command of type {GetType()}.");
     }
 
-    public void SetResultFrom(MemcachedCommandBase source)
+    public bool TrySetResultFrom(MemcachedCommandBase source)
     {
-        if (!WasResponseRead)
+        if (!source.WasResponseRead)
         {
             throw new InvalidOperationException(
                 $"Can't set result from {source.GetType()}, the command was not executed yet.");
         }
 
-        SetResultFromCore(source);
+        // the result is not set if source result is null
+        var wasResultSuccessfullySet = TrySetResultFromCore(source);
+
+        return wasResultSuccessfullySet;
     }
 
-    protected virtual void SetResultFromCore(MemcachedCommandBase source)
+    protected virtual bool TrySetResultFromCore(MemcachedCommandBase source)
     {
-        throw new NotSupportedException($"{nameof(SetResultFrom)} method is not supported for command of type {GetType()}");
+        throw new NotSupportedException($"{nameof(TrySetResultFrom)} method is not supported for command of type {GetType()}");
     }
 
     public override string ToString()
@@ -69,6 +72,7 @@ public abstract class MemcachedCommandBase: IDisposable
 
     public void Dispose()
     {
-        Response?.Dispose();
+        // dispose of response reader to return all underlying rented buffers
+        ResponseReader?.Dispose();
     }
 }

@@ -13,21 +13,21 @@ internal class FlushCommand: MemcachedCommandBase
     
     protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
-        Response = new BinaryResponse();
-        var success = Response.Read(socket);
+        ResponseReader = new BinaryResponseReader();
+        var success = ResponseReader.Read(socket);
         if (success)
         {
             return new CommandResult
             {
                 Success = true,
-                StatusCode = BinaryResponse.SuccessfulResponseCode
+                StatusCode = BinaryResponseReader.SuccessfulResponseCode
             };
         }
 
         return new CommandResult
         {
             Success = false,
-            StatusCode = BinaryResponse.UnsuccessfulResponseCode,
+            StatusCode = BinaryResponseReader.UnsuccessfulResponseCode,
         };
     }
 

@@ -66,37 +66,43 @@ internal class MultiGetCommand: MemcachedCommandBase
     protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
         Result = new Dictionary<string, CacheItemResult>();
+        
         _casValues = new Dictionary<string, ulong>();
+        
         var result = new CommandResult();
 
-        Response = new BinaryResponse();
-
-        while (Response.Read(socket))
+        ResponseReader = new BinaryResponseReader();
+        
+        // Response.Read returns False if underlying socket is considered to be dead.
+        // And since we are reusing the same socket for each retry - socket state
+        // does not change thus leading to infinite retry with unchanging result
+        // consequently leading to a timeout on read
+        while (ResponseReader.Read(socket))
         {
-            StatusCode = Response.StatusCode;
+            StatusCode = ResponseReader.StatusCode;
 
             // found the noop, quit
-            if (Response.CorrelationId == _noopId)
+            if (ResponseReader.CorrelationId == _noopId)
             {
                 return result.Pass();
             }
 
             // find the key to the response
-            if (!_idToKey.TryGetValue(Response.CorrelationId, out var key))
+            if (!_idToKey.TryGetValue(ResponseReader.CorrelationId, out var key))
             {
                 // we're not supposed to get here tho
                 throw new InvalidOperationException();
             }
             
             // deserialize the response
-            int flags = BinaryConverter.DecodeInt32(Response.Extra, 0);
+            int flags = BinaryConverter.DecodeInt32(ResponseReader.Extra, 0);
 
-            Result[key] = new CacheItemResult((ushort)flags, Response.Data);
-            _casValues[key] = Response.Cas;
+            Result[key] = new CacheItemResult((ushort)flags, ResponseReader.Data);
+            _casValues[key] = ResponseReader.Cas;
         }
 
         // finished reading but we did not find the NOOP
-        return result.Fail("Failed to find the end of operations");
+        return result.Fail("Failed to find the end of operation marker");
     }
 
     protected override MultiGetCommand CloneCore()
@@ -104,16 +110,34 @@ internal class MultiGetCommand: MemcachedCommandBase
         return new MultiGetCommand(_keys, _keysCount);
     }
 
-    protected override void SetResultFromCore(MemcachedCommandBase source)
+    protected override bool TrySetResultFromCore(MemcachedCommandBase source)
     {
         if (source is not MultiGetCommand mgc)
         {
             throw new InvalidOperationException($"Can't set result of {GetType()} from {source.GetType()}");
         }
 
-        Result = mgc.Result;
+        if (mgc.Result is null or {Count: 0})
+        {
+            // can't set result - source result is null
+            return false;
+        }
+
+        // since the source command will be disposed of along with its ResponseReader
+        // we create a new reader for temporary buffer storage
+        ResponseReader = new BinaryResponseReader(); 
+        
+        Result = new Dictionary<string, CacheItemResult>(mgc.Result.Count);
+
+        foreach (var item in mgc.Result)
+        {
+            Result[item.Key] = item.Value.Clone(ResponseReader);
+        }
+
         StatusCode = mgc.StatusCode;
         _casValues = mgc._casValues;
+
+        return true;
     }
     
     private BinaryRequest Build(string key)

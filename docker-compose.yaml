@@ -1,9 +1,23 @@
 version: "3"
 services:
-  memcached:
+  memcached-1:
     image: memcached
     restart: always
-    container_name: memcached
+    container_name: memcached-1
     command: ["-m", "128"]  
     ports:  
       - 11211:11211
+  memcached-2:
+    image: memcached
+    restart: always
+    container_name: memcached-2
+    command: ["-m", "128"]  
+    ports:  
+      - 11212:11211
+  memcached-3:
+    image: memcached
+    restart: always
+    container_name: memcached-3
+    command: ["-m", "128"]  
+    ports:  
+      - 11213:11211

@@ -158,25 +158,35 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
 
             await Task.WhenAll(nodeExecutionTasks);
 
-            bool wasSuccessfullResultRead = false;
+            bool wasSuccessfullResultSet = false;
+            bool allNodesExecutionIsSuccessfull = true;
             
             foreach (var (nodeExecutionTask, nodeCommand) in tasksToCommands)
             {
-                var nodeExceutionIsSuccessfull = nodeExecutionTask.Result.Success;
-                
-                if (!wasSuccessfullResultRead && nodeExceutionIsSuccessfull)
-                {
-                    command.SetResultFrom(nodeCommand);
+                var nodeExecutionIsSuccessfull = nodeExecutionTask.Result.Success;
+                allNodesExecutionIsSuccessfull &= nodeExecutionIsSuccessfull;
 
-                    wasSuccessfullResultRead = true;
+                if (!wasSuccessfullResultSet && nodeExecutionIsSuccessfull)
+                {
+                    // if the result was found and set - discard all other commands
+                    bool wasResultSet = command.TrySetResultFrom(nodeCommand);
+                    
+                    wasSuccessfullResultSet = wasResultSet;
                 }
 
                 // dispose the command to return rented read buffers
                 nodeCommand.Dispose();
             }
 
-            if (wasSuccessfullResultRead)
+            if (wasSuccessfullResultSet)
             { 
+                return CommandExecutionResult.Successful;
+            }
+
+            if (allNodesExecutionIsSuccessfull)
+            { 
+                // means there was no successfull result set but all nodes responses ended up successfully
+                // this means all nodes returned no data - this is still technically a successfull result
                 return CommandExecutionResult.Successful;
             }
 

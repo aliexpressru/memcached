@@ -3,7 +3,10 @@ using Aer.Memcached.Client.ConnectionPool;
 
 namespace Aer.Memcached.Client.Commands.Infrastructure;
 
-internal class BinaryResponse: IDisposable
+/// <summary>
+/// A class for reading responde data from memcached socket and temporary buffers storage.
+/// </summary>
+internal class BinaryResponseReader: IDisposable
 {
     private const byte MagicValue = 0x81;
     private const int HeaderLength = 24;
@@ -51,6 +54,7 @@ internal class BinaryResponse: IDisposable
         var header = ArrayPool<byte>.Shared.Rent(HeaderLength);
         int dataLength;
         int extraLength;
+        
         try
         {
             var span = header.AsSpan(0, HeaderLength);
@@ -75,6 +79,16 @@ internal class BinaryResponse: IDisposable
         }
 
         return StatusCode == SuccessfulResponseCode;
+    }
+
+    public Memory<byte> GetMemoryBuffer(int dataLength)
+    {
+        var bufferData = ArrayPool<byte>.Shared.Rent(dataLength);
+        var memory = bufferData.AsMemory(0, dataLength);
+        
+        _rentedBufferForData.Enqueue(bufferData);
+
+        return memory;
     }
 
     private void DeserializeHeader(Span<byte> spanHeader, out int dataLength, out int extraLength)

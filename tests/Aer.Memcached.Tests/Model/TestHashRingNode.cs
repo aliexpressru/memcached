@@ -1,9 +1,9 @@
 using System.Net;
 using Aer.ConsistentHash.Abstractions;
 
-namespace Aer.Memcached.Tests;
+namespace Aer.Memcached.Tests.Model;
 
-public class Node: INode
+public class TestHashRingNode: INode
 {
     private readonly string _key = Guid.NewGuid().ToString();
 
@@ -17,7 +17,7 @@ public class Node: INode
         throw new NotImplementedException();
     }
 
-    protected bool Equals(Node other)
+    protected bool Equals(TestHashRingNode other)
     {
         return _key == other._key;
     }
@@ -44,7 +44,7 @@ public class Node: INode
             return false;
         }
 
-        return Equals((Node)obj);
+        return Equals((TestHashRingNode)obj);
     }
 
     public override int GetHashCode()

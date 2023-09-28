@@ -3,6 +3,7 @@ using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Models;
+using Aer.Memcached.Tests.Base;
 using Aer.Memcached.Tests.Models;
 using AutoFixture;
 using FluentAssertions;
@@ -10,60 +11,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Serialization;
 
-namespace Aer.Memcached.Tests;
+namespace Aer.Memcached.Tests.TestClasses;
 
 [TestClass]
-public class MemcachedClientTests
+public class MemcachedClientTests : MemcachedClientTestsBase
 {
-    private readonly MemcachedClient<Pod> _client;
-    private readonly Fixture _fixture;
-
-    private const int ExpirationInSeconds = 3;
-
-    public MemcachedClientTests()
-    {
-        var hashCalculator = new HashCalculator();
-        var nodeLocator = new HashRing<Pod>(hashCalculator);
-        nodeLocator.AddNodes(new Pod[]
-        {
-            new()
-            {
-                IpAddress = "localhost"
-            }
-        });
-
-        using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-        var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
-        var config = new MemcachedConfiguration();
-        var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
-
-        _client = new MemcachedClient<Pod>(
-            nodeLocator,
-            new CommandExecutor<Pod>(
-                new OptionsWrapper<MemcachedConfiguration>(config),
-                authProvider,
-                commandExecutorLogger,
-                nodeLocator)
-        );
-        
-        _fixture = new Fixture();
-
-        Client.Commands.Infrastructure.BinaryConverter.Serializer = JsonSerializer.Create(
-            new JsonSerializerSettings
-            {
-                Converters = new List<JsonConverter>(new[] {new StringEnumConverter()}),
-                NullValueHandling = NullValueHandling.Ignore,
-                ContractResolver = new DefaultContractResolver
-                {
-                    NamingStrategy = new SnakeCaseNamingStrategy()
-                },
-                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-            }); 
-    }
+    public MemcachedClientTests():base(isSingleNodeCluster: true)
+    { }
 
     [TestMethod]
     public async Task StoreAndGet_CheckAllTypes()
@@ -153,9 +108,9 @@ public class MemcachedClientTests
         var key = Guid.NewGuid().ToString();
         string value = null;
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<string>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<string>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
@@ -168,13 +123,13 @@ public class MemcachedClientTests
         var key = Guid.NewGuid().ToString();
         string value = "test";
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        await Task.Delay(TimeSpan.FromSeconds(ExpirationInSeconds * 2));
+        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
         
-        await _client.GetAsync<string>(key, CancellationToken.None);
+        await Client.GetAsync<string>(key, CancellationToken.None);
         
-        var getValue = await _client.GetAsync<string>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<string>(key, CancellationToken.None);
 
         getValue.Result.Should().BeNull();
         getValue.Success.Should().BeTrue();
@@ -187,21 +142,21 @@ public class MemcachedClientTests
         var key = Guid.NewGuid().ToString();
         string value = "test";
 
-        await _client.MultiStoreAsync(
+        await Client.MultiStoreAsync(
             new Dictionary<string, string>()
             {
                 [key] = value
             },
-            TimeSpan.FromSeconds(ExpirationInSeconds),
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
             CancellationToken.None);
 
-        var getValue = await _client.MultiGetAsync<string>(new[] {key}, CancellationToken.None);
+        var getValue = await Client.MultiGetAsync<string>(new[] {key}, CancellationToken.None);
 
         getValue.Count.Should().Be(1);
         
-        await Task.Delay(TimeSpan.FromSeconds(ExpirationInSeconds * 2));
+        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
 
-        getValue = await _client.MultiGetAsync<string>(new[]{key}, CancellationToken.None);
+        getValue = await Client.MultiGetAsync<string>(new[]{key}, CancellationToken.None);
 
         getValue.Count.Should().Be(0);
     }
@@ -212,9 +167,9 @@ public class MemcachedClientTests
         var key = Guid.NewGuid().ToString();
         string value = string.Empty;
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<string>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<string>(key, CancellationToken.None);
 
         getValue.Result.Should().BeNull(value);
         getValue.Success.Should().BeTrue();
@@ -231,9 +186,9 @@ public class MemcachedClientTests
             keyValues[Guid.NewGuid().ToString()] = null;
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
-        var getValues = await _client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+        var getValues = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
     
         foreach (var keyValue in keyValues)
         {
@@ -251,9 +206,9 @@ public class MemcachedClientTests
             keyValues[Guid.NewGuid().ToString()] = string.Empty;
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
-        var getValues = await _client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+        var getValues = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
     
         foreach (var keyValue in keyValues)
         {
@@ -265,11 +220,11 @@ public class MemcachedClientTests
     public async Task StoreAndGet_SimpleObject()
     {
         var key = Guid.NewGuid().ToString();
-        var value = _fixture.Create<SimpleObject>();
+        var value = Fixture.Create<SimpleObject>();
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
         getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
@@ -284,12 +239,12 @@ public class MemcachedClientTests
     
         foreach (var _ in Enumerable.Range(0, 5))
         {
-            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<SimpleObject>();
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
-        var getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+        var getValues = await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
     
         foreach (var keyValue in keyValues)
         {
@@ -301,7 +256,7 @@ public class MemcachedClientTests
     [TestMethod]
     public async Task MultiStoreAndGetBatched_InvalidBatchSize()
     {
-        Func<Task> act = async () => await _client.MultiGetAsync<string>(
+        Func<Task> act = async () => await Client.MultiGetAsync<string>(
             new[] {"some_key"}, // this value is not important since we are checking method parameters validation
             CancellationToken.None,
             new BatchingOptions()
@@ -323,13 +278,13 @@ public class MemcachedClientTests
             keyValues[Guid.NewGuid().ToString()] = Guid.NewGuid().ToString();
         }
 
-        await _client.MultiStoreAsync(
+        await Client.MultiStoreAsync(
             keyValues,
-            TimeSpan.FromSeconds(ExpirationInSeconds),
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
             CancellationToken.None,
             batchingOptions: new BatchingOptions());
 
-        var getValues = await _client.MultiGetAsync<string>(
+        var getValues = await Client.MultiGetAsync<string>(
             keyValues.Keys,
             CancellationToken.None,
             new BatchingOptions());
@@ -344,11 +299,11 @@ public class MemcachedClientTests
     public async Task StoreAndGet_ObjectWithCollections()
     {
         var key = Guid.NewGuid().ToString();
-        var value = _fixture.Create<ObjectWithCollections>();
+        var value = Fixture.Create<ObjectWithCollections>();
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.SimpleObjects));
         getValue.Success.Should().BeTrue();
@@ -367,12 +322,12 @@ public class MemcachedClientTests
     
         foreach (var _ in Enumerable.Range(0, 5))
         {
-            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<ObjectWithCollections>();
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<ObjectWithCollections>();
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
-        var getValues = await _client.MultiGetAsync<ObjectWithCollections>(keyValues.Keys, CancellationToken.None);
+        var getValues = await Client.MultiGetAsync<ObjectWithCollections>(keyValues.Keys, CancellationToken.None);
     
         foreach (var keyValue in keyValues)
         {
@@ -389,11 +344,11 @@ public class MemcachedClientTests
     public async Task StoreAndGet_ObjectWithEmbeddedObject()
     {
         var key = Guid.NewGuid().ToString();
-        var value = _fixture.Create<ObjectWithEmbeddedObject>();
+        var value = Fixture.Create<ObjectWithEmbeddedObject>();
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<ObjectWithEmbeddedObject>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<ObjectWithEmbeddedObject>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.ComplexObject.SimpleObject.DateTimeValue));
         getValue.Success.Should().BeTrue();
@@ -408,12 +363,12 @@ public class MemcachedClientTests
     
         foreach (var _ in Enumerable.Range(0, 5))
         {
-            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<ObjectWithEmbeddedObject>();
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<ObjectWithEmbeddedObject>();
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
-        var getValues = await _client.MultiGetAsync<ObjectWithEmbeddedObject>(keyValues.Keys, CancellationToken.None);
+        var getValues = await Client.MultiGetAsync<ObjectWithEmbeddedObject>(keyValues.Keys, CancellationToken.None);
     
         foreach (var keyValue in keyValues)
         {
@@ -441,9 +396,9 @@ public class MemcachedClientTests
             }
         };
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<RecursiveModel>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<RecursiveModel>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
@@ -457,9 +412,9 @@ public class MemcachedClientTests
         var value = new ObjectWithNested { X = 1, Y = 2 };
         value.Nested = value;
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<RecursiveModel>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<RecursiveModel>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(o => o.Nested));
         getValue.Success.Should().BeTrue();
@@ -471,18 +426,16 @@ public class MemcachedClientTests
     {
         var hashCalculator = new HashCalculator();
         var nodeLocator = new HashRing<Pod>(hashCalculator);
-        nodeLocator.AddNodes(new Pod[]
-        {
-            new()
-            {
-                IpAddress = "localhost"
-            }
-        });
+
+        nodeLocator.AddNodes(
+            new Pod("localhost")
+        );
 
         var loggerMock = Substitute.For<ILogger<CommandExecutor<Pod>>>();
-        
+
         var config = new MemcachedConfiguration();
-        var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
+        var authProvider = new DefaultAuthenticationProvider(
+            new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
         var client = new MemcachedClient<Pod>(
             nodeLocator,
@@ -492,11 +445,11 @@ public class MemcachedClientTests
                 loggerMock,
                 nodeLocator)
         );
-        
-        var key = new string('*', 251);
+
+        var key = new string('*', 251); // this key is too long to be stored
         var value = Guid.NewGuid().ToString();
 
-        await client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
         var getValue = await client.GetAsync<string>(key, CancellationToken.None);
 
@@ -504,6 +457,8 @@ public class MemcachedClientTests
         getValue.Success.Should().BeFalse();
         getValue.IsEmptyResult.Should().BeTrue();
 
+        var t = loggerMock.ReceivedCalls();
+        
         loggerMock
             .Received(2)
             .Log(
@@ -514,15 +469,15 @@ public class MemcachedClientTests
                 formatter: Arg.Any<Func<object, Exception, string>>()
             );
     }
-    
+
     private async Task StoreAndGet_CheckType<T>()
     {
         var key = Guid.NewGuid().ToString();
-        var value = _fixture.Create<T>();
+        var value = Fixture.Create<T>();
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<T>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<T>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
@@ -535,12 +490,12 @@ public class MemcachedClientTests
     
         foreach (var _ in Enumerable.Range(0, 5))
         {
-            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<T>();
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<T>();
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None, replicationFactor: (uint)(withReplicas ? 5 : 0));
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None, replicationFactor: (uint)(withReplicas ? 5 : 0));
     
-        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
+        var getValues = await Client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
     
         foreach (var keyValue in keyValues)
         {
@@ -552,11 +507,11 @@ public class MemcachedClientTests
     public async Task Flush_RemoveAllItems()
     {
         var keys = await MultiStoreAndGetKeys();
-        var getValues = await _client.MultiGetAsync<string>(keys, CancellationToken.None);
+        var getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Count.Should().Be(keys.Length);
         
-        await _client.FlushAsync(CancellationToken.None);
-        getValues = await _client.MultiGetAsync<string>(keys, CancellationToken.None);
+        await Client.FlushAsync(CancellationToken.None);
+        getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Should().BeEmpty();
     }
     
@@ -564,18 +519,18 @@ public class MemcachedClientTests
     public async Task Delete_Successful()
     {
         var key = Guid.NewGuid().ToString();
-        var value = _fixture.Create<SimpleObject>();
+        var value = Fixture.Create<SimpleObject>();
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
         getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
 
-        await _client.DeleteAsync(key, CancellationToken.None);
+        await Client.DeleteAsync(key, CancellationToken.None);
         
-        getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+        getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeNull();
     }
@@ -584,18 +539,18 @@ public class MemcachedClientTests
     public async Task MultiDelete_OneKey_Successful()
     {
         var key = Guid.NewGuid().ToString();
-        var value = _fixture.Create<SimpleObject>();
+        var value = Fixture.Create<SimpleObject>();
 
-        await _client.StoreAsync(key, value, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
-        var getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
         getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
 
-        await _client.MultiDeleteAsync(new [] { key }, CancellationToken.None);
+        await Client.MultiDeleteAsync(new [] { key }, CancellationToken.None);
         
-        getValue = await _client.GetAsync<SimpleObject>(key, CancellationToken.None);
+        getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeNull();
     }
@@ -607,12 +562,12 @@ public class MemcachedClientTests
     
         foreach (var _ in Enumerable.Range(0, 5))
         {
-            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<SimpleObject>();
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
-        var getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+        var getValues = await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
     
         foreach (var keyValue in keyValues)
         {
@@ -620,9 +575,9 @@ public class MemcachedClientTests
             getValues[keyValue.Key].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].DateTimeValue, TimeSpan.FromMilliseconds(1));
         }
         
-        await _client.MultiDeleteAsync(keyValues.Keys, CancellationToken.None);
+        await Client.MultiDeleteAsync(keyValues.Keys, CancellationToken.None);
         
-        getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+        getValues = await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
 
         getValues.Count.Should().Be(0);
     }
@@ -634,12 +589,12 @@ public class MemcachedClientTests
     
         foreach (var _ in Enumerable.Range(0, 5))
         {
-            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<SimpleObject>();
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
     
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
-        var getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+        var getValues = await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
     
         foreach (var keyValue in keyValues)
         {
@@ -647,9 +602,9 @@ public class MemcachedClientTests
             getValues[keyValue.Key].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].DateTimeValue, TimeSpan.FromMilliseconds(1));
         }
         
-        await _client.MultiDeleteAsync(keyValues.Keys, CancellationToken.None, new BatchingOptions());
+        await Client.MultiDeleteAsync(keyValues.Keys, CancellationToken.None, new BatchingOptions());
         
-        getValues = await _client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+        getValues = await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
 
         getValues.Count.Should().Be(0);
     }
@@ -660,20 +615,20 @@ public class MemcachedClientTests
         var key = Guid.NewGuid().ToString();
         ulong initialValue = 0;
 
-        var incrValue = await _client.IncrAsync(
+        var incrValue = await Client.IncrAsync(
             key, 
             1, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(initialValue);
         
-        incrValue = await _client.IncrAsync(
+        incrValue = await Client.IncrAsync(
             key, 
             15, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
         
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(15);
@@ -685,29 +640,29 @@ public class MemcachedClientTests
         var key = Guid.NewGuid().ToString();
         ulong initialValue = 15;
 
-        var incrValue = await _client.IncrAsync(
+        var incrValue = await Client.IncrAsync(
             key, 
             1, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(initialValue);
         
-        incrValue = await _client.IncrAsync(
+        incrValue = await Client.IncrAsync(
             key, 
             1, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
         
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(initialValue + 1);
         
-        incrValue = await _client.IncrAsync(
+        incrValue = await Client.IncrAsync(
             key, 
             1, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
         
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(initialValue + 2);
@@ -719,20 +674,20 @@ public class MemcachedClientTests
         var key = Guid.NewGuid().ToString();
         ulong initialValue = 15;
 
-        var incrValue = await _client.DecrAsync(
+        var incrValue = await Client.DecrAsync(
             key, 
             1, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(initialValue);
         
-        incrValue = await _client.DecrAsync(
+        incrValue = await Client.DecrAsync(
             key, 
             2, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
         
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(initialValue - 2);
@@ -744,20 +699,20 @@ public class MemcachedClientTests
         var key = Guid.NewGuid().ToString();
         ulong initialValue = 5;
 
-        var incrValue = await _client.DecrAsync(
+        var incrValue = await Client.DecrAsync(
             key, 
             1, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(initialValue);
         
-        incrValue = await _client.DecrAsync(
+        incrValue = await Client.DecrAsync(
             key, 
             10, 
             initialValue, 
-            TimeSpan.FromSeconds(ExpirationInSeconds), CancellationToken.None);
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
         
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(0);
@@ -768,7 +723,7 @@ public class MemcachedClientTests
         var keyValues = Enumerable.Range(0, 10).Select(_ => (key: Guid.NewGuid().ToString("N"), value: Guid.NewGuid().ToString("N")))
             .ToDictionary(x => x.key, x => x.value);
 
-        await _client.MultiStoreAsync(keyValues, TimeSpan.FromMinutes(10), CancellationToken.None);
+        await Client.MultiStoreAsync(keyValues, TimeSpan.FromMinutes(10), CancellationToken.None);
         
         return keyValues.Keys.ToArray();
     }
@@ -777,7 +732,7 @@ public class MemcachedClientTests
     {
         var key = Guid.NewGuid().ToString();
 
-        var getValue = await _client.GetAsync<T>(key, CancellationToken.None);
+        var getValue = await Client.GetAsync<T>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(default(T));
         getValue.Success.Should().BeTrue();
@@ -790,10 +745,10 @@ public class MemcachedClientTests
     
         foreach (var _ in Enumerable.Range(0, 5))
         {
-            keyValues[Guid.NewGuid().ToString()] = _fixture.Create<T>();
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<T>();
         }
 
-        var getValues = await _client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: (uint)(withReplicas ? 1 : 0));
+        var getValues = await Client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: (uint)(withReplicas ? 1 : 0));
         getValues.Count.Should().Be(0);
     }
 }

@@ -5,6 +5,11 @@ namespace Aer.Memcached.Client.Config;
 public class MemcachedConfiguration
 {
     /// <summary>
+    /// The default port for memcached service.
+    /// </summary>
+    public const int DefaultMemcachedPort = 11211;
+    
+    /// <summary>
     /// List of servers with hosted memcached
     /// </summary>
     public Server[] Servers { get; set; }
@@ -14,7 +19,12 @@ public class MemcachedConfiguration
     /// Use either <see cref="MemcachedConfiguration.Servers"/> or <see cref="HeadlessServiceAddress"/>
     /// </summary>
     public string HeadlessServiceAddress { get; set; }
-    
+
+    /// <summary>
+    /// The optional port override for cases when memcached IP addresses are obtained from headless service.
+    /// </summary>
+    public int MemcachedPort { get; set; } = DefaultMemcachedPort;
+
     /// <summary>
     /// Configuration of <see cref="ConnectionPool.SocketPool"/>
     /// </summary>

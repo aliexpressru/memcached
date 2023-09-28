@@ -1,12 +1,12 @@
 namespace Aer.Memcached.Client.Models;
 
 /// <summary>
-/// Represents an object being sent to the cache.
+/// Represents an object being stored to the cache.
 /// </summary>
-public class CacheItemForRequest
+internal class CacheItemForRequest
 {
     /// <summary>
-    /// The data representing the item being stored/retrieved.
+    /// The data representing the item being stored.
     /// </summary>
     public ArraySegment<byte> Data { get; }
 
@@ -19,7 +19,7 @@ public class CacheItemForRequest
     /// Initializes a new instance of <see cref="T:CacheItem"/>.
     /// </summary>
     /// <param name="flags">Custom item data.</param>
-    /// <param name="data">The serialized item.</param>
+    /// <param name="data">The serialized data to store.</param>
     public CacheItemForRequest(uint flags, ArraySegment<byte> data)
     {
         Data = data;

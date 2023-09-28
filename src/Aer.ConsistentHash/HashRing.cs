@@ -181,6 +181,11 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         }
     }
 
+    public void AddNodes(params TNode[] nodes)
+    { 
+        AddNodes((IEnumerable<TNode>)nodes);
+    }
+
     public void RemoveNode(TNode node)
     {
         try

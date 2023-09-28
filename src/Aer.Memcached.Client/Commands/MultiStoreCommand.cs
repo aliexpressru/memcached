@@ -54,20 +54,20 @@ internal class MultiStoreCommand: MemcachedCommandBase
     {
         var result = new CommandResult();
 
-        Response = new BinaryResponse();
+        ResponseReader = new BinaryResponseReader();
 
-        while (Response.Read(socket))
+        while (ResponseReader.Read(socket))
         {
-            if (Response.StatusCode != 0)
+            if (ResponseReader.StatusCode != 0)
             {
-                var message = ResultHelper.ProcessResponseData(Response.Data);
+                var message = ResultHelper.ProcessResponseData(ResponseReader.Data);
                 return result.Fail(message);
             }
             
-            StatusCode = Response.StatusCode;
+            StatusCode = ResponseReader.StatusCode;
 
             // found the noop, quit
-            if (Response.CorrelationId == _noopId)
+            if (ResponseReader.CorrelationId == _noopId)
             {
                 return result.Pass();
             }

@@ -23,21 +23,21 @@ internal class HeadlessServiceDnsLookupNodeProvider : INodeProvider<Pod>
         if (!string.IsNullOrWhiteSpace(_config.HeadlessServiceAddress))
         {
             IPAddress[] ipAddresses = Dns.GetHostAddresses(_config.HeadlessServiceAddress);
-            var currentPods = ipAddresses.Select(i => new Pod
-            {
-                IpAddress = i.ToString()
-            }).ToArray();
+            var currentPods = ipAddresses.Select(
+                    i => new Pod(i.ToString(), _config.MemcachedPort)
+                )
+                .ToArray();
 
             return currentPods;
         }
 
         if (_config.Servers.Length != 0)
         {
-            var staticPods = _config.Servers.Select(s => new Pod
-            {
-                IpAddress = s.IpAddress,
-                MemcachedPort = s.Port
-            }).ToArray();
+            // means that some memecahed servers are hard-coded through the configuration
+            
+            var staticPods = _config.Servers.Select(
+                s => new Pod(s.IpAddress, s.Port)
+            ).ToArray();
 
             return staticPods;
         }

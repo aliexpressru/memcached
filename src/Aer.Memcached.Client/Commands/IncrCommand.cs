@@ -47,19 +47,19 @@ internal class IncrCommand: SingleItemCommandBase
         }
     }
 
-    protected override CommandResult ProcessResponse(BinaryResponse response)
+    protected override CommandResult ProcessResponse(BinaryResponseReader responseReader)
     {
         var result = new CommandResult();
 
-        StatusCode = response.StatusCode;
-        if (response.StatusCode == BinaryResponse.SuccessfulResponseCode)
+        StatusCode = responseReader.StatusCode;
+        if (responseReader.StatusCode == BinaryResponseReader.SuccessfulResponseCode)
         {
-            Result = BinaryConverter.DecodeUInt64(response.Data.Span, 0);
+            Result = BinaryConverter.DecodeUInt64(responseReader.Data.Span, 0);
             
             return result.Pass();
         }
 
-        var message = ResultHelper.ProcessResponseData(response.Data);
+        var message = ResultHelper.ProcessResponseData(responseReader.Data);
         return result.Fail(message);
     }
 }

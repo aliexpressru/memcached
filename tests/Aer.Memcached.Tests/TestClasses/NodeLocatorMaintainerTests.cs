@@ -3,6 +3,7 @@ using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Infrastructure;
+using Aer.Memcached.Tests.Model;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,21 +11,21 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using NSubstitute.ClearExtensions;
 
-namespace Aer.Memcached.Tests;
+namespace Aer.Memcached.Tests.TestClasses;
 
 [TestClass]
 public class NodeLocatorMaintainerTests
 {
     private const int PeriodToRunInMilliseconds = 300;
 
-    private readonly INodeProvider<Node> _nodeProviderMock 
-        = Substitute.For<INodeProvider<Node>>();
+    private readonly INodeProvider<TestHashRingNode> _nodeProviderMock 
+        = Substitute.For<INodeProvider<TestHashRingNode>>();
     
-    private readonly ICommandExecutor<Node> _commandExecutorMock 
-        = Substitute.For<ICommandExecutor<Node>>();
+    private readonly ICommandExecutor<TestHashRingNode> _commandExecutorMock 
+        = Substitute.For<ICommandExecutor<TestHashRingNode>>();
     
-    private readonly INodeHealthChecker<Node> _healthCheckerMock 
-        = Substitute.For<INodeHealthChecker<Node>>();
+    private readonly INodeHealthChecker<TestHashRingNode> _healthCheckerMock 
+        = Substitute.For<INodeHealthChecker<TestHashRingNode>>();
 
     [TestInitialize]
     public void BeforeEachTest()
@@ -37,11 +38,11 @@ public class NodeLocatorMaintainerTests
     [TestMethod]
     public async Task NotConfigured_NoNodesInLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new Node()).ToList();
+        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
         var nodeLocator = GetNodLocator();
         SetupMocks(false, nodesToProvide);
         
-        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<Node>()).Returns(false);
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -58,11 +59,11 @@ public class NodeLocatorMaintainerTests
     [TestMethod]
     public async Task Configured_AllProvidedNodesInLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new Node()).ToList();
+        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
         var nodeLocator = GetNodLocator();
         SetupMocks(true, nodesToProvide);
 
-        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<Node>()).Returns(false);
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -83,11 +84,11 @@ public class NodeLocatorMaintainerTests
     [TestMethod]
     public async Task Configured_AddMoreNodes_AllProvidedNodesInLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new Node()).ToList();
+        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
         var nodeLocator = GetNodLocator();
         SetupMocks(true, nodesToProvide);
 
-        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<Node>()).Returns(false);
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -103,7 +104,7 @@ public class NodeLocatorMaintainerTests
             nodesToProvide.Should().Contain(node);
         }
         
-        nodesToProvide.Add(new Node());
+        nodesToProvide.Add(new TestHashRingNode());
         await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds));
         
         nodes = nodeLocator.GetAllNodes();
@@ -120,11 +121,11 @@ public class NodeLocatorMaintainerTests
     [TestMethod]
     public async Task Configured_AddAndRemoveNodes_AllProvidedNodesInLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new Node()).ToList();
+        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
         var nodeLocator = GetNodLocator();
         SetupMocks(true, nodesToProvide);
         
-        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<Node>()).Returns(false);
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
@@ -141,7 +142,7 @@ public class NodeLocatorMaintainerTests
         }
         
         nodesToProvide.RemoveRange(0, 3);
-        nodesToProvide.Add(new Node());
+        nodesToProvide.Add(new TestHashRingNode());
         await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds));
         
         nodes = nodeLocator.GetAllNodes();
@@ -158,7 +159,7 @@ public class NodeLocatorMaintainerTests
     [TestMethod]
     public async Task Configured_DeadNode_RemovedDeadNodeFromLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new Node()).ToList();
+        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
         var nodeLocator = GetNodLocator();
         SetupMocks(true, nodesToProvide);
 
@@ -197,16 +198,16 @@ public class NodeLocatorMaintainerTests
     [TestMethod]
     public async Task Configured_ResurrectedNode_RemovedDeadAndAddAgainNode()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new Node()).ToList();
+        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
         var nodeLocator = GetNodLocator();
         SetupMocks(true, nodesToProvide);
 
-        var deadNodes = new List<Node>()
+        var deadNodes = new List<TestHashRingNode>()
         {
             nodesToProvide.First()
         };
 
-        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Is<Node>(n => deadNodes.Contains(n)))
+        _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Is<TestHashRingNode>(n => deadNodes.Contains(n)))
             .Returns(true);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
@@ -248,27 +249,27 @@ public class NodeLocatorMaintainerTests
         await maintainer.StopAsync(CancellationToken.None);
     }
 
-    private INodeLocator<Node> GetNodLocator()
+    private INodeLocator<TestHashRingNode> GetNodLocator()
     {
         var hashCalculator = new HashCalculator();
         
-        return new HashRing<Node>(hashCalculator);
+        return new HashRing<TestHashRingNode>(hashCalculator);
     }
 
-    private void SetupMocks(bool isConfigured, List<Node> nodesToProvide)
+    private void SetupMocks(bool isConfigured, List<TestHashRingNode> nodesToProvide)
     {
         _nodeProviderMock.GetNodes().Returns(nodesToProvide);
         
         _nodeProviderMock.IsConfigured().Returns(isConfigured);
 
-        _commandExecutorMock.GetSocketPoolsStatistics(Arg.Any<Node[]>())
-            .Returns(new Dictionary<Node, int>());
+        _commandExecutorMock.GetSocketPoolsStatistics(Arg.Any<TestHashRingNode[]>())
+            .Returns(new Dictionary<TestHashRingNode, int>());
     }
 
-    private MemcachedMaintainer<Node> GetMemcachedMaintainer(INodeLocator<Node> nodeLocator)
+    private MemcachedMaintainer<TestHashRingNode> GetMemcachedMaintainer(INodeLocator<TestHashRingNode> nodeLocator)
     {
         using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-        var logger = loggerFactory.CreateLogger<MemcachedMaintainer<Node>>();
+        var logger = loggerFactory.CreateLogger<MemcachedMaintainer<TestHashRingNode>>();
         
         var memcachedConfiguration = new OptionsWrapper<MemcachedConfiguration>(new MemcachedConfiguration
         {
@@ -281,7 +282,7 @@ public class NodeLocatorMaintainerTests
             }
         });
         
-        return new MemcachedMaintainer<Node>(
+        return new MemcachedMaintainer<TestHashRingNode>(
             _nodeProviderMock, 
             nodeLocator, 
             _healthCheckerMock, 
