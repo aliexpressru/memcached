@@ -1,6 +1,5 @@
 ﻿using Aer.Memcached.Client.Models;
 using Aer.Memcached.Tests.Base;
-using AutoFixture;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -9,7 +8,7 @@ namespace Aer.Memcached.Tests.TestClasses;
 [TestClass]
 public class ReplicationTests : MemcachedClientTestsBase
 {
-	private readonly BatchingOptions _batchingOptions = new BatchingOptions()
+	private readonly BatchingOptions _batchingOptions = new()
 	{
 		MaxDegreeOfParallelism = Environment.ProcessorCount,
 		BatchSize = 2
