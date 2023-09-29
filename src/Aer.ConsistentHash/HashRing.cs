@@ -9,7 +9,8 @@ using Aer.ConsistentHash.Infrastructure;
 
 namespace Aer.ConsistentHash;
 
-public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
+public class HashRing<TNode> : INodeLocator<TNode>
+    where TNode : class, INode
 {
     /// <summary>
     /// In <see cref="GetNodeInternal"/> there is a moment when _hashToNodeMap is already updated (node removed)
@@ -29,7 +30,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
     public HashRing(IHashCalculator hashCalculator, int numberOfVirtualNodes = 256)
     {
         _locker = new ReaderWriterLockSlim();
-        
+
         _hashCalculator = hashCalculator;
         _numberOfVirtualNodes = numberOfVirtualNodes;
 
@@ -42,12 +43,13 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         try
         {
             _locker.EnterReadLock();
-            
-            if (_sortedNodeHashKeys == null || _sortedNodeHashKeys.Length == 0)
+
+            if (_sortedNodeHashKeys == null
+                || _sortedNodeHashKeys.Length == 0)
             {
                 return null;
             }
-            
+
             var node = GetNodeInternal(key);
             return node;
         }
@@ -82,7 +84,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
                     var replicatedNode = GetReplicatedNodeInternal(key, replicationFactor);
 
                     var keysForReplicatedNode = result.GetOrAdd(replicatedNode, static (_) => new());
-                    
+
                     keysForReplicatedNode.Add(key);
                 });
         }
@@ -104,7 +106,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         try
         {
             _locker.EnterWriteLock();
-            
+
             AddNodeToCollections(node);
             UpdateSortedNodeHashKeys();
         }
@@ -119,12 +121,12 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         try
         {
             _locker.EnterWriteLock();
-            
+
             foreach (var node in nodes)
             {
                 AddNodeToCollections(node);
             }
-        
+
             UpdateSortedNodeHashKeys();
         }
         finally
@@ -134,8 +136,8 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
     }
 
     public void AddNodes(params TNode[] nodes)
-    { 
-        AddNodes((IEnumerable<TNode>)nodes);
+    {
+        AddNodes((IEnumerable<TNode>) nodes);
     }
 
     public void RemoveNode(TNode node)
@@ -143,7 +145,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         try
         {
             _locker.EnterWriteLock();
-            
+
             if (TryRemoveNodeFromCollections(node))
             {
                 UpdateSortedNodeHashKeys();
@@ -160,7 +162,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         try
         {
             _locker.EnterWriteLock();
-            
+
             bool updateNeeded = false;
             foreach (var node in nodes)
             {
@@ -195,10 +197,10 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         {
             // just return primary node without replicas
             var singlePrimaryNode = GetNodeInternal(key);
-            
+
             return new ReplicatedNode<TNode>(singlePrimaryNode);
         }
-        
+
         var keyToNodeHash = GetNodeHash(key);
         var primaryNode = _hashToNodeMap[keyToNodeHash];
 
@@ -218,12 +220,12 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
 
             return replicatedNode;
         }
-        
+
         var primaryNodeHash = GetNodeHash(primaryNode);
-        
+
         var startingNodeFound = false;
         var totalReplicaCount = 0;
-        
+
         foreach (var currentNodeHash in _nodeHashToVirtualNodeHashesMap.Keys)
         {
             if (primaryNodeHash == currentNodeHash)
@@ -238,13 +240,13 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
                 // skip nodes on the ring until we get to the primary node
                 continue;
             }
-            
+
             if (totalReplicaCount >= replicationFactor)
             {
                 // means we get got enough replicas
                 break;
             }
-            
+
             var replicaNode = _hashToNodeMap[currentNodeHash];
 
             replicatedNode.ReplicaNodes.Add(replicaNode);
@@ -263,7 +265,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
                 }
 
                 var currentNode = _hashToNodeMap[currentNodeHash];
-                
+
                 replicatedNode.ReplicaNodes.Add(currentNode);
 
                 totalReplicaCount++;
@@ -351,7 +353,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         var hashArray = new ulong[numberOfVirtualNodes];
 
         var nodeKey = node.GetKey();
-        
+
         for (int i = 0; i < numberOfVirtualNodes; i++)
         {
             var virtualNodeKey = $"{nodeKey}_virtual{i}";

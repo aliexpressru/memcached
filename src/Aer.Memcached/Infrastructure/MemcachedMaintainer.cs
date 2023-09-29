@@ -12,8 +12,6 @@ namespace Aer.Memcached.Infrastructure;
 
 internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TNode : class, INode
 {
-    private static readonly NodeEqualityComparer<TNode> Comparer = new();
-    
     private readonly INodeProvider<TNode> _nodeProvider;
     private readonly INodeLocator<TNode> _nodeLocator;
     private readonly INodeHealthChecker<TNode> _nodeHealthChecker;
@@ -89,15 +87,15 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             try
             {
                 _locker.EnterReadLock();
-                currentNodes = currentNodes.Except(_deadNodes, Comparer).ToArray();
+                currentNodes = currentNodes.Except(_deadNodes, NodeEqualityComparer<TNode>.Instance).ToArray();
             }
             finally
             {
                 _locker.ExitReadLock();
             }
 
-            var nodesToAdd = currentNodes.Except(nodesInLocator, Comparer).ToArray();
-            var nodesToRemove = nodesInLocator.Except(currentNodes, Comparer).ToArray();
+            var nodesToAdd = currentNodes.Except(nodesInLocator, NodeEqualityComparer<TNode>.Instance).ToArray();
+            var nodesToRemove = nodesInLocator.Except(currentNodes, NodeEqualityComparer<TNode>.Instance).ToArray();
 
             if (nodesToRemove.Length > 0)
             {
@@ -151,7 +149,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             var recheckDeadNodesActionBlock = new ActionBlock<TNode>(
                 node =>
                 {
-                    if (!currentNodes.Contains(node, Comparer))
+                    if (!currentNodes.Contains(node, NodeEqualityComparer<TNode>.Instance))
                     {
                         return;
                     }
@@ -185,7 +183,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             }
 
             var nodesInLocator = _nodeLocator.GetAllNodes();
-            nodesInLocator = nodesInLocator.Except(_deadNodes, Comparer).ToArray();
+            nodesInLocator = nodesInLocator.Except(_deadNodes, NodeEqualityComparer<TNode>.Instance).ToArray();
 
             Parallel.ForEach(
                 nodesInLocator,

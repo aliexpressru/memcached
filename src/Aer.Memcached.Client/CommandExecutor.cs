@@ -35,7 +35,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         _authenticationProvider = authenticationProvider;
         _logger = logger;
         _nodeLocator = nodeLocator;
-        _socketPools = new ConcurrentDictionary<TNode, SocketPool>(new NodeEqualityComparer<TNode>());
+        _socketPools = new ConcurrentDictionary<TNode, SocketPool>(NodeEqualityComparer<TNode>.Instance);
     }
 
     /// <inheritdoc/>
