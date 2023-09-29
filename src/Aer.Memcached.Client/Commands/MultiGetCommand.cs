@@ -73,12 +73,13 @@ internal class MultiGetCommand: MemcachedCommandBase
 
         ResponseReader = new BinaryResponseReader();
         
-        // Response.Read returns False if underlying socket is considered to be dead.
-        // And since we are reusing the same socket for each retry - socket state
-        // does not change thus leading to infinite retry with unchanging result
-        // consequently leading to a timeout on read
         while (ResponseReader.Read(socket))
         {
+            if (ResponseReader.IsSocketDead)
+            {
+                return CommandResult.DeadSocket;
+            }
+
             StatusCode = ResponseReader.StatusCode;
 
             // found the noop, quit

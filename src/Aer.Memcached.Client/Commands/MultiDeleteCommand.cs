@@ -57,6 +57,11 @@ internal class MultiDeleteCommand: MemcachedCommandBase
 
         while (ResponseReader.Read(socket))
         {
+            if (ResponseReader.IsSocketDead)
+            {
+                return CommandResult.DeadSocket;
+            }
+            
             StatusCode = ResponseReader.StatusCode;
 
             // found the noop, quit

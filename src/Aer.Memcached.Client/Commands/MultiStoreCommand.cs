@@ -58,7 +58,12 @@ internal class MultiStoreCommand: MemcachedCommandBase
 
         while (ResponseReader.Read(socket))
         {
-            if (ResponseReader.StatusCode != 0)
+            if (ResponseReader.IsSocketDead)
+            {
+                return CommandResult.DeadSocket;
+            }
+            
+            if (ResponseReader.StatusCode != BinaryResponseReader.SuccessfulResponseCode)
             {
                 var message = ResultHelper.ProcessResponseData(ResponseReader.Data);
                 return result.Fail(message);

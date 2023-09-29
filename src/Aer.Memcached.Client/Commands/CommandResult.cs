@@ -1,7 +1,12 @@
+using Aer.Memcached.Client.Commands.Infrastructure;
+
 namespace Aer.Memcached.Client.Commands;
 
 public class CommandResult
 {
+    public static readonly CommandResult DeadSocket = 
+        Fail("Failed to read from the socket. Socket seems to be dead");
+    
     /// <summary>
     /// A value indicating whether an command was successful
     /// </summary>
@@ -28,4 +33,15 @@ public class CommandResult
     public CommandResult InnerResult { get; set; }
     
     public ulong Cas { get; set; }
+
+    public static CommandResult Fail(string message, Exception exception = null)
+    {
+        return new CommandResult()
+        {
+            Success = false,
+            Message = message,
+            Exception = exception,
+            StatusCode = BinaryResponseReader.UnsuccessfulResponseCode
+        };
+    }
 }

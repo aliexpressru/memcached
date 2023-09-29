@@ -17,19 +17,24 @@ internal abstract class SaslCommandBase: MemcachedCommandBase
 
     protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
-        var response = new BinaryResponseReader();
+        var reader = new BinaryResponseReader();
 
-        var success = response.Read(socket);
+        var success = reader.Read(socket);
 
-        StatusCode = response.StatusCode;
-        Data = response.Data;
+        if (ResponseReader.IsSocketDead)
+        {
+            return CommandResult.DeadSocket;
+        }
+
+        StatusCode = reader.StatusCode;
+        Data = reader.Data;
 
         var result = new CommandResult
         {
             StatusCode = StatusCode
         };
 
-        if (success)
+        if (success && !reader.IsSocketDead)
         {
             result.Pass();
         }

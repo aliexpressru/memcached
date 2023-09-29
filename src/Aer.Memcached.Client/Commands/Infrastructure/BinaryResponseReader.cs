@@ -28,6 +28,8 @@ internal class BinaryResponseReader: IDisposable
     
     public int StatusCode { get; private set; } = -1;
 
+    public bool IsSocketDead { get; private set; }
+
     public int CorrelationId { get; private set; }
     
     public ulong Cas { get; private set; }
@@ -48,7 +50,11 @@ internal class BinaryResponseReader: IDisposable
 
         if (!socket.IsAlive)
         {
-            return false;
+            // We return True here if underlying socket is considered to be dead.
+            // This is done to prevent infinite looping on the dead socket whikle reading from it.
+            
+            IsSocketDead = true;
+            return true;
         }
         
         var header = ArrayPool<byte>.Shared.Rent(HeaderLength);

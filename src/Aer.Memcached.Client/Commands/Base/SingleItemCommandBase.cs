@@ -30,6 +30,11 @@ internal abstract class SingleItemCommandBase: MemcachedCommandBase
         ResponseReader = new BinaryResponseReader();
         var success = ResponseReader.Read(socket);
 
+        if (ResponseReader.IsSocketDead)
+        {
+            return CommandResult.DeadSocket;
+        }
+
         CasValue = ResponseReader.Cas;
         StatusCode = ResponseReader.StatusCode;
 

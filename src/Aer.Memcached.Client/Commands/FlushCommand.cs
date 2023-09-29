@@ -15,6 +15,12 @@ internal class FlushCommand: MemcachedCommandBase
     {
         ResponseReader = new BinaryResponseReader();
         var success = ResponseReader.Read(socket);
+
+        if (ResponseReader.IsSocketDead)
+        {
+            return CommandResult.DeadSocket;
+        }
+        
         if (success)
         {
             return new CommandResult
