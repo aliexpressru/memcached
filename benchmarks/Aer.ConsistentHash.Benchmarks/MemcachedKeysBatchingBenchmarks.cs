@@ -111,7 +111,7 @@ public class MemcachedKeysBatchingBenchmarks
 					});
 			});
 	}
-	
+
 	[Benchmark]
 	public async Task GetValuesBatchedParallelTasks()
 	{
@@ -121,8 +121,9 @@ public class MemcachedKeysBatchingBenchmarks
 			{
 				MaxDegreeOfParallelism = Environment.ProcessorCount
 			},
-			async (keysBatch, _) => {
-				var __ = await MultiGetParallelTasksAsync<string>(keysBatch, ONE_COMMAND_AUTO_BATCH_SIZE);	
+			async (keysBatch, _) =>
+			{
+				await MultiGetParallelTasksAsync<string>(keysBatch, ONE_COMMAND_AUTO_BATCH_SIZE);
 			});
 	}
 

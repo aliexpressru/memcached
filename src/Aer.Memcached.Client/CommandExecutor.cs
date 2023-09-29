@@ -276,7 +276,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         
         return pooledSocket;
     }
-
+    
     private async Task AuthenticateAsync(PooledSocket pooledSocket)
     {
         var saslStart = new SaslStartCommand(_authenticationProvider.GetAuthData());
