@@ -81,26 +81,33 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 expiration,
                 storeMode,
                 token);
+            
             return;
         }
 
         var setTasks = new List<Task>(nodes.Count);
         var commandsToDispose = new List<MemcachedCommandBase>(nodes.Count);
 
-        foreach (var node in nodes)
+        foreach (var replicatedNode in nodes)
         {
-            var keys = node.Value;
-            var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
-            foreach (var key in keys)
+            var keys = replicatedNode.Value;
+            
+            foreach (var node in replicatedNode.Key.EnumerateNodes())
             {
-                keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
+                
+                foreach (var key in keys)
+                {
+                    keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                }
+
+                var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration);
+
+                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+                
+                setTasks.Add(executeTask);
+                commandsToDispose.Add(command);
             }
-
-            var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration);
-
-            var executeTask = _commandExecutor.ExecuteCommandAsync(node.Key, command, token);
-            setTasks.Add(executeTask);
-            commandsToDispose.Add(command);
         }
 
         await Task.WhenAll(setTasks);
@@ -146,7 +153,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         BatchingOptions batchingOptions = null,
         uint replicationFactor = 0)
     {
-        var nodes = _nodeLocator.GetReplicatedNodes(keys, replicationFactor);
+        var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
         
         if (nodes.Keys.Count == 0)
         {
@@ -246,13 +253,17 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }
 
         var deleteTasks = new List<Task>(nodes.Count);
-        foreach (var (node, keysToDelete) in nodes)
+        
+        foreach (var (replicatedNode, keysToDelete) in nodes)
         {
-            using (var command = new MultiDeleteCommand(keysToDelete, keysToDelete.Count))
+            foreach (var node in replicatedNode.EnumerateNodes())
             {
-                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+                using (var command = new MultiDeleteCommand(keysToDelete, keysToDelete.Count))
+                {
+                    var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
 
-                deleteTasks.Add(executeTask);
+                    deleteTasks.Add(executeTask);
+                }
             }
         }
 
@@ -344,7 +355,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     }
     
     private async Task MultiStoreBatchedInternalAsync<T>(
-        IDictionary<TNode, ConcurrentBag<string>> nodes,
+        IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, T> keyValues,
         BatchingOptions batchingOptions,
         uint expiration,
@@ -363,23 +374,26 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 CancellationToken = token,
                 MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
             },
-            async (nodeWithKeys, cancellationToken) =>
+            async (replicatedNodeWithKeys, cancellationToken) =>
             {
-                var node = nodeWithKeys.Key;
-                var keysToStore = nodeWithKeys.Value;
+                var replicatedNode = replicatedNodeWithKeys.Key;
+                var keysToStore = replicatedNodeWithKeys.Value;
 
-                foreach (var keysBatch in
-                         keysToStore.Batch(batchingOptions.BatchSize))
+                foreach (var node in replicatedNode.EnumerateNodes())
                 {
-                    var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
-                    foreach (var key in keysBatch)
+                    foreach (var keysBatch in
+                             keysToStore.Batch(batchingOptions.BatchSize))
                     {
-                        keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
-                    }
+                        var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
+                        foreach (var key in keysBatch)
+                        {
+                            keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                        }
 
-                    using (var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration))
-                    {
-                        await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
+                        using (var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration))
+                        {
+                            await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
+                        }
                     }
                 }
             });
@@ -405,10 +419,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 CancellationToken = token,
                 MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
             },
-            async (nodeWithKeys, cancellationToken) =>
+            async (replicatedNodeWithKeys, cancellationToken) =>
             {
-                var node = nodeWithKeys.Key;
-                var keysToGet = nodeWithKeys.Value;
+                var node = replicatedNodeWithKeys.Key;
+                var keysToGet = replicatedNodeWithKeys.Value;
 
                 foreach (var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
                 {
@@ -441,7 +455,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     }
 
     private async Task MultiDeleteBatchedInternalAsync(
-        IDictionary<TNode, ConcurrentBag<string>> nodes,
+        IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         BatchingOptions batchingOptions,
         CancellationToken token)
     {
@@ -458,19 +472,22 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 CancellationToken = token,
                 MaxDegreeOfParallelism = batchingOptions.MaxDegreeOfParallelism
             },
-            async (nodeWithKeys, cancellationToken) =>
+            async (replicatedNodeWithKeys, cancellationToken) =>
             {
-                var node = nodeWithKeys.Key;
-                var keysToGet = nodeWithKeys.Value;
+                var replicatedNode = replicatedNodeWithKeys.Key;
+                var keysToGet = replicatedNodeWithKeys.Value;
 
-                foreach(var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
+                foreach (var node in replicatedNode.EnumerateNodes())
                 {
-                    using (var command = new MultiDeleteCommand(keysBatch, batchingOptions.BatchSize))
+                    foreach (var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
                     {
-                        await _commandExecutor.ExecuteCommandAsync(
-                            node,
-                            command,
-                            cancellationToken);
+                        using (var command = new MultiDeleteCommand(keysBatch, batchingOptions.BatchSize))
+                        {
+                            await _commandExecutor.ExecuteCommandAsync(
+                                node,
+                                command,
+                                cancellationToken);
+                        }
                     }
                 }
             });

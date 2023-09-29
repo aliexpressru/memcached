@@ -8,9 +8,7 @@ public interface INodeLocator<TNode>
 {
     TNode GetNode(string key);
 
-    IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys, uint replicationFactor = 0);
-
-    IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> GetReplicatedNodes(
+    IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> GetNodes(
         IEnumerable<string> keys,
         uint replicationFactor);
 

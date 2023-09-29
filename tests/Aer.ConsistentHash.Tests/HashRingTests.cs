@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Aer.ConsistentHash.Abstractions;
+using Aer.ConsistentHash.Tests.Extensions;
 using Aer.ConsistentHash.Tests.Model;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -49,43 +50,54 @@ public class HashRingTests
         var hashRing = GetHashRing();
 
         var nodesToAdd = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToArray();
+        
         hashRing.AddNodes(nodesToAdd);
-        var nodes = hashRing.GetNodes(new [] {"test", "test2"});
+        var nodes = hashRing.GetNodes(new[] {"test", "test2"}, replicationFactor: 0);
 
-        foreach (var node in nodes)
+        foreach (var node in nodes.SelectMany(n => n.Key.EnumerateNodes()))
         {
-            nodesToAdd.Should().Contain(node.Key);
+            nodesToAdd.Should().Contain(node);
         }
     }
-    
+
     [TestMethod]
-    public void GetNodes_MultipleNodeAddedInParallel_ReturnsNodes()
+    public async Task GetNodes_MultipleNodeAddedInParallel_ReturnsNodes()
     {
         var hashRing = GetHashRing();
 
         var nodesToAddInPrevious = Enumerable.Range(0, 15).Select(i => new TestHashRingNode()).ToArray();
         hashRing.AddNodes(nodesToAddInPrevious);
-        
-        var nodesToAdd = Enumerable.Range(0, 15).Select(i => new TestHashRingNode()).ToArray();
-        var taskToAdd = Task.Run(() => Parallel.ForEach(nodesToAdd, nodeToAdd =>
-        {
-            hashRing.AddNode(nodeToAdd);
-        }));
 
-        IDictionary<TestHashRingNode, ConcurrentBag<string>> nodes = null;
-        var keysToGet = new[] { "test", "test2" };
-        var taskToGet = Task.Run(() =>
-        {
-            nodes = hashRing.GetNodes(new[] { "test", "test2" });
-        });
-        
-        Task.WhenAll(taskToAdd, taskToGet).GetAwaiter().GetResult();
+        var nodesToAdd = Enumerable.Range(0, 15).Select(i => new TestHashRingNode()).ToArray();
+
+        var taskToAdd = Task.Run(
+            () =>
+                Parallel.ForEach(
+                    nodesToAdd,
+                    nodeToAdd =>
+                    {
+                        hashRing.AddNode(nodeToAdd);
+                    }
+                )
+        );
+
+        Dictionary<TestHashRingNode, ConcurrentBag<string>> nodes = new();
+
+        var keysToGet = new[] {"test", "test2"};
+
+        var taskToGet = Task.Run(
+            () =>
+            {
+                nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
+            });
+
+        await Task.WhenAll(taskToAdd, taskToGet);
 
         nodes.Count.Should().Be(keysToGet.Length);
     }
-    
+
     [TestMethod]
-    public void GetNodes_MultipleNodeAddedAndRemovedInParallel_ReturnsNodes()
+    public async Task GetNodes_MultipleNodeAddedAndRemovedInParallel_ReturnsNodes()
     {
         var hashRing = GetHashRing();
 
@@ -104,13 +116,15 @@ public class HashRingTests
         }));
 
         IDictionary<TestHashRingNode, ConcurrentBag<string>> nodes = null;
+        
         var keysToGet = new[] { "test", "test2" };
+        
         var taskToGet = Task.Run(() =>
         {
-            nodes = hashRing.GetNodes(new[] { "test", "test2" });
+            nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
         });
-        
-        Task.WhenAll(taskToAdd, taskToGet, taskToRemove).GetAwaiter().GetResult();
+
+        await Task.WhenAll(taskToAdd, taskToGet, taskToRemove);
 
         nodes.Count.Should().Be(keysToGet.Length);
     }
@@ -137,8 +151,12 @@ public class HashRingTests
         var hashRing = GetHashRing();
 
         var nodesToAdd = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToArray();
+        
         hashRing.AddNodes(nodesToAdd);
-        var nodes = hashRing.GetNodes(new [] {"test", "test2"});
+
+        var keysToGet = new[] {"test", "test2"};
+        
+        var nodes = hashRing.GetNodesWithoutReplicas(keysToGet); 
 
         foreach (var node in nodes)
         {
@@ -146,7 +164,8 @@ public class HashRingTests
         }
         
         hashRing.RemoveNodes(nodesToAdd);
-        nodes = hashRing.GetNodes(new [] {"test", "test2"});
+        
+        nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
         nodes.Keys.Count.Should().Be(0);
     }
 
@@ -182,7 +201,7 @@ public class HashRingTests
         hashRing.AddNodes(nodesToAdd);
 
         var replicatedNodes = 
-            hashRing.GetReplicatedNodes(new[] {"test"}, replicationFactor: replicationFactor);
+            hashRing.GetNodes(new[] {"test"}, replicationFactor: replicationFactor);
 
         var totalNodesCount = replicatedNodes
             .Sum(kv => kv.Key.ReplicaNodes.Count + 1); // +1 to account for primary node

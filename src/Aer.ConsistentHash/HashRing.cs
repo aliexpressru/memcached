@@ -57,7 +57,7 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         }
     }
 
-    public IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> GetReplicatedNodes(
+    public IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> GetNodes(
         IEnumerable<string> keys,
         uint replicationFactor)
     {
@@ -84,54 +84,6 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
                     var keysForReplicatedNode = result.GetOrAdd(replicatedNode, static (_) => new());
                     
                     keysForReplicatedNode.Add(key);
-                });
-        }
-        finally
-        {
-            _locker.ExitReadLock();
-        }
-
-        return result;
-    }
-
-    public IDictionary<TNode, ConcurrentBag<string>> GetNodes(IEnumerable<string> keys, uint replicationFactor = 0)
-    {
-        static ConcurrentBag<string> ValueFactory(TNode _) => new();
-
-        var result = new ConcurrentDictionary<TNode, ConcurrentBag<string>>(NodeEqualityComparer<TNode>.Instance);
-
-        try
-        {
-            _locker.EnterReadLock();
-
-            if (_sortedNodeHashKeys == null
-                || _sortedNodeHashKeys.Length == 0)
-            {
-                return result;
-            }
-
-            Parallel.ForEach(
-                keys,
-                new ParallelOptions {MaxDegreeOfParallelism = 16},
-                key =>
-                {
-                    if (replicationFactor == 0)
-                    {
-                        var node = GetNodeInternal(key);
-
-                        var keysForNode = result.GetOrAdd(node, ValueFactory);
-                        keysForNode.Add(key);
-                    }
-                    else
-                    {
-                        var nodeWithReplicas = GetNodesInternal(key, replicationFactor);
-
-                        foreach (var node in nodeWithReplicas)
-                        {
-                            var keysForNode = result.GetOrAdd(node, ValueFactory);
-                            keysForNode.Add(key);
-                        }
-                    }
                 });
         }
         finally
@@ -319,68 +271,6 @@ public class HashRing<TNode> : INodeLocator<TNode> where TNode : class, INode
         }
 
         return replicatedNode;
-    }
-
-    private ICollection<TNode> GetNodesInternal(string key, uint replicationFactor = 0)
-    {
-        if (_nodeHashToVirtualNodeHashesMap.Keys.Count - 1 <= replicationFactor)
-        {
-            return _hashToNodeMap.Values;
-        }
-        
-        var result = new HashSet<TNode>();
-        
-        var keyToNodeHash = GetNodeHash(key);
-        var node = _hashToNodeMap[keyToNodeHash];
-
-        result.Add(node);
-        
-        var nodeHash = GetNodeHash(node);
-        var startingNodeFound = false;
-        var totalReplicas = 0;
-        foreach (var currentNodeHash in _nodeHashToVirtualNodeHashesMap.Keys)
-        {
-            if (nodeHash == currentNodeHash)
-            {
-                // we already have this one
-                startingNodeFound = true;
-                continue;
-            }
-
-            if (totalReplicas >= replicationFactor)
-            {
-                break;
-            }
-
-            if (!startingNodeFound)
-            {
-                continue;
-            }
-
-            var currentNode = _hashToNodeMap[currentNodeHash];
-            result.Add(currentNode);
-
-            totalReplicas++;
-        }
-
-        if (totalReplicas < replicationFactor)
-        {
-            // still not enough replicas. Find more replicas at the beginning of array
-            foreach (var currentNodeHash in _nodeHashToVirtualNodeHashesMap.Keys)
-            {
-                if (totalReplicas >= replicationFactor)
-                {
-                    break;
-                }
-                
-                var currentNode = _hashToNodeMap[currentNodeHash];
-                result.Add(currentNode);
-
-                totalReplicas++;
-            }
-        }
-        
-        return result;
     }
 
     private ulong GetNodeHash(string key)

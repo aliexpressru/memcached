@@ -133,7 +133,7 @@ public class MemcachedKeysBatchingBenchmarks
 		IEnumerable<string> keys,
 		int batchSize)
 	{
-		var nodes = _nodeLocator.GetNodes(keys);
+		var nodes = _nodeLocator.GetNodes(keys, replicationFactor: 0);
 		if (nodes.Keys.Count == 0)
 		{
 			return new Dictionary<string, T>();
