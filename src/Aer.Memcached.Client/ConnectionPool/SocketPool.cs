@@ -8,11 +8,19 @@ namespace Aer.Memcached.Client.ConnectionPool;
 
 internal class SocketPool : IDisposable
 {
-    /// <summary>
-    /// A maximum number of attempts to create a socket before this SocketPool is considered poisoned.
-    /// </summary>
-    private const int MaximumFailedSocketCreationAttempts = 20;
-    
+    #region Nested types
+
+    private class CanCreateSocketResult
+    {
+        public bool CanCreateSocket { get; set; }
+
+        public bool SemaphoreEntered { get; set; }
+
+        public PooledSocket AvailableSocket { get; set; }
+    }
+
+    #endregion
+
     private readonly EndPoint _endPoint;
     private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
     private readonly ILogger _logger;
@@ -22,15 +30,15 @@ internal class SocketPool : IDisposable
 
     private int _failedSocketCreationAttemptsCount;
     private bool _isEndPointBroken;
-    
+
     private bool _isDisposed;
-    
+
     public int AvailableSocketsCount => _availableSockets.Count;
 
     /// <summary>
     /// Indicates that the underlying endpoint can't be reached continously for some time.
     /// </summary>
-    public bool IsEndPointBroken => _isEndPointBroken; 
+    public bool IsEndPointBroken => _isEndPointBroken;
 
     public SocketPool(EndPoint endPoint, MemcachedConfiguration.SocketPoolConfiguration config, ILogger logger)
     {
@@ -68,7 +76,7 @@ internal class SocketPool : IDisposable
         {
             DestroySocket(result.AvailableSocket);
         }
-        else if(result.SemaphoreEntered)
+        else if (result.SemaphoreEntered)
         {
             _semaphore?.Release();
         }
@@ -81,35 +89,40 @@ internal class SocketPool : IDisposable
             CanCreateSocket = false,
             AvailableSocket = null
         };
-        
+
         if (_isDisposed)
         {
-            _logger.LogWarning("Pool is disposed");
+            _logger.LogWarning("Pool for endpoint '{EndPoint}' is disposed", _endPoint.GetEndPointString());
             return result;
         }
 
         if (!await _semaphore.WaitAsync(_config.SocketPoolingTimeout, token))
         {
-            _logger.LogWarning("Pool ran out of sockets");
+            _logger.LogWarning("Pool for endpoint '{EndPoint}' ran out of sockets", _endPoint.GetEndPointString());
             return result;
         }
-        
+
         result.SemaphoreEntered = true;
-        
+
         if (_availableSockets.TryPop(out var pooledSocket))
         {
             try
             {
                 pooledSocket.Reset();
                 result.AvailableSocket = pooledSocket;
-                
+
                 return result;
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to reset an acquired socket");
+                _logger.LogError(
+                    e,
+                    "Failed to reset an acquired socket for endpoint '{EndPoint}'",
+                    _endPoint
+                        .GetEndPointString());
+
                 _semaphore.Release();
-                
+
                 return result;
             }
         }
@@ -158,13 +171,13 @@ internal class SocketPool : IDisposable
         try
         {
             var socket = new PooledSocket(_endPoint, _config.ConnectionTimeout, _logger);
-            
+
             await socket.ConnectAsync(token);
-            
+
             socket.CleanupCallback = ReleaseSocket;
 
             _failedSocketCreationAttemptsCount = 0;
-            
+
             return socket;
         }
         catch (Exception ex)
@@ -173,24 +186,24 @@ internal class SocketPool : IDisposable
 
             _logger.LogError(
                 ex,
-                "Failed to create socket to '{EndPoint}'. Attempt {AttemptNumber} / {MaxAttemptsNumber}",
+                "Failed to create socket for endpoint '{EndPoint}'. Attempt {AttemptNumber} / {MaxAttemptsNumber}",
                 endPointStr,
                 _failedSocketCreationAttemptsCount + 1, // +1 because we are reporting attempt number
-                MaximumFailedSocketCreationAttempts);
-            
-            if (_failedSocketCreationAttemptsCount > MaximumFailedSocketCreationAttempts)
+                _config.MaximumSocketCreationAttempts);
+
+            if (_failedSocketCreationAttemptsCount > _config.MaximumSocketCreationAttempts)
             {
                 _isEndPointBroken = true;
-                
+
                 _logger.LogError(
                     ex,
-                    "Can't create socket to '{EndPoint}' {AttemptNumber} times in a row. Considering endpoint broken",
+                    "Can't create socket for endpoint '{EndPoint}' {AttemptNumber} times in a row. Considering endpoint broken",
                     endPointStr,
                     _failedSocketCreationAttemptsCount);
             }
 
             _failedSocketCreationAttemptsCount++;
-            
+
             _semaphore.Release();
 
             return null;
@@ -230,14 +243,5 @@ internal class SocketPool : IDisposable
         }
 
         _semaphore.Dispose();
-    }
-
-    private class CanCreateSocketResult
-    {
-        public bool CanCreateSocket { get; set; }
-        
-        public bool SemaphoreEntered { get; set; }
-        
-        public PooledSocket AvailableSocket { get; set; }
     }
 }
