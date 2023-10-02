@@ -247,15 +247,16 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
     private async Task<PooledSocket> GetSocketAsync(TNode node, CancellationToken token)
     {
         var socketPool = _socketPools.GetOrAdd(
-            node, 
-            static (n, args) =>
+            node,
+            valueFactory: static (n, args) =>
                 new SocketPool(n.GetEndpoint(), args.Config, args.Logger),
-            (Config: _config, Logger: _logger));
+            factoryArgument: (Config: _config, Logger: _logger)
+        );
 
         if (socketPool.IsEndPointBroken)
         {
             // remove node from configuration if it's endpoint is considered broken
-            _nodeLocator.RemoveNode(node);
+            _nodeLocator.MarkNodeDead(node);
             
             return null;
         }

@@ -21,8 +21,13 @@ public class HashRing<TNode> : INodeLocator<TNode>
     private readonly IHashCalculator _hashCalculator;
     private readonly int _numberOfVirtualNodes;
 
-    private readonly ConcurrentDictionary<ulong, TNode> _hashToNodeMap;
-    private readonly ConcurrentDictionary<ulong, ulong[]> _nodeHashToVirtualNodeHashesMap;
+    private readonly ConcurrentDictionary<ulong, TNode> _hashToNodeMap = new();
+    private readonly ConcurrentDictionary<ulong, ulong[]> _nodeHashToVirtualNodeHashesMap = new();
+    
+    // since we are only writing to this collection from inside the writer lock,
+    // we can safely use with non-thread-safe version 
+    private readonly HashSet<TNode> _deadNodes = new();
+    
     private ulong[] _sortedNodeHashKeys;
 
     /// <param name="hashCalculator">Calculates hash for nodes and keys</param>
@@ -33,9 +38,6 @@ public class HashRing<TNode> : INodeLocator<TNode>
 
         _hashCalculator = hashCalculator;
         _numberOfVirtualNodes = numberOfVirtualNodes;
-
-        _hashToNodeMap = new ConcurrentDictionary<ulong, TNode>();
-        _nodeHashToVirtualNodeHashesMap = new ConcurrentDictionary<ulong, ulong[]>();
     }
 
     public TNode GetNode(string key)
@@ -98,7 +100,10 @@ public class HashRing<TNode> : INodeLocator<TNode>
 
     public TNode[] GetAllNodes()
     {
-        return _hashToNodeMap.Values.Distinct(NodeEqualityComparer<TNode>.Instance).ToArray();
+        // return defensive copy
+        return _hashToNodeMap.Values
+            .Distinct(NodeEqualityComparer<TNode>.Instance)
+            .ToArray();
     }
 
     public void AddNode(TNode node)
@@ -182,6 +187,31 @@ public class HashRing<TNode> : INodeLocator<TNode>
         {
             _locker.ExitWriteLock();
         }
+    }
+
+    public void MarkNodeDead(TNode node)
+    {
+        try
+        {
+            _locker.EnterWriteLock();
+
+            _deadNodes.Add(node);
+
+            if (TryRemoveNodeFromCollections(node))
+            {
+                UpdateSortedNodeHashKeys();
+            }
+        }
+        finally
+        {
+            _locker.ExitWriteLock();
+        }
+    }
+
+    public IReadOnlyCollection<TNode> GetDeadNodes()
+    {
+        // return defensive copy
+        return _deadNodes.ToArray();
     }
 
     private TNode GetNodeInternal(string key)
@@ -327,6 +357,7 @@ public class HashRing<TNode> : INodeLocator<TNode>
 
         _hashToNodeMap.GetOrAdd(nodeHash, node);
         _nodeHashToVirtualNodeHashesMap.GetOrAdd(nodeHash, virtualNodeHashes);
+        
         foreach (var virtualNodeHash in virtualNodeHashes)
         {
             _hashToNodeMap.GetOrAdd(virtualNodeHash, node);
@@ -336,7 +367,6 @@ public class HashRing<TNode> : INodeLocator<TNode>
     private void UpdateSortedNodeHashKeys()
     {
         _sortedNodeHashKeys = _hashToNodeMap.Keys
-            .ToArray()
             .OrderBy(x => x)
             .ToArray();
     }

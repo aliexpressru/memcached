@@ -83,19 +83,31 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         {
             var currentNodes = _nodeProvider.GetNodes();
             var nodesInLocator = _nodeLocator.GetAllNodes();
+            var deadNodesInLocator = _nodeLocator.GetDeadNodes();
 
             try
             {
                 _locker.EnterReadLock();
-                currentNodes = currentNodes.Except(_deadNodes, NodeEqualityComparer<TNode>.Instance).ToArray();
+                
+                // remove globally discovered dead nodes as well as nodes considered dead in locator
+                currentNodes = currentNodes
+                    .Except(_deadNodes.Concat(deadNodesInLocator), NodeEqualityComparer<TNode>.Instance)
+                    .ToArray();
             }
             finally
             {
                 _locker.ExitReadLock();
             }
 
-            var nodesToAdd = currentNodes.Except(nodesInLocator, NodeEqualityComparer<TNode>.Instance).ToArray();
-            var nodesToRemove = nodesInLocator.Except(currentNodes, NodeEqualityComparer<TNode>.Instance).ToArray();
+            // add currently discovered nodes except the ones that are already added
+            var nodesToAdd = currentNodes
+                .Except(nodesInLocator, NodeEqualityComparer<TNode>.Instance)
+                .ToArray();
+
+            // remove nodes that are added to locator but not in the currently discovered node collection
+            var nodesToRemove = nodesInLocator
+                .Except(currentNodes, NodeEqualityComparer<TNode>.Instance)
+                .ToArray();
 
             if (nodesToRemove.Length > 0)
             {
@@ -125,10 +137,10 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             // 1 socket per 15 seconds seems to be ok for now. We can tune this strategy if needed.
             _commandExecutor.DestroyAvailableSockets(1, CancellationToken.None).GetAwaiter().GetResult();
 
-            var socketPools = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
-
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
             {
+                var socketPools = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
+                
                 _logger.LogInformation(
                     "Created sockets statistics: [{SocketStatisctics}]",
                     socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"));
@@ -136,7 +148,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         }
         catch (Exception e)
         {
-            _logger.LogError(e, $"Error occured while rebuilding nodes");
+            _logger.LogError(e, "Error occured while rebuilding nodes");
         }
     }
 
@@ -183,7 +195,19 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             }
 
             var nodesInLocator = _nodeLocator.GetAllNodes();
-            nodesInLocator = nodesInLocator.Except(_deadNodes, NodeEqualityComparer<TNode>.Instance).ToArray();
+
+            try
+            {
+                _locker.EnterReadLock();
+                
+                nodesInLocator = nodesInLocator
+                    .Except(_deadNodes, NodeEqualityComparer<TNode>.Instance)
+                    .ToArray();
+            }
+            finally
+            {
+                _locker.ExitReadLock();
+            }
 
             Parallel.ForEach(
                 nodesInLocator,
@@ -199,6 +223,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             if (!_deadNodes.IsEmpty)
             {
                 _logger.LogWarning("Dead nodes: [{DeadNodes}]", _deadNodes.Select(n => n.GetKey()));
+                
+                _nodeLocator.RemoveNodes(_deadNodes);                
             }
         }
         catch (Exception e)
