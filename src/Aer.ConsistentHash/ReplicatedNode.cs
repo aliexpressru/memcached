@@ -18,7 +18,7 @@ public class ReplicatedNode<TNode>
 	/// <summary>
 	/// Zero or more replica nodes for this node.
 	/// </summary>
-	public ICollection<TNode> ReplicaNodes { get; }
+	public List<TNode> ReplicaNodes { get; }
 
 	/// <summary>
 	/// <c>true</c> if this node has any replicas, <c>false</c> otherwise.

@@ -131,12 +131,14 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         using (var command = new GetCommand(key))
         {
             var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+            
             if (!commandExecutionResult.Success)
             {
                 return MemcachedClientValueResult<T>.Unsuccessful;
             }
 
-            var deserializationResult = BinaryConverter.Deserialize<T>(command.Result);
+            var deserializationResult = BinaryConverter.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
+
             return new MemcachedClientValueResult<T>
             {
                 Success = true,
@@ -166,35 +168,39 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             return await MultiGetBatchedInternalAsync<T>(nodes, batchingOptions, token);
         }
 
-        var getTasks = new List<Task>(nodes.Count);
-        var taskToCommands = new List<(Task<CommandExecutionResult> task, MultiGetCommand command)>(nodes.Count);
-        var commandsToDispose = new List<MemcachedCommandBase>(nodes.Count);
+        var getCommandTasks = new List<Task<CommandExecutionResult>>(nodes.Count);
 
         foreach (var (node, keysToGet) in nodes)
         {
             var command = new MultiGetCommand(keysToGet, keysToGet.Count);
             var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
 
-            getTasks.Add(executeTask);
-            taskToCommands.Add((executeTask, command));
-            commandsToDispose.Add(command);
+            getCommandTasks.Add(executeTask);
         }
 
-        await Task.WhenAll(getTasks);
+        await Task.WhenAll(getCommandTasks);
 
         var result = new Dictionary<string, T>();
-        
-        foreach (var taskToCommand in taskToCommands)
+
+        foreach (var getCommandResult in getCommandTasks)
         {
-            var taskResult = await taskToCommand.task;
-            
-            if (!taskResult.Success || taskToCommand.command.Result is null or {Count: 0})
+            using var taskResult = getCommandResult.Result;
+
+            if (!taskResult.Success)
             {
-                // skip results that are not successful reads or empty  
+                // skip results that are not successful  
                 continue;
             }
 
-            foreach (var readItem in taskToCommand.command.Result)
+            var command = taskResult.GetCommandAs<MultiGetCommand>();
+
+            if (command.Result is null or {Count: 0})
+            {
+                // skip results that are empty  
+                continue;
+            }
+
+            foreach (var readItem in command.Result)
             {
                 var key = readItem.Key;
                 var cacheItem = readItem.Value;
@@ -203,12 +209,6 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
                 result.TryAdd(key, cachedValue);
             }
-        }
-
-        // dispose only after deserialization is done and allocated memory from array pool can be returned
-        foreach (var getCommand in commandsToDispose)
-        {
-            getCommand.Dispose();
         }
 
         return result;
@@ -426,27 +426,28 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
                 foreach (var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
                 {
-                    using (var command = new MultiGetCommand(keysBatch, batchingOptions.BatchSize))
+                    // since internally in ExecuteCommandAsync the command gets cloned and
+                    // original command gets disposed we don't need to wrap it in using statement
+                    var command = new MultiGetCommand(keysBatch, batchingOptions.BatchSize);
+                    
+                    using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(
+                        node,
+                        command,
+                        cancellationToken);
+
+                    if (!commandExecutionResult.Success)
                     {
-                        var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(
-                            node,
-                            command,
-                            cancellationToken);
+                        continue;
+                    }
 
-                        if (!commandExecutionResult.Success)
-                        {
-                            continue;
-                        }
+                    foreach (var readItem in commandExecutionResult.GetCommandAs<MultiGetCommand>().Result)
+                    {
+                        var key = readItem.Key;
+                        var cacheItem = readItem.Value;
 
-                        foreach (var readItem in command.Result)
-                        {
-                            var key = readItem.Key;
-                            var cacheItem = readItem.Value;
+                        var cachedValue = BinaryConverter.Deserialize<T>(cacheItem).Result;
 
-                            var cachedValue = BinaryConverter.Deserialize<T>(cacheItem).Result;
-
-                            result.TryAdd(key, cachedValue);
-                        }
+                        result.TryAdd(key, cachedValue);
                     }
                 }
             });

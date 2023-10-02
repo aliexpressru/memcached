@@ -37,4 +37,9 @@ public interface INodeLocator<TNode>
     /// </summary>
     /// <returns>The dead nodes collection or empty collection if no nodes were considered dead.</returns>
     IReadOnlyCollection<TNode> GetDeadNodes();
+
+    /// <summary>
+    /// Clears the dead node collection.
+    /// </summary>
+    void ClearDeadNodes();
 }

@@ -37,7 +37,7 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAdd = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAdd = Enumerable.Range(0, 5).Select(_ => new TestHashRingNode()).ToArray();
         hashRing.AddNodes(nodesToAdd);
         var node = hashRing.GetNode("test");
 
@@ -49,7 +49,7 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAdd = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAdd = Enumerable.Range(0, 5).Select(_ => new TestHashRingNode()).ToArray();
         
         hashRing.AddNodes(nodesToAdd);
         var nodes = hashRing.GetNodes(new[] {"test", "test2"}, replicationFactor: 0);
@@ -65,10 +65,15 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAddInPrevious = Enumerable.Range(0, 15).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAddInPrevious = Enumerable.Range(0, 15)
+            .Select(_ => new TestHashRingNode())
+            .ToArray();
+        
         hashRing.AddNodes(nodesToAddInPrevious);
 
-        var nodesToAdd = Enumerable.Range(0, 15).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAdd = Enumerable.Range(0, 15)
+            .Select(_ => new TestHashRingNode())
+            .ToArray();
 
         var taskToAdd = Task.Run(
             () =>
@@ -89,7 +94,8 @@ public class HashRingTests
             () =>
             {
                 nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
-            });
+            }
+        );
 
         await Task.WhenAll(taskToAdd, taskToGet);
 
@@ -101,10 +107,10 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAddInPrevious = Enumerable.Range(0, 15).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAddInPrevious = Enumerable.Range(0, 15).Select(_ => new TestHashRingNode()).ToArray();
         hashRing.AddNodes(nodesToAddInPrevious);
         
-        var nodesToAdd = Enumerable.Range(0, 15).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAdd = Enumerable.Range(0, 15).Select(_ => new TestHashRingNode()).ToArray();
         var taskToAdd = Task.Run(() => Parallel.ForEach(nodesToAdd, nodeToAdd =>
         {
             hashRing.AddNode(nodeToAdd);
@@ -150,7 +156,7 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAdd = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAdd = Enumerable.Range(0, 5).Select(_ => new TestHashRingNode()).ToArray();
         
         hashRing.AddNodes(nodesToAdd);
 
@@ -174,7 +180,7 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAdd = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAdd = Enumerable.Range(0, 5).Select(_ => new TestHashRingNode()).ToArray();
         hashRing.AddNodes(nodesToAdd);
 
         var nodes = hashRing.GetAllNodes();
@@ -196,7 +202,7 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAdd = Enumerable.Range(0, nodesNumber).Select(i => new TestHashRingNode()).ToArray();
+        var nodesToAdd = Enumerable.Range(0, nodesNumber).Select(_ => new TestHashRingNode()).ToArray();
 
         hashRing.AddNodes(nodesToAdd);
 

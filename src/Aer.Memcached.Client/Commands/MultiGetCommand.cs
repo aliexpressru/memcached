@@ -29,6 +29,8 @@ internal class MultiGetCommand: MemcachedCommandBase
         _keysCount = keysCount;
     }
 
+    internal override bool HasResult => Result is {Count: > 0};
+
     internal override IList<ArraySegment<byte>> GetBuffer()
     {
         var keys = _keys;
@@ -106,39 +108,9 @@ internal class MultiGetCommand: MemcachedCommandBase
         return result.Fail("Failed to find the end of operation marker");
     }
 
-    protected override MultiGetCommand CloneCore()
+    internal override MultiGetCommand Clone()
     {
         return new MultiGetCommand(_keys, _keysCount);
-    }
-
-    protected override bool TrySetResultFromCore(MemcachedCommandBase source)
-    {
-        if (source is not MultiGetCommand mgc)
-        {
-            throw new InvalidOperationException($"Can't set result of {GetType()} from {source.GetType()}");
-        }
-
-        if (mgc.Result is null or {Count: 0})
-        {
-            // can't set result - source result is null
-            return false;
-        }
-
-        // since the source command will be disposed of along with its ResponseReader
-        // we create a new reader for temporary buffer storage
-        ResponseReader = new BinaryResponseReader(); 
-        
-        Result = new Dictionary<string, CacheItemResult>(mgc.Result.Count);
-
-        foreach (var item in mgc.Result)
-        {
-            Result[item.Key] = item.Value.Clone(ResponseReader);
-        }
-
-        StatusCode = mgc.StatusCode;
-        _casValues = mgc._casValues;
-
-        return true;
     }
     
     private BinaryRequest Build(string key)

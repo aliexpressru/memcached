@@ -136,13 +136,10 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
                 return await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
             }
 
-            var nodeExecutionTasks = new List<Task<CommandExecutionResult>>();
-            
             // we preserve initial command to return data through it
             // we issue commands to all nodes including primary one as clones
             
-            List<(Task<CommandExecutionResult> NodeExecutionTask, MemcachedCommandBase NodeCommand)> tasksToCommands =
-                new(replicatedNode.NodeCount);
+            List<Task<CommandExecutionResult>> commandExecutionTasks = new(replicatedNode.NodeCount);
 
             foreach (var node in replicatedNode.EnumerateNodes())
             { 
@@ -152,42 +149,39 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
                 var commandClone = command.Clone();
                 var nodeExecutionTask = ExecuteCommandInternalAsync(node, commandClone, token);
                 
-                nodeExecutionTasks.Add(nodeExecutionTask);
-                tasksToCommands.Add((nodeExecutionTask, commandClone));
+                commandExecutionTasks.Add(nodeExecutionTask);
             }
 
-            await Task.WhenAll(nodeExecutionTasks);
+            await Task.WhenAll(commandExecutionTasks);
 
-            bool wasSuccessfulResultSet = false;
-            bool allNodesExecutionIsSuccessful = true;
+            MemcachedCommandBase sucessfullCommand = null;
             
-            foreach (var (nodeExecutionTask, nodeCommand) in tasksToCommands)
+            foreach (var nodeExecutionTask in commandExecutionTasks)
             {
                 var nodeExecutionIsSuccessful = nodeExecutionTask.Result.Success;
-                allNodesExecutionIsSuccessful &= nodeExecutionIsSuccessful;
+                var nodeCommand = nodeExecutionTask.Result.ExecutedCommand;
 
-                if (!wasSuccessfulResultSet && nodeExecutionIsSuccessful)
+                if (sucessfullCommand is null && nodeExecutionIsSuccessful)
                 {
-                    // if the result was found and set - discard all other commands
-                    bool wasResultSet = command.TrySetResultFrom(nodeCommand);
-                    
-                    wasSuccessfulResultSet = wasResultSet;
+                    // if the result of the command is not null - remember the command and discard all others
+                    if (nodeCommand.HasResult)
+                    {
+                        sucessfullCommand = nodeCommand;
+                        continue;
+                    }
                 }
 
-                // dispose the command to return rented read buffers
+                // dispose all other commands except successfull one to return rented read buffers
                 nodeCommand.Dispose();
             }
+            
+            // since we are not using the command internal buffers to read result 
+            // we don't need to dispose the command, this call is here for symmetry or future changes prposes
+            command.Dispose();
 
-            if (wasSuccessfulResultSet)
+            if (sucessfullCommand is not null)
             { 
-                return CommandExecutionResult.Successful;
-            }
-
-            if (allNodesExecutionIsSuccessful)
-            { 
-                // means there was no successful result set but all nodes responses ended up successfully
-                // this means all nodes returned no data - this is still technically a successful result
-                return CommandExecutionResult.Successful;
+                return CommandExecutionResult.Successful(sucessfullCommand);
             }
 
             // means no successful command found
@@ -233,7 +227,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             var readResult = command.ReadResponse(socket);
             
             return readResult.Success 
-                ? CommandExecutionResult.Successful 
+                ? CommandExecutionResult.Successful(command) 
                 : CommandExecutionResult.Unsuccessful;
         }
         catch (Exception e)

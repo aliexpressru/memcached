@@ -87,16 +87,6 @@ internal class BinaryResponseReader: IDisposable
         return StatusCode == SuccessfulResponseCode;
     }
 
-    public Memory<byte> GetMemoryBuffer(int dataLength)
-    {
-        var bufferData = ArrayPool<byte>.Shared.Rent(dataLength);
-        var memory = bufferData.AsMemory(0, dataLength);
-        
-        _rentedBufferForData.Enqueue(bufferData);
-
-        return memory;
-    }
-
     private void DeserializeHeader(Span<byte> spanHeader, out int dataLength, out int extraLength)
     {
         if (spanHeader[0] != MagicValue)

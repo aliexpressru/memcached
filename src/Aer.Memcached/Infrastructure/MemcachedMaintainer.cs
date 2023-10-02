@@ -93,6 +93,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 currentNodes = currentNodes
                     .Except(_deadNodes.Concat(deadNodesInLocator), NodeEqualityComparer<TNode>.Instance)
                     .ToArray();
+                
+                _nodeLocator.ClearDeadNodes();
             }
             finally
             {

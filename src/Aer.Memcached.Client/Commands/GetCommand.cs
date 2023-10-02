@@ -15,6 +15,8 @@ internal class GetCommand: SingleItemCommandBase
     {
     }
 
+    internal override bool HasResult => Result is not null;
+
     protected override BinaryRequest Build(string key)
     {
         var request = new BinaryRequest(OpCode)
@@ -48,32 +50,8 @@ internal class GetCommand: SingleItemCommandBase
         return result.Fail(message);
     }
 
-    protected override GetCommand CloneCore()
+    internal override GetCommand Clone()
     {
         return new GetCommand(Key);
-    }
-
-    protected override bool TrySetResultFromCore(MemcachedCommandBase source)
-    {
-        if (source is not GetCommand gc)
-        {
-            throw new InvalidOperationException($"Can't set result of {GetType()} from {source.GetType()}");
-        }
-
-        if (gc.Result is null)
-        { 
-            // can't set result - source result is null
-            return false;
-        }
-
-        // since the source command will be disposed of along with its ResponseReader
-        // we create a new reader for temporary buffer storage
-        ResponseReader = new BinaryResponseReader(); 
-        
-        Result = gc.Result.Clone(ResponseReader);
-        StatusCode = gc.StatusCode;
-        CasValue = gc.CasValue;
-
-        return true;
     }
 }

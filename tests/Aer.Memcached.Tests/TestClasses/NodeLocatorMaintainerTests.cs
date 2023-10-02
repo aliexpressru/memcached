@@ -72,7 +72,7 @@ public class NodeLocatorMaintainerTests
 
         var nodes = nodeLocator.GetAllNodes();
 
-        nodes.Length.Should().Be(nodesToProvide.Count());
+        nodes.Length.Should().Be(nodesToProvide.Count);
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
@@ -98,7 +98,7 @@ public class NodeLocatorMaintainerTests
 
         var nodes = nodeLocator.GetAllNodes();
 
-        nodes.Length.Should().Be(nodesToProvide.Count());
+        nodes.Length.Should().Be(nodesToProvide.Count);
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
@@ -109,7 +109,7 @@ public class NodeLocatorMaintainerTests
         
         nodes = nodeLocator.GetAllNodes();
 
-        nodes.Length.Should().Be(nodesToProvide.Count());
+        nodes.Length.Should().Be(nodesToProvide.Count);
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
@@ -135,7 +135,7 @@ public class NodeLocatorMaintainerTests
 
         var nodes = nodeLocator.GetAllNodes();
 
-        nodes.Length.Should().Be(nodesToProvide.Count());
+        nodes.Length.Should().Be(nodesToProvide.Count);
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
@@ -147,7 +147,8 @@ public class NodeLocatorMaintainerTests
         
         nodes = nodeLocator.GetAllNodes();
 
-        nodes.Length.Should().Be(nodesToProvide.Count());
+        nodes.Length.Should().Be(nodesToProvide.Count);
+        
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
@@ -155,7 +156,7 @@ public class NodeLocatorMaintainerTests
         
         await maintainer.StopAsync(CancellationToken.None);
     }
-    
+
     [TestMethod]
     public async Task Configured_DeadNode_RemovedDeadNodeFromLocator()
     {
@@ -166,7 +167,7 @@ public class NodeLocatorMaintainerTests
         var deadNode = nodesToProvide.First();
 
         _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Is(deadNode)).Returns(true);
-        
+
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
 
@@ -175,18 +176,21 @@ public class NodeLocatorMaintainerTests
 
         var nodes = nodeLocator.GetAllNodes();
 
-        nodes.Length.Should().Be(nodesToProvide.Count());
+        nodes.Length.Should().Be(nodesToProvide.Count);
+
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
         }
-        
+
         await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds * 2));
-        
+
         nodes = nodeLocator.GetAllNodes();
 
-        var nodesExceptDead = nodesToProvide.Except(new[] { deadNode });
-        nodes.Length.Should().Be(nodesExceptDead.Count());
+        var nodesExceptDead = nodesToProvide.Except(new[] {deadNode}).ToArray();
+        
+        nodes.Length.Should().Be(nodesExceptDead.Length);
+        
         foreach (var node in nodes)
         {
             nodesExceptDead.Should().Contain(node);
@@ -194,12 +198,16 @@ public class NodeLocatorMaintainerTests
 
         await maintainer.StopAsync(CancellationToken.None);
     }
-    
+
     [TestMethod]
     public async Task Configured_ResurrectedNode_RemovedDeadAndAddAgainNode()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
+        var nodesToProvide = Enumerable.Range(0, 5)
+            .Select(i => new TestHashRingNode())
+            .ToList();
+        
         var nodeLocator = GetNodLocator();
+        
         SetupMocks(true, nodesToProvide);
 
         var deadNodes = new List<TestHashRingNode>()
@@ -218,7 +226,8 @@ public class NodeLocatorMaintainerTests
 
         var nodes = nodeLocator.GetAllNodes();
 
-        nodes.Length.Should().Be(nodesToProvide.Count());
+        nodes.Length.Should().Be(nodesToProvide.Count);
+        
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
@@ -228,19 +237,23 @@ public class NodeLocatorMaintainerTests
         
         nodes = nodeLocator.GetAllNodes();
 
-        var nodesExceptDead = nodesToProvide.Except(deadNodes);
-        nodes.Length.Should().Be(nodesExceptDead.Count());
+        var nodesExceptDead = nodesToProvide.Except(deadNodes).ToArray();
+        
+        nodes.Length.Should().Be(nodesExceptDead.Length);
+        
         foreach (var node in nodes)
         {
             nodesExceptDead.Should().Contain(node);
         }
 
-        deadNodes.Remove(deadNodes.First());
+        deadNodes.Remove(deadNodes[0]);
+        
         await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds * 2));
         
         nodes = nodeLocator.GetAllNodes();
         
-        nodes.Length.Should().Be(nodesToProvide.Count());
+        nodes.Length.Should().Be(nodesToProvide.Count);
+        
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);

@@ -1,5 +1,3 @@
-using Aer.Memcached.Client.Commands.Infrastructure;
-
 namespace Aer.Memcached.Client.Models;
 
 /// <summary>
@@ -26,21 +24,5 @@ internal class CacheItemResult
     {
         Data = data;
         Flags = flags;
-    }
-
-    /// <summary>
-    /// Creates a deep clone of this cached item.
-    /// </summary>
-    /// <param name="responseReader">The response reader to allocate buffer for this cached otem data in.</param>
-    public CacheItemResult Clone(BinaryResponseReader responseReader)
-    {
-        // to not allocate anything we get the buffer from supplied response reader 
-        var bufferData = responseReader.GetMemoryBuffer(Data.Length);
-        
-        Data.CopyTo(bufferData);
-        
-        CacheItemResult clone = new CacheItemResult(Flags, bufferData);
-        
-        return clone;
     }
 }

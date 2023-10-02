@@ -214,6 +214,11 @@ public class HashRing<TNode> : INodeLocator<TNode>
         return _deadNodes.ToArray();
     }
 
+    public void ClearDeadNodes()
+    { 
+        _deadNodes.Clear();
+    }
+
     private TNode GetNodeInternal(string key)
     {
         var keyToNodeHash = GetNodeHash(key);
