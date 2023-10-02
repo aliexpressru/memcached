@@ -130,7 +130,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         using (var command = new GetCommand(key))
         {
-            var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+            using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
             
             if (!commandExecutionResult.Success)
             {
@@ -290,12 +290,12 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
         using (var command = new IncrCommand(key, amountToAdd, initialValue, expiration))
         {
-            var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+            using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
             return new MemcachedClientValueResult<ulong>
             {
                 Success = result.Success,
-                Result = command.Result
+                Result = result.GetCommandAs<IncrCommand>().Result
             };
         }
     }
@@ -319,12 +319,12 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         using (var command = new DecrCommand(key, amountToSubtract, initialValue, expiration))
         {
-            var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+            using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
             return new MemcachedClientValueResult<ulong>
             {
                 Success = result.Success,
-                Result = command.Result
+                Result = result.GetCommandAs<DecrCommand>().Result
             };
         }
     }
@@ -340,6 +340,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         var command = new FlushCommand();
         var setTasks = new List<Task>(nodes.Length);
         var commandsToDispose = new List<MemcachedCommandBase>(nodes.Length);
+        
         foreach (var node in nodes)
         {
             var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
@@ -348,6 +349,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }
 
         await Task.WhenAll(setTasks);
+        
         foreach (var commandBase in commandsToDispose)
         {
             commandBase.Dispose();

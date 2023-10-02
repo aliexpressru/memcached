@@ -84,7 +84,7 @@ public class ReplicationTests : MemcachedClientTestsBase
 	{
 		await Client.MultiStoreAsync(
 			_testItems,
-			TimeSpan.FromSeconds(CacheItemExpirationSeconds*100),
+			TimeSpan.FromSeconds(CacheItemExpirationSeconds),
 			CancellationToken.None,
 			replicationFactor: replicationFactor);
 

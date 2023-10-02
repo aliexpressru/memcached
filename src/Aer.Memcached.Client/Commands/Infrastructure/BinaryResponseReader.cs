@@ -11,6 +11,7 @@ internal class BinaryResponseReader: IDisposable
     private const byte MagicValue = 0x81;
     private const int HeaderLength = 24;
 
+    // data fragment offsets
     private const int HeaderOpcode = 1;
     private const int HeaderKey = 2; // 2-3
     private const int HeaderExtra = 4;
@@ -21,10 +22,9 @@ internal class BinaryResponseReader: IDisposable
     private const int HeaderCas = 16; // 16-23
 
     public const int SuccessfulResponseCode = 0;
-    
     public const int UnsuccessfulResponseCode = 1;
 
-    private readonly Queue<byte[]> _rentedBufferForData = new();
+    private readonly Queue<byte[]> _rentedBuffersForData = new();
     
     public int StatusCode { get; private set; } = -1;
 
@@ -37,6 +37,8 @@ internal class BinaryResponseReader: IDisposable
     public ReadOnlyMemory<byte> Extra { get; private set; }
     
     public ReadOnlyMemory<byte> Data { get; private set; }
+    
+    // the following properties are not used yet, but might be in the future
     
     public byte Opcode { get; private set; }
     
@@ -51,9 +53,10 @@ internal class BinaryResponseReader: IDisposable
         if (!socket.IsAlive)
         {
             // We return True here if underlying socket is considered to be dead.
-            // This is done to prevent infinite looping on the dead socket whikle reading from it.
+            // This is done to prevent infinite looping on the dead socket while reading from it.
             
             IsSocketDead = true;
+            
             return true;
         }
         
@@ -81,7 +84,7 @@ internal class BinaryResponseReader: IDisposable
             Extra = new ReadOnlyMemory<byte>(bufferData, 0, extraLength);
             Data = new ReadOnlyMemory<byte>(bufferData, extraLength, dataLength - extraLength);
             
-            _rentedBufferForData.Enqueue(bufferData);
+            _rentedBuffersForData.Enqueue(bufferData);
         }
 
         return StatusCode == SuccessfulResponseCode;
@@ -111,12 +114,12 @@ internal class BinaryResponseReader: IDisposable
 
     private void ReturnRentedBuffer()
     {
-        if(_rentedBufferForData == null)
+        if (_rentedBuffersForData is null or {Count: 0})
         {
             return;
         }
 
-        while (_rentedBufferForData.TryDequeue(out var rentedData))
+        while (_rentedBuffersForData.TryDequeue(out var rentedData))
         {
             ArrayPool<byte>.Shared.Return(rentedData);
         }

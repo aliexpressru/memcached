@@ -101,9 +101,7 @@ public class PooledSocket : IDisposable
             throw new TimeoutException($"Could not connect to {_endpoint}.");
         }
     }
-
     
-
     public void Reset()
     {
         int available = _socket.Available;

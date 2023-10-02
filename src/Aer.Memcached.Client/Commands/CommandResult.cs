@@ -35,13 +35,12 @@ public class CommandResult
     public ulong Cas { get; set; }
 
     public static CommandResult Fail(string message, Exception exception = null)
-    {
-        return new CommandResult()
-        {
-            Success = false,
-            Message = message,
-            Exception = exception,
-            StatusCode = BinaryResponseReader.UnsuccessfulResponseCode
-        };
-    }
+        =>
+            new()
+            {
+                Success = false,
+                Message = message,
+                Exception = exception,
+                StatusCode = BinaryResponseReader.UnsuccessfulResponseCode
+            };
 }

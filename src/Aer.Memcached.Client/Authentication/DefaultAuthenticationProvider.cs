@@ -13,7 +13,10 @@ public class DefaultAuthenticationProvider: IAuthenticationProvider
     public DefaultAuthenticationProvider(IOptions<MemcachedConfiguration.AuthenticationCredentials> config)
     {
         var configValue = config.Value;
-        AuthRequired = configValue != null && !string.IsNullOrEmpty(configValue.Username) && !string.IsNullOrEmpty(configValue.Password);
+        
+        AuthRequired = configValue != null 
+            && !string.IsNullOrEmpty(configValue.Username)
+            && !string.IsNullOrEmpty(configValue.Password);
 
         if (AuthRequired)
         {

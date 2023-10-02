@@ -5,7 +5,8 @@ namespace Aer.Memcached.Client.Models;
 public class CommandExecutionResult : IDisposable
 {
     /// <summary>
-    /// Contains executed command, since the actual result of the memcached command is located on the command itself.
+    /// Contains the executed command, since the actual result of the memcached command
+    /// is stored on the command itself, this property is used to get the execution result.
     /// </summary>
     public MemcachedCommandBase ExecutedCommand { set; get; }
 
@@ -24,7 +25,7 @@ public class CommandExecutionResult : IDisposable
         if (!Success)
         {
             throw new InvalidCastException(
-                $"Can't cast unsuccessfully executed command to '{typeof(T)}'. Check if command {nameof(Success)} property is 'True' before getting command of concrete type.");
+                $"Can't cast unsuccessfully executed command to '{typeof(T)}'. Only successfully executed commands can be cast to concrete types. Check {nameof(Success)} property before casting");
         }
 
         if (ExecutedCommand is T specificCommand)

@@ -2,6 +2,8 @@ namespace Aer.Memcached.Client.Models;
 
 public class MemcachedClientResult
 {
+    public bool Success { get; set; }
+    
     public static MemcachedClientResult Unsuccessful { get; } = new()
     {
         Success = false
@@ -11,6 +13,4 @@ public class MemcachedClientResult
     {
         Success = true
     };
-
-    public bool Success { get; set; }
 }

@@ -13,7 +13,6 @@ internal class StoreCommand: SingleItemCommandBase
     private readonly CacheItemForRequest _cacheItem;
     private readonly uint _expiresAtUnixTimeSeconds;
 
-
     public StoreCommand(StoreMode storeMode, string key, CacheItemForRequest cacheItem, uint expiresAtUnixTimeSeconds) : base(key, storeMode.Resolve())
     {
         _cacheItem = cacheItem;

@@ -70,7 +70,7 @@ public class MemcachedConfiguration
     {
         public string IpAddress { get; set; }
         
-        public int Port { get; set; } = 11211;
+        public int Port { get; set; } = DefaultMemcachedPort;
     }
 
     public class SocketPoolConfiguration
@@ -108,6 +108,7 @@ public class MemcachedConfiguration
                 ConnectionTimeout = TimeSpan.FromSeconds(1),
                 ReceiveTimeout = TimeSpan.FromSeconds(1),
                 SocketPoolingTimeout = TimeSpan.FromMilliseconds(150),
+                MaximumSocketCreationAttempts = 50,
                 MaxPoolSize = 100
             };
         }
@@ -127,6 +128,11 @@ public class MemcachedConfiguration
             if (ReceiveTimeout <= TimeSpan.Zero)
             {
                 throw new InvalidOperationException($"{nameof(ReceiveTimeout)} must be > TimeSpan.Zero");
+            }
+
+            if (MaximumSocketCreationAttempts <= 0)
+            {
+                throw new InvalidOperationException($"{nameof(MaximumSocketCreationAttempts)} must be grater than 0");
             }
         }
     }

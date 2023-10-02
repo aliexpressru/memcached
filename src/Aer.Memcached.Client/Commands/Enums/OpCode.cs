@@ -1,9 +1,12 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Aer.Memcached.Client.Commands.Enums;
 
 /// <summary>
 /// Q suffix stands for quite
 /// Documentation - https://github.com/memcached/memcached/wiki/BinaryProtocolRevamped
 /// </summary>
+[SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Using names from docummentation")]
 public enum OpCode: byte
 {
     Get = 0x00,
