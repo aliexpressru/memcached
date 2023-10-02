@@ -190,7 +190,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             
             if (!taskResult.Success || taskToCommand.command.Result is null or {Count: 0})
             {
-                // skip results that are not successfull reads or empty  
+                // skip results that are not successful reads or empty  
                 continue;
             }
 

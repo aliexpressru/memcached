@@ -34,10 +34,11 @@ public class ReplicatedNode<TNode>
 	/// Initializes a new instance of <see cref="ReplicatedNode{TNode}"/>.
 	/// </summary>
 	/// <param name="primaryNode">The primary node.</param>
-	public ReplicatedNode(TNode primaryNode)
+	/// <param name="replicationFactor">The replication factor of this replicated node. Used to adjust an internal colelction capacity.</param>
+	public ReplicatedNode(TNode primaryNode, uint replicationFactor)
 	{
 		PrimaryNode = primaryNode;
-		ReplicaNodes = new List<TNode>();
+		ReplicaNodes = new List<TNode>((int)replicationFactor);
 	}
 
 	/// <summary>

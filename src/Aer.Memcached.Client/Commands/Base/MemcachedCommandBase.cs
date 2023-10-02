@@ -21,8 +21,11 @@ public abstract class MemcachedCommandBase: IDisposable
 
     internal CommandResult ReadResponse(PooledSocket socket)
     {
-        var ret = ReadResponseCore(socket);
+        // we set this flag before the actual read so that if we 
+        // fail to read result we still consider the result read
         WasResponseRead = true;
+        
+        var ret = ReadResponseCore(socket);
 
         return ret;
     }

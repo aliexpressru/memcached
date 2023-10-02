@@ -21,7 +21,7 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     
     /// <summary>
     /// Executes command on a replicated node. Executes commands on all replicas in parallel.
-    /// If any of the primary and replicas command succeeds - returns successfull result from that node
+    /// If any of the primary and replicas command succeeds - returns successful result from that node
     /// </summary>
     /// <param name="node">A replicated node to execute a command on</param>
     /// <param name="command">Command to execute</param>

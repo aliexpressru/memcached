@@ -198,13 +198,13 @@ public class HashRing<TNode> : INodeLocator<TNode>
             // just return primary node without replicas
             var singlePrimaryNode = GetNodeInternal(key);
 
-            return new ReplicatedNode<TNode>(singlePrimaryNode);
+            return new ReplicatedNode<TNode>(singlePrimaryNode, 0U);
         }
 
         var keyToNodeHash = GetNodeHash(key);
         var primaryNode = _hashToNodeMap[keyToNodeHash];
 
-        var replicatedNode = new ReplicatedNode<TNode>(primaryNode);
+        var replicatedNode = new ReplicatedNode<TNode>(primaryNode, replicationFactor);
 
         if (replicationFactor >= _nodeHashToVirtualNodeHashesMap.Keys.Count - 1)
         {

@@ -3,7 +3,7 @@ using Aer.ConsistentHash.Abstractions;
 
 namespace Aer.Memcached.Tests.Model;
 
-public class TestHashRingNode: INode
+internal class TestHashRingNode: INode
 {
     private readonly string _key = Guid.NewGuid().ToString();
 
@@ -14,7 +14,7 @@ public class TestHashRingNode: INode
 
     public EndPoint GetEndpoint()
     {
-        throw new NotImplementedException();
+        throw new NotImplementedException("Not required in test scenarios.");
     }
 
     protected bool Equals(TestHashRingNode other)
@@ -39,7 +39,7 @@ public class TestHashRingNode: INode
             return true;
         }
 
-        if (obj.GetType() != this.GetType())
+        if (obj.GetType() != GetType())
         {
             return false;
         }

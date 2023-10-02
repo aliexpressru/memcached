@@ -20,8 +20,5 @@
     <ItemGroup>
       <ProjectReference Include="..\..\src\Aer.Memcached\Aer.Memcached.csproj" />
     </ItemGroup>
-
-
-
-
+    
 </Project>

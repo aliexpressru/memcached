@@ -158,39 +158,39 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
 
             await Task.WhenAll(nodeExecutionTasks);
 
-            bool wasSuccessfullResultSet = false;
-            bool allNodesExecutionIsSuccessfull = true;
+            bool wasSuccessfulResultSet = false;
+            bool allNodesExecutionIsSuccessful = true;
             
             foreach (var (nodeExecutionTask, nodeCommand) in tasksToCommands)
             {
-                var nodeExecutionIsSuccessfull = nodeExecutionTask.Result.Success;
-                allNodesExecutionIsSuccessfull &= nodeExecutionIsSuccessfull;
+                var nodeExecutionIsSuccessful = nodeExecutionTask.Result.Success;
+                allNodesExecutionIsSuccessful &= nodeExecutionIsSuccessful;
 
-                if (!wasSuccessfullResultSet && nodeExecutionIsSuccessfull)
+                if (!wasSuccessfulResultSet && nodeExecutionIsSuccessful)
                 {
                     // if the result was found and set - discard all other commands
                     bool wasResultSet = command.TrySetResultFrom(nodeCommand);
                     
-                    wasSuccessfullResultSet = wasResultSet;
+                    wasSuccessfulResultSet = wasResultSet;
                 }
 
                 // dispose the command to return rented read buffers
                 nodeCommand.Dispose();
             }
 
-            if (wasSuccessfullResultSet)
+            if (wasSuccessfulResultSet)
             { 
                 return CommandExecutionResult.Successful;
             }
 
-            if (allNodesExecutionIsSuccessfull)
+            if (allNodesExecutionIsSuccessful)
             { 
-                // means there was no successfull result set but all nodes responses ended up successfully
-                // this means all nodes returned no data - this is still technically a successfull result
+                // means there was no successful result set but all nodes responses ended up successfully
+                // this means all nodes returned no data - this is still technically a successful result
                 return CommandExecutionResult.Successful;
             }
 
-            // means no successfull command found
+            // means no successful command found
             return CommandExecutionResult.Unsuccessful;
         }
         catch (Exception e)
