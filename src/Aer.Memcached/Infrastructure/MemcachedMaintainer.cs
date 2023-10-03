@@ -77,7 +77,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         return Task.CompletedTask;
     }
 
-    private void RebuildNodes(object state)
+    internal void RebuildNodes(object state)
     {
         try
         {
@@ -152,7 +152,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         }
     }
 
-    private void CheckNodesHealth(object state)
+    internal void CheckNodesHealth(object state)
     {
         try
         {

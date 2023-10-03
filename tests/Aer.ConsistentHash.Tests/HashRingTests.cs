@@ -107,10 +107,16 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAddInPrevious = Enumerable.Range(0, 15).Select(_ => new TestHashRingNode()).ToArray();
+        var nodesToAddInPrevious = Enumerable.Range(0, 15)
+            .Select(_ => new TestHashRingNode())
+            .ToArray();
+        
         hashRing.AddNodes(nodesToAddInPrevious);
         
-        var nodesToAdd = Enumerable.Range(0, 15).Select(_ => new TestHashRingNode()).ToArray();
+        var nodesToAdd = Enumerable.Range(0, 15)
+            .Select(_ => new TestHashRingNode())
+            .ToArray();
+        
         var taskToAdd = Task.Run(() => Parallel.ForEach(nodesToAdd, nodeToAdd =>
         {
             hashRing.AddNode(nodeToAdd);

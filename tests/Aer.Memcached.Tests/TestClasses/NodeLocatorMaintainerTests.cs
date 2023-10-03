@@ -16,7 +16,16 @@ namespace Aer.Memcached.Tests.TestClasses;
 [TestClass]
 public class NodeLocatorMaintainerTests
 {
-    private const int PeriodToRunInMilliseconds = 300;
+    /*
+     * NOTE: here in many tests we don't start maintainer to not be dependent on timers
+     * we invoke actions, that should have been invoked by timer, manually
+     */
+    
+    private const int PeriodToRunMaintainerMilliseconds = 300;
+    
+    // this denotes the period before the first maintainer run by timer
+    // internally maintainer runs its tasks when started and then on each timer tick
+    private const int PeriodBeforeFirstMaintainerRunMilliseconds = 50;
 
     private readonly INodeProvider<TestHashRingNode> _nodeProviderMock 
         = Substitute.For<INodeProvider<TestHashRingNode>>();
@@ -38,8 +47,12 @@ public class NodeLocatorMaintainerTests
     [TestMethod]
     public async Task NotConfigured_NoNodesInLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
-        var nodeLocator = GetNodLocator();
+        var nodesToProvide = Enumerable.Range(0, 5)
+            .Select(i => new TestHashRingNode())
+            .ToList();
+        
+        var nodeLocator = GetNodeLocator();
+        
         SetupMocks(false, nodesToProvide);
         
         _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
@@ -47,7 +60,7 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
 
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds / 3));
+        await Task.Delay(TimeSpan.FromMilliseconds(PeriodBeforeFirstMaintainerRunMilliseconds));
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -59,16 +72,18 @@ public class NodeLocatorMaintainerTests
     [TestMethod]
     public async Task Configured_AllProvidedNodesInLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
-        var nodeLocator = GetNodLocator();
+        var nodesToProvide = Enumerable.Range(0, 5)
+            .Select(i => new TestHashRingNode())
+            .ToList();
+        
+        var nodeLocator = GetNodeLocator();
         SetupMocks(true, nodesToProvide);
 
         _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
-        await maintainer.StartAsync(CancellationToken.None);
 
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds / 3));
+        await RunMaintainerOnce(maintainer);
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -77,35 +92,40 @@ public class NodeLocatorMaintainerTests
         {
             nodesToProvide.Should().Contain(node);
         }
-        
-        await maintainer.StopAsync(CancellationToken.None);
     }
     
     [TestMethod]
     public async Task Configured_AddMoreNodes_AllProvidedNodesInLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
-        var nodeLocator = GetNodLocator();
+        var nodesToProvide = Enumerable.Range(0, 5)
+            .Select(i => new TestHashRingNode())
+            .ToList();
+        
+        var nodeLocator = GetNodeLocator();
         SetupMocks(true, nodesToProvide);
 
         _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
-        await maintainer.StartAsync(CancellationToken.None);
 
-        // runs once
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds / 3));
-
+        // first maintainer run
+        
+        await RunMaintainerOnce(maintainer);
+        
         var nodes = nodeLocator.GetAllNodes();
 
         nodes.Length.Should().Be(nodesToProvide.Count);
+        
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
         }
         
         nodesToProvide.Add(new TestHashRingNode());
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds));
+
+        // second maintainer run
+        
+        await RunMaintainerOnce(maintainer);
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -114,24 +134,24 @@ public class NodeLocatorMaintainerTests
         {
             nodesToProvide.Should().Contain(node);
         }
-        
-        await maintainer.StopAsync(CancellationToken.None);
     }
-    
+
     [TestMethod]
     public async Task Configured_AddAndRemoveNodes_AllProvidedNodesInLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
-        var nodeLocator = GetNodLocator();
+        var nodesToProvide = Enumerable.Range(0, 5)
+            .Select(i => new TestHashRingNode())
+            .ToList();
+        
+        var nodeLocator = GetNodeLocator();
         SetupMocks(true, nodesToProvide);
         
         _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
-        await maintainer.StartAsync(CancellationToken.None);
 
-        // runs once
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds / 3));
+        // first maintainer run
+        await RunMaintainerOnce(maintainer);
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -143,7 +163,10 @@ public class NodeLocatorMaintainerTests
         
         nodesToProvide.RemoveRange(0, 3);
         nodesToProvide.Add(new TestHashRingNode());
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds));
+        
+        // second maintainer run
+
+        await RunMaintainerOnce(maintainer);
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -153,26 +176,27 @@ public class NodeLocatorMaintainerTests
         {
             nodesToProvide.Should().Contain(node);
         }
-        
-        await maintainer.StopAsync(CancellationToken.None);
     }
 
     [TestMethod]
     public async Task Configured_DeadNode_RemovedDeadNodeFromLocator()
     {
-        var nodesToProvide = Enumerable.Range(0, 5).Select(i => new TestHashRingNode()).ToList();
-        var nodeLocator = GetNodLocator();
+        var nodesToProvide = Enumerable.Range(0, 5)
+            .Select(i => new TestHashRingNode())
+            .ToList();
+        
+        var nodeLocator = GetNodeLocator();
+        
         SetupMocks(true, nodesToProvide);
 
-        var deadNode = nodesToProvide.First();
+        var deadNode = nodesToProvide[0];
 
         _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Is(deadNode)).Returns(true);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
-        await maintainer.StartAsync(CancellationToken.None);
 
-        // runs once
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds / 3));
+        // first maintainer run
+        await RunMaintainerOnce(maintainer);
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -183,7 +207,9 @@ public class NodeLocatorMaintainerTests
             nodesToProvide.Should().Contain(node);
         }
 
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds * 2));
+        // second and third maintainer runs
+        await RunMaintainerOnce(maintainer);
+        await RunMaintainerOnce(maintainer);
 
         nodes = nodeLocator.GetAllNodes();
 
@@ -195,8 +221,6 @@ public class NodeLocatorMaintainerTests
         {
             nodesExceptDead.Should().Contain(node);
         }
-
-        await maintainer.StopAsync(CancellationToken.None);
     }
 
     [TestMethod]
@@ -206,23 +230,22 @@ public class NodeLocatorMaintainerTests
             .Select(i => new TestHashRingNode())
             .ToList();
         
-        var nodeLocator = GetNodLocator();
+        var nodeLocator = GetNodeLocator();
         
         SetupMocks(true, nodesToProvide);
 
         var deadNodes = new List<TestHashRingNode>()
         {
-            nodesToProvide.First()
+            nodesToProvide[0]
         };
 
         _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Is<TestHashRingNode>(n => deadNodes.Contains(n)))
             .Returns(true);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
-        await maintainer.StartAsync(CancellationToken.None);
 
-        // runs once
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds / 3));
+        // first maintainer run
+        await RunMaintainerOnce(maintainer);
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -232,8 +255,10 @@ public class NodeLocatorMaintainerTests
         {
             nodesToProvide.Should().Contain(node);
         }
-        
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds * 2));
+
+        // second and third maintainer runs
+        await RunMaintainerOnce(maintainer);
+        await RunMaintainerOnce(maintainer);
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -247,8 +272,10 @@ public class NodeLocatorMaintainerTests
         }
 
         deadNodes.Remove(deadNodes[0]);
-        
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds * 2));
+
+        // fourth and fifth maintainer runs
+        await RunMaintainerOnce(maintainer);
+        await RunMaintainerOnce(maintainer);
         
         nodes = nodeLocator.GetAllNodes();
         
@@ -258,11 +285,9 @@ public class NodeLocatorMaintainerTests
         {
             nodesToProvide.Should().Contain(node);
         }
-        
-        await maintainer.StopAsync(CancellationToken.None);
     }
 
-    private INodeLocator<TestHashRingNode> GetNodLocator()
+    private INodeLocator<TestHashRingNode> GetNodeLocator()
     {
         var hashCalculator = new HashCalculator();
         
@@ -289,8 +314,8 @@ public class NodeLocatorMaintainerTests
             HeadlessServiceAddress = "memcached",
             MemcachedMaintainer = new MemcachedConfiguration.MaintainerConfiguration
             {
-                NodesRebuildingPeriod = TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds),
-                NodesHealthCheckPeriod = TimeSpan.FromMilliseconds(PeriodToRunInMilliseconds),
+                NodesRebuildingPeriod = TimeSpan.FromMilliseconds(PeriodToRunMaintainerMilliseconds),
+                NodesHealthCheckPeriod = TimeSpan.FromMilliseconds(PeriodToRunMaintainerMilliseconds),
                 NodeHealthCheckEnabled = true
             }
         });
@@ -302,5 +327,13 @@ public class NodeLocatorMaintainerTests
             _commandExecutorMock,
             memcachedConfiguration, 
             logger);
+    }
+
+    private async Task RunMaintainerOnce(MemcachedMaintainer<TestHashRingNode> maintainer)
+    {
+        var checkHealthAction = Task.Run(() => maintainer.CheckNodesHealth(null));
+        var rebuildNodesAction = Task.Run(() => maintainer.RebuildNodes(null));
+
+        await Task.WhenAll(checkHealthAction, rebuildNodesAction);
     }
 }
