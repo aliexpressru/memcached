@@ -22,10 +22,6 @@ public class NodeLocatorMaintainerTests
      */
     
     private const int PeriodToRunMaintainerMilliseconds = 300;
-    
-    // this denotes the period before the first maintainer run by timer
-    // internally maintainer runs its tasks when started and then on each timer tick
-    private const int PeriodBeforeFirstMaintainerRunMilliseconds = 50;
 
     private readonly INodeProvider<TestHashRingNode> _nodeProviderMock 
         = Substitute.For<INodeProvider<TestHashRingNode>>();
