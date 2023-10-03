@@ -23,13 +23,13 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly ILogger<CommandExecutor<TNode>> _logger;
     private readonly ConcurrentDictionary<TNode, SocketPool> _socketPools;
-    private readonly HashRing<TNode> _nodeLocator;
+    private readonly INodeLocator<TNode> _nodeLocator;
 
     public CommandExecutor(
         IOptions<MemcachedConfiguration> config, 
         IAuthenticationProvider authenticationProvider,
         ILogger<CommandExecutor<TNode>> logger,
-        HashRing<TNode> nodeLocator)
+        INodeLocator<TNode> nodeLocator)
     {
         _config = config.Value.SocketPool;
         _authenticationProvider = authenticationProvider;
