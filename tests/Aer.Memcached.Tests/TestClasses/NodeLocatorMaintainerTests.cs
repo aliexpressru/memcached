@@ -20,8 +20,6 @@ public class NodeLocatorMaintainerTests
      * NOTE: here in many tests we don't start maintainer to not be dependent on timers
      * we invoke actions, that should have been invoked by timer, manually
      */
-    
-    private const int PeriodToRunMaintainerMilliseconds = 300;
 
     private readonly INodeProvider<TestHashRingNode> _nodeProviderMock 
         = Substitute.For<INodeProvider<TestHashRingNode>>();
@@ -302,6 +300,8 @@ public class NodeLocatorMaintainerTests
 
     private MemcachedMaintainer<TestHashRingNode> GetMemcachedMaintainer(INodeLocator<TestHashRingNode> nodeLocator)
     {
+        const int periodToRunMaintainerMilliseconds = 300;
+        
         using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
         var logger = loggerFactory.CreateLogger<MemcachedMaintainer<TestHashRingNode>>();
         
@@ -310,8 +310,8 @@ public class NodeLocatorMaintainerTests
             HeadlessServiceAddress = "memcached",
             MemcachedMaintainer = new MemcachedConfiguration.MaintainerConfiguration
             {
-                NodesRebuildingPeriod = TimeSpan.FromMilliseconds(PeriodToRunMaintainerMilliseconds),
-                NodesHealthCheckPeriod = TimeSpan.FromMilliseconds(PeriodToRunMaintainerMilliseconds),
+                NodesRebuildingPeriod = TimeSpan.FromMilliseconds(periodToRunMaintainerMilliseconds),
+                NodesHealthCheckPeriod = TimeSpan.FromMilliseconds(periodToRunMaintainerMilliseconds),
                 NodeHealthCheckEnabled = true
             }
         });
