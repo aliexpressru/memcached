@@ -83,10 +83,25 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     /// <remarks>Primarily used in unit tests to remove time dependency.</remarks>
     internal async Task RunOnce()
     {
-        var checkHealthAction = Task.Run(() => CheckNodesHealth(null));
-        var rebuildNodesAction = Task.Run(() => RebuildNodes(null));
+        if (!_nodeProvider.IsConfigured())
+        {
+            _logger.LogWarning("Memcached is not configured. No maintenance will be performed");
 
-        await Task.WhenAll(checkHealthAction, rebuildNodesAction);
+            return;
+        }
+
+        List<Task> maintainerTasks = new(2);
+
+        var rebuildNodesAction = Task.Run(() => RebuildNodes(null));
+        maintainerTasks.Add(rebuildNodesAction);
+        
+        if (_config.MemcachedMaintainer.NodeHealthCheckEnabled)
+        {
+            var checkHealthAction = Task.Run(() => CheckNodesHealth(null));
+            maintainerTasks.Add(checkHealthAction);
+        }
+
+        await Task.WhenAll(maintainerTasks);
     }
 
     /// <summary>

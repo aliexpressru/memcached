@@ -52,15 +52,12 @@ public class NodeLocatorMaintainerTests
         _healthCheckerMock.CheckNodeIsDeadAsync(Arg.Any<TestHashRingNode>()).Returns(false);
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
-        await maintainer.StartAsync(CancellationToken.None);
 
-        // we don't need to wait any time - we can check node locator right away
+        await maintainer.RunOnce();
         
         var nodes = nodeLocator.GetAllNodes();
 
         nodes.Length.Should().Be(0);
-        
-        await maintainer.StopAsync(CancellationToken.None);
     }
     
     [TestMethod]
