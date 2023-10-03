@@ -1,12 +1,13 @@
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 
 namespace Aer.Memcached.Client.Commands.Base;
 
 internal abstract class SingleItemCommandBase: MemcachedCommandBase
 {
-    private string Key { get; }
+    protected string Key { get; }
     
     protected ulong CasValue { get; set; }
 
@@ -15,22 +16,27 @@ internal abstract class SingleItemCommandBase: MemcachedCommandBase
         Key = key;
     }
     
-    protected abstract CommandResult ProcessResponse(BinaryResponse response);
+    protected abstract CommandResult ProcessResponse(BinaryResponseReader responseReader);
 
     protected abstract BinaryRequest Build(string key);
 
-    public override IList<ArraySegment<byte>> GetBuffer()
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         return Build(Key).CreateBuffer();
     }
 
-    public override CommandResult ReadResponse(PooledSocket socket)
+    protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
-        Response = new BinaryResponse();
-        var success = Response.Read(socket);
+        ResponseReader = new BinaryResponseReader();
+        var success = ResponseReader.Read(socket);
 
-        CasValue = Response.Cas;
-        StatusCode = Response.StatusCode;
+        if (ResponseReader.IsSocketDead)
+        {
+            return CommandResult.DeadSocket;
+        }
+
+        CasValue = ResponseReader.Cas;
+        StatusCode = ResponseReader.StatusCode;
 
         var result = new CommandResult
         {
@@ -40,7 +46,7 @@ internal abstract class SingleItemCommandBase: MemcachedCommandBase
         };
 
         CommandResult responseResult;
-        if (!(responseResult = ProcessResponse(Response)).Success)
+        if (!(responseResult = ProcessResponse(ResponseReader)).Success)
         {
             result.InnerResult = responseResult;
             responseResult.Combine(result);

@@ -1,9 +1,14 @@
-using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 
 namespace Aer.Memcached.Client.Config;
 
 public class MemcachedConfiguration
 {
+    /// <summary>
+    /// The default port for memcached service.
+    /// </summary>
+    public const int DefaultMemcachedPort = 11211;
+    
     /// <summary>
     /// List of servers with hosted memcached
     /// </summary>
@@ -14,7 +19,12 @@ public class MemcachedConfiguration
     /// Use either <see cref="MemcachedConfiguration.Servers"/> or <see cref="HeadlessServiceAddress"/>
     /// </summary>
     public string HeadlessServiceAddress { get; set; }
-    
+
+    /// <summary>
+    /// The optional port override for cases when memcached IP addresses are obtained from headless service.
+    /// </summary>
+    public int MemcachedPort { get; set; } = DefaultMemcachedPort;
+
     /// <summary>
     /// Configuration of <see cref="ConnectionPool.SocketPool"/>
     /// </summary>
@@ -60,7 +70,7 @@ public class MemcachedConfiguration
     {
         public string IpAddress { get; set; }
         
-        public int Port { get; set; } = 11211;
+        public int Port { get; set; } = DefaultMemcachedPort;
     }
 
     public class SocketPoolConfiguration
@@ -81,6 +91,12 @@ public class MemcachedConfiguration
         public TimeSpan SocketPoolingTimeout { get; set; } = TimeSpan.FromMilliseconds(150);
 
         /// <summary>
+        /// A maximum number of attempts to create a socket before
+        /// the associated SocketPool is considered poisoned and its underlying endpoint broken.
+        /// </summary>
+        public int MaximumSocketCreationAttempts { get; set; } = 50;
+
+        /// <summary>
         /// Maximum amount of sockets per memcached instance in the socket pool
         /// </summary>
         public int MaxPoolSize { get; set; } = 100;
@@ -92,6 +108,7 @@ public class MemcachedConfiguration
                 ConnectionTimeout = TimeSpan.FromSeconds(1),
                 ReceiveTimeout = TimeSpan.FromSeconds(1),
                 SocketPoolingTimeout = TimeSpan.FromMilliseconds(150),
+                MaximumSocketCreationAttempts = 50,
                 MaxPoolSize = 100
             };
         }
@@ -111,6 +128,11 @@ public class MemcachedConfiguration
             if (ReceiveTimeout <= TimeSpan.Zero)
             {
                 throw new InvalidOperationException($"{nameof(ReceiveTimeout)} must be > TimeSpan.Zero");
+            }
+
+            if (MaximumSocketCreationAttempts <= 0)
+            {
+                throw new InvalidOperationException($"{nameof(MaximumSocketCreationAttempts)} must be grater than 0");
             }
         }
     }

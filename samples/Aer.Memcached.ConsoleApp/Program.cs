@@ -8,13 +8,7 @@ using Microsoft.Extensions.Options;
 
 var hashCalculator = new HashCalculator();
 var nodeLocator = new HashRing<Pod>(hashCalculator);
-nodeLocator.AddNodes(new Pod[]
-{
-    new()
-    {
-        IpAddress = "localhost"
-    }
-});
+nodeLocator.AddNodes(new Pod("localhost"));
 
 using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
@@ -23,8 +17,12 @@ var config = new MemcachedConfiguration();
 var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
 var client = new MemcachedClient<Pod>(
-    nodeLocator, 
-    new CommandExecutor<Pod>(new OptionsWrapper<MemcachedConfiguration>(config), authProvider, commandExecutorLogger));
+    nodeLocator,
+    new CommandExecutor<Pod>(
+        new OptionsWrapper<MemcachedConfiguration>(config),
+        authProvider,
+        commandExecutorLogger,
+        nodeLocator));
 
 try
 {

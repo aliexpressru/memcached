@@ -2,7 +2,7 @@ using Aer.Memcached.Client.Commands.Enums;
 
 namespace Aer.Memcached.Client.Commands.Extensions;
 
-public static class StoreModeExtensions
+internal static class StoreModeExtensions
 {
     public static OpCode Resolve(this StoreMode storeMode)
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Net;
 
-namespace Aer.ConsistentHash;
+namespace Aer.ConsistentHash.Abstractions;
 
 public interface INode: IEquatable<INode>
 {

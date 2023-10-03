@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
+using Aer.ConsistentHash.Infrastructure;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
@@ -15,24 +17,51 @@ namespace Aer.Memcached.Client;
 
 public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : class, INode
 {
-    private static readonly NodeEqualityComparer<TNode> Comparer = new();
+    private const int FURTHER_AUTHENTICATION_STEPS_REQUIRED_STATUS_CODE = 0x21;
 
     private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly ILogger<CommandExecutor<TNode>> _logger;
     private readonly ConcurrentDictionary<TNode, SocketPool> _socketPools;
+    private readonly HashRing<TNode> _nodeLocator;
 
     public CommandExecutor(
         IOptions<MemcachedConfiguration> config, 
         IAuthenticationProvider authenticationProvider,
-        ILogger<CommandExecutor<TNode>> logger)
+        ILogger<CommandExecutor<TNode>> logger,
+        HashRing<TNode> nodeLocator)
     {
         _config = config.Value.SocketPool;
         _authenticationProvider = authenticationProvider;
         _logger = logger;
-        _socketPools = new ConcurrentDictionary<TNode, SocketPool>(new NodeEqualityComparer<TNode>());
+        _nodeLocator = nodeLocator;
+        _socketPools = new ConcurrentDictionary<TNode, SocketPool>(NodeEqualityComparer<TNode>.Instance);
     }
-    
+
+    /// <inheritdoc/>
+    public async Task<CommandExecutionResult> ExecuteCommandAsync(
+        ReplicatedNode<TNode> node,
+        MemcachedCommandBase command,
+        CancellationToken token)
+    {
+        try
+        {
+            var diagnosticTimer = DiagnosticTimer.StartNew(command);
+
+            var result = await ExecuteCommandInternalAsync(node, command, token);
+
+            diagnosticTimer.StopAndWriteDiagnostics(result);
+
+            return result;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Fatal error occured during replicated node command '{Command}' execution", command.ToString());
+
+            return CommandExecutionResult.Unsuccessful;
+        }
+    }
+
     /// <inheritdoc />
     public async Task<CommandExecutionResult> ExecuteCommandAsync(
         TNode node, 
@@ -51,7 +80,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Fatal error occured during command execution");
+            _logger.LogError(e, "Fatal error occured during node command '{Command}' execution", command.ToString());
 
             return CommandExecutionResult.Unsuccessful;
         }
@@ -70,7 +99,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
     /// <inheritdoc />
     public IDictionary<TNode, int> GetSocketPoolsStatistics(TNode[] nodes)
     {
-        var socketPools = new Dictionary<TNode, int>(Comparer);
+        var socketPools = new Dictionary<TNode, int>(NodeEqualityComparer<TNode>.Instance);
         SocketPool ValueFactory(TNode node) => new(node.GetEndpoint(), _config, _logger);
         
         foreach (var node in nodes)
@@ -94,7 +123,78 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             }
         }
     }
-    
+
+    private async Task<CommandExecutionResult> ExecuteCommandInternalAsync(
+        ReplicatedNode<TNode> replicatedNode,
+        MemcachedCommandBase command,
+        CancellationToken token)
+    {
+        try
+        {
+            if (!replicatedNode.HasReplicas)
+            {
+                return await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
+            }
+
+            // we preserve initial command to return data through it
+            // we issue commands to all nodes including primary one as clones
+            
+            List<Task<CommandExecutionResult>> commandExecutionTasks = new(replicatedNode.NodeCount);
+
+            foreach (var node in replicatedNode.EnumerateNodes())
+            { 
+                // since we are storing result of the command in the command itself - here we need to 
+                // clone command before passing it for the execution
+
+                var commandClone = command.Clone();
+                var nodeExecutionTask = ExecuteCommandInternalAsync(node, commandClone, token);
+                
+                commandExecutionTasks.Add(nodeExecutionTask);
+            }
+
+            await Task.WhenAll(commandExecutionTasks);
+
+            MemcachedCommandBase sucessfullCommand = null;
+            
+            foreach (var nodeExecutionTask in commandExecutionTasks)
+            {
+                var nodeExecutionIsSuccessful = nodeExecutionTask.Result.Success;
+                var nodeCommand = nodeExecutionTask.Result.ExecutedCommand;
+
+                if (sucessfullCommand is null && nodeExecutionIsSuccessful)
+                {
+                    // if the result of the command is not null - remember the command and discard all others
+                    if (nodeCommand.HasResult)
+                    {
+                        sucessfullCommand = nodeCommand;
+                        continue;
+                    }
+                }
+
+                // dispose all other commands except successfull one to return rented read buffers
+                nodeCommand.Dispose();
+            }
+            
+            // since we are not using the command internal buffers to read result 
+            // we don't need to dispose the command, this call is here for symmetry or future changes prposes
+            command.Dispose();
+
+            if (sucessfullCommand is not null)
+            { 
+                return CommandExecutionResult.Successful(sucessfullCommand);
+            }
+
+            // means no successful command found
+            return CommandExecutionResult.Unsuccessful;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error occured during command '{Command}' execution", command.ToString());
+
+            return CommandExecutionResult.Unsuccessful;
+        }
+    }
+
     private async Task<CommandExecutionResult> ExecuteCommandInternalAsync(
         TNode node, 
         MemcachedCommandBase command,
@@ -103,6 +203,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         try
         {
             using var socket = await GetSocketAsync(node, token);
+            
             if (socket == null)
             {
                 return CommandExecutionResult.Unsuccessful;
@@ -111,6 +212,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             var buffer = command.GetBuffer();
             
             var writeSocketTask = socket.WriteAsync(buffer);
+            
             try
             {
                 await writeSocketTask.WaitAsync(_config.ReceiveTimeout, token);
@@ -123,13 +225,14 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             }
             
             var readResult = command.ReadResponse(socket);
+            
             return readResult.Success 
-                ? CommandExecutionResult.Successful 
+                ? CommandExecutionResult.Successful(command) 
                 : CommandExecutionResult.Unsuccessful;
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error occured during command execution");
+            _logger.LogError(e, "Error occured during command '{Command}' execution", command.ToString());
 
             return CommandExecutionResult.Unsuccessful;
         }
@@ -137,9 +240,23 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
 
     private async Task<PooledSocket> GetSocketAsync(TNode node, CancellationToken token)
     {
-        var socketPool = _socketPools.GetOrAdd(node, new SocketPool(node.GetEndpoint(), _config, _logger));
-        var pooledSocket = await socketPool.GetAsync(token);
+        var socketPool = _socketPools.GetOrAdd(
+            node,
+            valueFactory: static (n, args) =>
+                new SocketPool(n.GetEndpoint(), args.Config, args.Logger),
+            factoryArgument: (Config: _config, Logger: _logger)
+        );
 
+        if (socketPool.IsEndPointBroken)
+        {
+            // remove node from configuration if it's endpoint is considered broken
+            _nodeLocator.MarkNodeDead(node);
+            
+            return null;
+        }
+
+        var pooledSocket = await socketPool.GetAsync(token);
+        
         if (pooledSocket == null)
         {
             return null;
@@ -151,9 +268,10 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
 
         await AuthenticateAsync(pooledSocket);
+        
         return pooledSocket;
     }
-
+    
     private async Task AuthenticateAsync(PooledSocket pooledSocket)
     {
         var saslStart = new SaslStartCommand(_authenticationProvider.GetAuthData());
@@ -165,9 +283,11 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             pooledSocket.Authenticated = true;
             return;
         }
-
-        if (startResult.StatusCode != 0x21) 
+        
+        if (startResult.StatusCode != FURTHER_AUTHENTICATION_STEPS_REQUIRED_STATUS_CODE) 
         {
+            // means that sasl start result is niether a success
+            // nor the one that indicates that additional steps required
             throw new AuthenticationException();
         }
         

@@ -1,11 +1,11 @@
 using System.Net;
+using Aer.ConsistentHash.Abstractions;
+using Aer.Memcached.Client.Config;
 
 namespace Aer.ConsistentHash.Benchmarks;
 
 public class Node: INode
 {
-    private static readonly int MemcachedPort = 11211;
-    
     public string IpAddress { get; init; }
 
     public string GetKey()
@@ -15,7 +15,7 @@ public class Node: INode
 
     public EndPoint GetEndpoint()
     {
-        return new DnsEndPoint(IpAddress, MemcachedPort);
+        return new DnsEndPoint(IpAddress, MemcachedConfiguration.DefaultMemcachedPort);
     }
 
     private bool Equals(Node other)
@@ -30,9 +30,20 @@ public class Node: INode
 
     public override bool Equals(object obj)
     {
-        if (ReferenceEquals(null, obj)) return false;
-        if (ReferenceEquals(this, obj)) return true;
-        if (obj.GetType() != this.GetType()) return false;
+        if (ReferenceEquals(null, obj))
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, obj))
+        {
+            return true;
+        }
+
+        if (obj.GetType() != this.GetType())
+        {
+            return false;
+        }
 
         return Equals((Node)obj);
     }

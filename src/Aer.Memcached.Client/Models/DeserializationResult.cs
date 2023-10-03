@@ -6,7 +6,7 @@ public class DeserializationResult<T>
     
     public bool IsEmpty { get; set; }
 
-    public static DeserializationResult<T> EmptyDeserializationResult => new DeserializationResult<T>
+    public static DeserializationResult<T> Empty => new()
     {
         Result = default,
         IsEmpty = true

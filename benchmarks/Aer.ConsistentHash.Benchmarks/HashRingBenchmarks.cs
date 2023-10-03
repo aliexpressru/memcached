@@ -31,9 +31,15 @@ public class HashRingBenchmarks
         _hashRing.AddNodes(nodes);
     }
 
-    [Benchmark]
-    public void GetNodes()
+    [Benchmark(Baseline = true)]
+    public void GetNodes_NoReplication()
     {
-        _hashRing.GetNodes(_keys);
+        _hashRing.GetNodes(_keys, replicationFactor: 0);
+    }
+
+    [Benchmark]
+    public void GetNodes_WithReplication()
+    {
+        _hashRing.GetNodes(_keys, replicationFactor: 1);
     }
 }

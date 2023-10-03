@@ -24,6 +24,8 @@ jobs:
     - name: Start memcached daemons
       run: |
         memcached -d -p 11211
+        memcached -d -p 11212
+        memcached -d -p 11213
     - name: Add memcached host to /etc/hosts
       run: |
         echo "127.0.0.1 memcached" | sudo tee -a /etc/hosts

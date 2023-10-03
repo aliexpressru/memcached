@@ -3,6 +3,7 @@ using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
 using Aer.Memcached.Client.Commands.Helpers;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 using Aer.Memcached.Client.Models;
 
@@ -22,8 +23,8 @@ internal class MultiStoreCommand: MemcachedCommandBase
         _keyValues = keyValues;
         _expires = expires;
     }
-    
-    public override IList<ArraySegment<byte>> GetBuffer()
+
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         if (_keyValues == null || _keyValues.Count == 0)
         {
@@ -49,24 +50,29 @@ internal class MultiStoreCommand: MemcachedCommandBase
         return buffers;
     }
 
-    public override CommandResult ReadResponse(PooledSocket socket)
+    protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
         var result = new CommandResult();
 
-        Response = new BinaryResponse();
+        ResponseReader = new BinaryResponseReader();
 
-        while (Response.Read(socket))
+        while (ResponseReader.Read(socket))
         {
-            if (Response.StatusCode != 0)
+            if (ResponseReader.IsSocketDead)
             {
-                var message = ResultHelper.ProcessResponseData(Response.Data);
+                return CommandResult.DeadSocket;
+            }
+            
+            if (ResponseReader.StatusCode != BinaryResponseReader.SuccessfulResponseCode)
+            {
+                var message = ResultHelper.ProcessResponseData(ResponseReader.Data);
                 return result.Fail(message);
             }
             
-            StatusCode = Response.StatusCode;
+            StatusCode = ResponseReader.StatusCode;
 
             // found the noop, quit
-            if (Response.CorrelationId == _noopId)
+            if (ResponseReader.CorrelationId == _noopId)
             {
                 return result.Pass();
             }

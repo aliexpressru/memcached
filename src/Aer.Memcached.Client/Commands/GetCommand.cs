@@ -2,6 +2,7 @@ using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
 using Aer.Memcached.Client.Commands.Helpers;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Commands;
@@ -14,6 +15,8 @@ internal class GetCommand: SingleItemCommandBase
     {
     }
 
+    internal override bool HasResult => Result is not null;
+
     protected override BinaryRequest Build(string key)
     {
         var request = new BinaryRequest(OpCode)
@@ -25,25 +28,30 @@ internal class GetCommand: SingleItemCommandBase
         return request;
     }
 
-    protected override CommandResult ProcessResponse(BinaryResponse response)
+    protected override CommandResult ProcessResponse(BinaryResponseReader responseReader)
     {
-        var status = response.StatusCode;
+        var status = responseReader.StatusCode;
         var result = new CommandResult();
 
         StatusCode = status;
 
-        if (status == BinaryResponse.SuccessfulResponseCode)
+        if (status == BinaryResponseReader.SuccessfulResponseCode)
         {
-            int flags = BinaryConverter.DecodeInt32(response.Extra, 0);
-            Result = new CacheItemResult((ushort)flags, response.Data);
-            CasValue = response.Cas;
+            int flags = BinaryConverter.DecodeInt32(responseReader.Extra, 0);
+            Result = new CacheItemResult((ushort)flags, responseReader.Data);
+            CasValue = responseReader.Cas;
 
             return result.Pass();
         }
 
         CasValue = 0;
 
-        var message = ResultHelper.ProcessResponseData(response.Data);
+        var message = ResultHelper.ProcessResponseData(responseReader.Data);
         return result.Fail(message);
+    }
+
+    internal override GetCommand Clone()
+    {
+        return new GetCommand(Key);
     }
 }

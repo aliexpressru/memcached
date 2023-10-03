@@ -1,13 +1,17 @@
 using System.Buffers;
 using Aer.Memcached.Client.ConnectionPool;
 
-namespace Aer.Memcached.Client.Commands;
+namespace Aer.Memcached.Client.Commands.Infrastructure;
 
-public class BinaryResponse: IDisposable
+/// <summary>
+/// A class for reading responde data from memcached socket and temporary buffers storage.
+/// </summary>
+internal class BinaryResponseReader: IDisposable
 {
     private const byte MagicValue = 0x81;
     private const int HeaderLength = 24;
 
+    // data fragment offsets
     private const int HeaderOpcode = 1;
     private const int HeaderKey = 2; // 2-3
     private const int HeaderExtra = 4;
@@ -18,12 +22,13 @@ public class BinaryResponse: IDisposable
     private const int HeaderCas = 16; // 16-23
 
     public const int SuccessfulResponseCode = 0;
-    
     public const int UnsuccessfulResponseCode = 1;
 
-    private readonly Queue<byte[]> _rentedBufferForData = new();
+    private readonly Queue<byte[]> _rentedBuffersForData = new();
     
-    public int StatusCode { get; private set; }
+    public int StatusCode { get; private set; } = -1;
+
+    public bool IsSocketDead { get; private set; }
 
     public int CorrelationId { get; private set; }
     
@@ -33,16 +38,13 @@ public class BinaryResponse: IDisposable
     
     public ReadOnlyMemory<byte> Data { get; private set; }
     
+    // the following properties are not used yet, but might be in the future
+    
     public byte Opcode { get; private set; }
     
     public int KeyLength { get; private set; }
     
     public byte DataType { get; private set; }
-
-    public BinaryResponse()
-    {
-        StatusCode = -1;
-    }
 
     public bool Read(PooledSocket socket)
     {
@@ -50,12 +52,18 @@ public class BinaryResponse: IDisposable
 
         if (!socket.IsAlive)
         {
-            return false;
+            // We return True here if underlying socket is considered to be dead.
+            // This is done to prevent infinite looping on the dead socket while reading from it.
+            
+            IsSocketDead = true;
+            
+            return true;
         }
         
         var header = ArrayPool<byte>.Shared.Rent(HeaderLength);
         int dataLength;
         int extraLength;
+        
         try
         {
             var span = header.AsSpan(0, HeaderLength);
@@ -76,7 +84,7 @@ public class BinaryResponse: IDisposable
             Extra = new ReadOnlyMemory<byte>(bufferData, 0, extraLength);
             Data = new ReadOnlyMemory<byte>(bufferData, extraLength, dataLength - extraLength);
             
-            _rentedBufferForData.Enqueue(bufferData);
+            _rentedBuffersForData.Enqueue(bufferData);
         }
 
         return StatusCode == SuccessfulResponseCode;
@@ -106,12 +114,12 @@ public class BinaryResponse: IDisposable
 
     private void ReturnRentedBuffer()
     {
-        if(_rentedBufferForData == null)
+        if (_rentedBuffersForData is null or {Count: 0})
         {
             return;
         }
 
-        while (_rentedBufferForData.TryDequeue(out var rentedData))
+        while (_rentedBuffersForData.TryDequeue(out var rentedData))
         {
             ArrayPool<byte>.Shared.Return(rentedData);
         }

@@ -5,7 +5,7 @@ using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Commands.Helpers;
 
-public class DiagnosticTimer
+internal class DiagnosticTimer
 {
     private Stopwatch _stopwatch;
     private MemcachedCommandBase _command;

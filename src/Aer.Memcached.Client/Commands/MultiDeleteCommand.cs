@@ -1,6 +1,7 @@
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 
 namespace Aer.Memcached.Client.Commands;
@@ -21,7 +22,7 @@ internal class MultiDeleteCommand: MemcachedCommandBase
         _keysCount = keysCount;
     }
 
-    public override IList<ArraySegment<byte>> GetBuffer()
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         var keys = _keys;
         
@@ -48,18 +49,23 @@ internal class MultiDeleteCommand: MemcachedCommandBase
         return buffers;
     }
 
-    public override CommandResult ReadResponse(PooledSocket socket)
+    protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
         var result = new CommandResult();
 
-        Response = new BinaryResponse();
+        ResponseReader = new BinaryResponseReader();
 
-        while (Response.Read(socket))
+        while (ResponseReader.Read(socket))
         {
-            StatusCode = Response.StatusCode;
+            if (ResponseReader.IsSocketDead)
+            {
+                return CommandResult.DeadSocket;
+            }
+            
+            StatusCode = ResponseReader.StatusCode;
 
             // found the noop, quit
-            if (Response.CorrelationId == _noopId)
+            if (ResponseReader.CorrelationId == _noopId)
             {
                 return result.Pass();
             }

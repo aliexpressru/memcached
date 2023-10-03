@@ -1,6 +1,7 @@
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 using Aer.Memcached.Client.Models;
 
@@ -12,7 +13,7 @@ internal class MultiGetCommand: MemcachedCommandBase
     
     // this field exists as an optimization for subsequent lists creation
     // this is here due to allocation optimization for batch split case. Batches are IEnumerable<string>.
-    // to not generate another collection in this case we simply pass keys count this command
+    // to not generate another collection in this case we simply pass keys count to this command
     private readonly int _keysCount;
     private Dictionary<int, string> _idToKey;
     private int _noopId;
@@ -28,7 +29,9 @@ internal class MultiGetCommand: MemcachedCommandBase
         _keysCount = keysCount;
     }
 
-    public override IList<ArraySegment<byte>> GetBuffer()
+    internal override bool HasResult => Result is {Count: > 0};
+
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         var keys = _keys;
         
@@ -62,40 +65,52 @@ internal class MultiGetCommand: MemcachedCommandBase
         return buffers;
     }
 
-    public override CommandResult ReadResponse(PooledSocket socket)
+    protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
         Result = new Dictionary<string, CacheItemResult>();
+        
         _casValues = new Dictionary<string, ulong>();
+        
         var result = new CommandResult();
 
-        Response = new BinaryResponse();
-
-        while (Response.Read(socket))
+        ResponseReader = new BinaryResponseReader();
+        
+        while (ResponseReader.Read(socket))
         {
-            StatusCode = Response.StatusCode;
+            if (ResponseReader.IsSocketDead)
+            {
+                return CommandResult.DeadSocket;
+            }
+
+            StatusCode = ResponseReader.StatusCode;
 
             // found the noop, quit
-            if (Response.CorrelationId == _noopId)
+            if (ResponseReader.CorrelationId == _noopId)
             {
                 return result.Pass();
             }
 
             // find the key to the response
-            if (!_idToKey.TryGetValue(Response.CorrelationId, out var key))
+            if (!_idToKey.TryGetValue(ResponseReader.CorrelationId, out var key))
             {
                 // we're not supposed to get here tho
                 throw new InvalidOperationException();
             }
             
             // deserialize the response
-            int flags = BinaryConverter.DecodeInt32(Response.Extra, 0);
+            int flags = BinaryConverter.DecodeInt32(ResponseReader.Extra, 0);
 
-            Result[key] = new CacheItemResult((ushort)flags, Response.Data);
-            _casValues[key] = Response.Cas;
+            Result[key] = new CacheItemResult((ushort)flags, ResponseReader.Data);
+            _casValues[key] = ResponseReader.Cas;
         }
 
         // finished reading but we did not find the NOOP
-        return result.Fail("Failed to find the end of operations");
+        return result.Fail("Failed to find the end of operation marker");
+    }
+
+    internal override MultiGetCommand Clone()
+    {
+        return new MultiGetCommand(_keys, _keysCount);
     }
     
     private BinaryRequest Build(string key)

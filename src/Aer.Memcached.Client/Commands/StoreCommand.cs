@@ -3,6 +3,7 @@ using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Extensions;
 using Aer.Memcached.Client.Commands.Helpers;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Commands;
@@ -11,7 +12,6 @@ internal class StoreCommand: SingleItemCommandBase
 {
     private readonly CacheItemForRequest _cacheItem;
     private readonly uint _expiresAtUnixTimeSeconds;
-
 
     public StoreCommand(StoreMode storeMode, string key, CacheItemForRequest cacheItem, uint expiresAtUnixTimeSeconds) : base(key, storeMode.Resolve())
     {
@@ -45,17 +45,17 @@ internal class StoreCommand: SingleItemCommandBase
         }
     }
 
-    protected override CommandResult ProcessResponse(BinaryResponse response)
+    protected override CommandResult ProcessResponse(BinaryResponseReader responseReader)
     {
         var result = new CommandResult();
 
-        StatusCode = response.StatusCode;
-        if (response.StatusCode == BinaryResponse.SuccessfulResponseCode)
+        StatusCode = responseReader.StatusCode;
+        if (responseReader.StatusCode == BinaryResponseReader.SuccessfulResponseCode)
         {
             return result.Pass();
         }
 
-        var message = ResultHelper.ProcessResponseData(response.Data);
+        var message = ResultHelper.ProcessResponseData(responseReader.Data);
         return result.Fail(message);
     }
 }

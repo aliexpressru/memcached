@@ -2,6 +2,7 @@
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
@@ -52,7 +53,8 @@ public class MemcachedKeysBatchingBenchmarks
 		_commandExecutor = new CommandExecutor<Node>(
 			new OptionsWrapper<MemcachedConfiguration>(config),
 			authProvider,
-			commandExecutorLogger);
+			commandExecutorLogger,
+			_nodeLocator);
 		
 		_memcachedClient = new MemcachedClient<Node>(_nodeLocator, _commandExecutor);
 
@@ -109,7 +111,7 @@ public class MemcachedKeysBatchingBenchmarks
 					});
 			});
 	}
-	
+
 	[Benchmark]
 	public async Task GetValuesBatchedParallelTasks()
 	{
@@ -119,8 +121,9 @@ public class MemcachedKeysBatchingBenchmarks
 			{
 				MaxDegreeOfParallelism = Environment.ProcessorCount
 			},
-			async (keysBatch, _) => {
-				await MultiGetParallelTasksAsync<string>(keysBatch, ONE_COMMAND_AUTO_BATCH_SIZE);	
+			async (keysBatch, _) =>
+			{
+				await MultiGetParallelTasksAsync<string>(keysBatch, ONE_COMMAND_AUTO_BATCH_SIZE);
 			});
 	}
 
@@ -131,7 +134,7 @@ public class MemcachedKeysBatchingBenchmarks
 		IEnumerable<string> keys,
 		int batchSize)
 	{
-		var nodes = _nodeLocator.GetNodes(keys);
+		var nodes = _nodeLocator.GetNodes(keys, replicationFactor: 0);
 		if (nodes.Keys.Count == 0)
 		{
 			return new Dictionary<string, T>();

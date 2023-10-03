@@ -1,15 +1,7 @@
-using Aer.Memcached.Client.Interfaces;
-
 namespace Aer.Memcached.Client.Models;
 
 public class MemcachedClientValueResult<T>
 {
-    public static MemcachedClientValueResult<T> Unsuccessful { get; } = new()
-    {
-        Success = false,
-        Result = default
-    };
-
     public T Result { get; set; }
     
     /// <summary>
@@ -22,4 +14,10 @@ public class MemcachedClientValueResult<T>
     /// default value is true as command to memcached can be unsuccessful
     /// </summary>
     public bool IsEmptyResult { get; set; } = true;
+
+    public static MemcachedClientValueResult<T> Unsuccessful { get; } = new()
+    {
+        Success = false,
+        Result = default
+    };
 }

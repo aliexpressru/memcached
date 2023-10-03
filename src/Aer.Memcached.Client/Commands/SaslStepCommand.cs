@@ -1,9 +1,10 @@
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
+using Aer.Memcached.Client.Commands.Infrastructure;
 
 namespace Aer.Memcached.Client.Commands;
 
-public class SaslStepCommand: SaslCommandBase
+internal class SaslStepCommand: SaslCommandBase
 {
     private readonly byte[] _continuation;
 
@@ -11,8 +12,8 @@ public class SaslStepCommand: SaslCommandBase
     {
         _continuation = continuation;
     }
-    
-    public override IList<ArraySegment<byte>> GetBuffer()
+
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         var request = new BinaryRequest(OpCode)
         {

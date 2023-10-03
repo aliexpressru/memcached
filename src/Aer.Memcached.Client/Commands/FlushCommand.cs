@@ -1,5 +1,6 @@
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
+using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 
 namespace Aer.Memcached.Client.Commands;
@@ -10,27 +11,33 @@ internal class FlushCommand: MemcachedCommandBase
     {
     }
     
-    public override CommandResult ReadResponse(PooledSocket socket)
+    protected override CommandResult ReadResponseCore(PooledSocket socket)
     {
-        Response = new BinaryResponse();
-        var success = Response.Read(socket);
+        ResponseReader = new BinaryResponseReader();
+        var success = ResponseReader.Read(socket);
+
+        if (ResponseReader.IsSocketDead)
+        {
+            return CommandResult.DeadSocket;
+        }
+        
         if (success)
         {
             return new CommandResult
             {
                 Success = true,
-                StatusCode = BinaryResponse.SuccessfulResponseCode
+                StatusCode = BinaryResponseReader.SuccessfulResponseCode
             };
         }
 
         return new CommandResult
         {
             Success = false,
-            StatusCode = BinaryResponse.UnsuccessfulResponseCode,
+            StatusCode = BinaryResponseReader.UnsuccessfulResponseCode,
         };
     }
 
-    public override IList<ArraySegment<byte>> GetBuffer()
+    internal override IList<ArraySegment<byte>> GetBuffer()
     {
         return Build().CreateBuffer();
     }

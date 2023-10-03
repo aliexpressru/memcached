@@ -1,3 +1,4 @@
+using Aer.ConsistentHash.Abstractions;
 using Standart.Hash.xxHash;
 
 namespace Aer.ConsistentHash;

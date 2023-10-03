@@ -12,5 +12,5 @@
     <ItemGroup>
         <PackageReference Include="Standart.Hash.xxHash" Version="4.0.4" />
     </ItemGroup>
-
+    
 </Project>

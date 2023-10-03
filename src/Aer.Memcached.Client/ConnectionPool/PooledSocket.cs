@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.ConnectionPool;
@@ -11,7 +12,7 @@ public class PooledSocket : IDisposable
 
     private Socket _socket;
     private readonly EndPoint _endpoint;
-    private readonly int _connectionTimeout;
+    private readonly TimeSpan _connectionTimeout;
 
     private NetworkStream _inputStream;
     
@@ -39,8 +40,8 @@ public class PooledSocket : IDisposable
         socket.NoDelay = true;
 
         _connectionTimeout = connectionTimeout == TimeSpan.MaxValue
-            ? Timeout.Infinite
-            : (int)connectionTimeout.TotalMilliseconds;
+            ? Timeout.InfiniteTimeSpan
+            : connectionTimeout;
 
         _socket = socket;
         _endpoint = endpoint;
@@ -54,11 +55,11 @@ public class PooledSocket : IDisposable
         {
             var connTask = _socket.ConnectAsync(_endpoint, token).AsTask();
 
-            if (await Task.WhenAny(connTask, Task.Delay(_connectionTimeout, token)) == connTask)
+            try
             {
-                await connTask;
+                await connTask.WaitAsync(_connectionTimeout, token);
             }
-            else
+            catch (TaskCanceledException)
             {
                 if (_socket != null)
                 {
@@ -100,9 +101,7 @@ public class PooledSocket : IDisposable
             throw new TimeoutException($"Could not connect to {_endpoint}.");
         }
     }
-
     
-
     public void Reset()
     {
         int available = _socket.Available;
@@ -110,8 +109,10 @@ public class PooledSocket : IDisposable
         if (available > 0)
         {
             _logger.LogWarning(
-                "Socket bound to {0} has {1} unread data! This is probably a bug in the code. InstanceID was {2}.",
-                _socket.RemoteEndPoint, available, InstanceId);
+                "Socket bound to {RemoteEndPoint} has {AvailableDataCount} unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
+                _socket.RemoteEndPoint.GetEndPointString(),
+                available,
+                InstanceId);
 
             byte[] data = ArrayPool<byte>.Shared.Rent(available);
 
@@ -147,10 +148,12 @@ public class PooledSocket : IDisposable
             }
             catch (Exception ex)
             {
-                if (ex is IOException || ex is SocketException)
+                if (ex is IOException or SocketException)
                 {
                     IsAlive = false;
                 }
+
+                _logger.LogError(ex, "An exception happened during socket read");
 
                 throw;
             }
@@ -166,20 +169,26 @@ public class PooledSocket : IDisposable
             var bytesTransferred = await _socket.SendAsync(buffers, SocketFlags.None);
             if (bytesTransferred <= 0)
             {
+                var endPointStr = _endpoint.GetEndPointString();
+                
                 IsAlive = false;
                 _logger.LogError(
-                    $"Failed to {nameof(WriteAsync)}. bytesTransferred: {bytesTransferred}");
-                throw new IOException($"Failed to write to the socket '{_endpoint}'.");
+                    "Failed to write data to the socket '{EndPoint}'. Bytes transferred until failure: {BytesTransferred}",
+                    endPointStr,
+                    bytesTransferred);
+                
+                throw new IOException($"Failed to write to the socket '{endPointStr}'.");
             }
         }
         catch (Exception ex)
         {
-            if (ex is IOException || ex is SocketException)
+            if (ex is IOException or SocketException)
             {
                 IsAlive = false;
             }
 
-            _logger.LogError(ex, nameof(WriteAsync));
+            _logger.LogError(ex, "An exception happened during socket write");
+            
             throw;
         }
     }
@@ -201,6 +210,7 @@ public class PooledSocket : IDisposable
         }
         catch
         {
+            // ignore
         }
     }
 
@@ -250,7 +260,7 @@ public class PooledSocket : IDisposable
                     ip.AddressFamily == AddressFamily.InterNetwork);
                 if (address == null)
                 {
-                    throw new ArgumentException($"Could not resolve host '{endpoint}'.");
+                    throw new ArgumentException($"Could not resolve host '{endpoint.GetEndPointString()}'.");
                 }
                 
                 return new IPEndPoint(address, dnsEndPoint.Port);
@@ -266,7 +276,7 @@ public class PooledSocket : IDisposable
     {
         if (_socket == null)
         {
-            throw new ObjectDisposedException("PooledSocket");
+            throw new ObjectDisposedException(nameof(PooledSocket));
         }
     }
 }
