@@ -39,7 +39,7 @@ public class NodeLocatorMaintainerTests
     }
     
     [TestMethod]
-    public async Task NotConfigured_NoNodesInLocator()
+    public void NotConfigured_NoNodesInLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -61,7 +61,7 @@ public class NodeLocatorMaintainerTests
     }
     
     [TestMethod]
-    public async Task Configured_AllProvidedNodesInLocator()
+    public void Configured_AllProvidedNodesInLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -87,7 +87,7 @@ public class NodeLocatorMaintainerTests
     }
     
     [TestMethod]
-    public async Task Configured_AddMoreNodes_AllProvidedNodesInLocator()
+    public void Configured_AddMoreNodes_AllProvidedNodesInLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -129,7 +129,7 @@ public class NodeLocatorMaintainerTests
     }
 
     [TestMethod]
-    public async Task Configured_AddAndRemoveNodes_AllProvidedNodesInLocator()
+    public void Configured_AddAndRemoveNodes_AllProvidedNodesInLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -171,7 +171,7 @@ public class NodeLocatorMaintainerTests
     }
 
     [TestMethod]
-    public async Task Configured_DeadNode_RemovedDeadNodeFromLocator()
+    public void Configured_DeadNode_RemovedDeadNodeFromLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -216,7 +216,7 @@ public class NodeLocatorMaintainerTests
     }
 
     [TestMethod]
-    public async Task Configured_ResurrectedNode_RemovedDeadAndAddAgainNode()
+    public void Configured_ResurrectedNode_RemovedDeadAndAddAgainNode()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
