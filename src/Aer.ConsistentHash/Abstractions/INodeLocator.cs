@@ -33,13 +33,8 @@ public interface INodeLocator<TNode>
     void MarkNodeDead(TNode node);
 
     /// <summary>
-    /// Gets the nodes that were considered dead.
+    /// Gets the nodes that were considered dead as a copy and removes them from internal collection.
     /// </summary>
     /// <returns>The dead nodes collection or empty collection if no nodes were considered dead.</returns>
-    IReadOnlyCollection<TNode> GetDeadNodes();
-
-    /// <summary>
-    /// Clears the dead node collection.
-    /// </summary>
-    void ClearDeadNodes();
+    IReadOnlyCollection<TNode> DrainDeadNodes();
 }

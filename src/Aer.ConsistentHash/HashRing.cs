@@ -13,8 +13,8 @@ public class HashRing<TNode> : INodeLocator<TNode>
     where TNode : class, INode
 {
     /// <summary>
-    /// In <see cref="GetNodeInternal"/> there is a moment when _hashToNodeMap is already updated (node removed)
-    /// but _sortedNodeHashKeys is not yet. So we need Read/Write lock after all. 
+    /// In <see cref="GetNodeInternal"/> there is a moment when <see cref="HashRing{T}._hashToNodeMap"/> is already updated (node removed)
+    /// but <see cref="HashRing{T}._sortedNodeHashKeys"/> is not yet. So we need Read/Write lock after all. 
     /// </summary>
     private readonly ReaderWriterLockSlim _locker;
 
@@ -207,16 +207,24 @@ public class HashRing<TNode> : INodeLocator<TNode>
             _locker.ExitWriteLock();
         }
     }
-
-    public IReadOnlyCollection<TNode> GetDeadNodes()
+    
+    public IReadOnlyCollection<TNode> DrainDeadNodes()
     {
-        // return defensive copy
-        return _deadNodes.ToArray();
-    }
+        try
+        {
+            _locker.EnterWriteLock();
+            
+            // return defensive copy
+            var currentDeadNodes = _deadNodes.ToArray();
+            
+            _deadNodes.Clear();
 
-    public void ClearDeadNodes()
-    { 
-        _deadNodes.Clear();
+            return currentDeadNodes;
+        }
+        finally
+        { 
+            _locker.ExitWriteLock();
+        }
     }
 
     private TNode GetNodeInternal(string key)
