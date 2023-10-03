@@ -65,17 +65,17 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAddInPrevious = Enumerable.Range(0, 15)
+        var nodesToInitiallyAdd = Enumerable.Range(0, 15)
             .Select(_ => new TestHashRingNode())
             .ToArray();
         
-        hashRing.AddNodes(nodesToAddInPrevious);
+        hashRing.AddNodes(nodesToInitiallyAdd);
 
         var nodesToAdd = Enumerable.Range(0, 15)
             .Select(_ => new TestHashRingNode())
             .ToArray();
 
-        var taskToAdd = Task.Run(
+        var taskToAddNodes = Task.Run(
             () =>
                 Parallel.ForEach(
                     nodesToAdd,
@@ -90,14 +90,14 @@ public class HashRingTests
 
         var keysToGet = new[] {"test", "test2"};
 
-        var taskToGet = Task.Run(
+        var taskToGetNodes = Task.Run(
             () =>
             {
                 nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
             }
         );
 
-        await Task.WhenAll(taskToAdd, taskToGet);
+        await Task.WhenAll(taskToAddNodes, taskToGetNodes);
 
         nodes.Count.Should().Be(keysToGet.Length);
     }
@@ -107,36 +107,44 @@ public class HashRingTests
     {
         var hashRing = GetHashRing();
 
-        var nodesToAddInPrevious = Enumerable.Range(0, 15)
+        var nodesToInitiallyAdd = Enumerable.Range(0, 15)
             .Select(_ => new TestHashRingNode())
             .ToArray();
-        
-        hashRing.AddNodes(nodesToAddInPrevious);
-        
+
+        hashRing.AddNodes(nodesToInitiallyAdd);
+
         var nodesToAdd = Enumerable.Range(0, 15)
             .Select(_ => new TestHashRingNode())
             .ToArray();
-        
-        var taskToAdd = Task.Run(() => Parallel.ForEach(nodesToAdd, nodeToAdd =>
-        {
-            hashRing.AddNode(nodeToAdd);
-        }));
 
-        var taskToRemove = Task.Run(() => Parallel.ForEach(nodesToAddInPrevious, nodeToRemove =>
-        {
-            hashRing.RemoveNode(nodeToRemove);
-        }));
+        var taskToAddNodes = Task.Run(
+            () =>
+                Parallel.ForEach(
+                    nodesToAdd,
+                    nodeToAdd => { hashRing.AddNode(nodeToAdd); }
+                )
+        );
 
-        IDictionary<TestHashRingNode, ConcurrentBag<string>> nodes = null;
-        
-        var keysToGet = new[] { "test", "test2" };
-        
-        var taskToGet = Task.Run(() =>
-        {
-            nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
-        });
+        var taskToRemoveNodes = Task.Run(
+            () =>
+                Parallel.ForEach(
+                    nodesToInitiallyAdd,
+                    nodeToRemove => { hashRing.RemoveNode(nodeToRemove); }
+                )
+        );
 
-        await Task.WhenAll(taskToAdd, taskToGet, taskToRemove);
+        Dictionary<TestHashRingNode, ConcurrentBag<string>> nodes = new();
+
+        var keysToGet = new[] {"test", "test2"};
+
+        var taskToGetNodes = Task.Run(
+            () =>
+            {
+                nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
+            }
+        );
+        
+        await Task.WhenAll(taskToAddNodes, taskToRemoveNodes, taskToGetNodes);
 
         nodes.Count.Should().Be(keysToGet.Length);
     }
