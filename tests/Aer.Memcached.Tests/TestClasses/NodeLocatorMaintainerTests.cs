@@ -53,7 +53,7 @@ public class NodeLocatorMaintainerTests
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
-        await maintainer.RunOnce();
+        maintainer.RunOnce();
         
         var nodes = nodeLocator.GetAllNodes();
 
@@ -74,11 +74,12 @@ public class NodeLocatorMaintainerTests
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
-        await maintainer.RunOnce();
+        maintainer.RunOnce();
 
         var nodes = nodeLocator.GetAllNodes();
 
         nodes.Length.Should().Be(nodesToProvide.Count);
+        
         foreach (var node in nodes)
         {
             nodesToProvide.Should().Contain(node);
@@ -101,7 +102,7 @@ public class NodeLocatorMaintainerTests
 
         // first maintainer run
 
-        await maintainer.RunOnce();
+        maintainer.RunOnce();
         
         var nodes = nodeLocator.GetAllNodes();
 
@@ -116,7 +117,7 @@ public class NodeLocatorMaintainerTests
 
         // second maintainer run
 
-        await maintainer.RunOnce();
+        maintainer.RunOnce();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -142,7 +143,7 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        await maintainer.RunOnce();
+        maintainer.RunOnce();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -157,7 +158,7 @@ public class NodeLocatorMaintainerTests
         
         // second maintainer run
 
-        await maintainer.RunOnce();
+        maintainer.RunOnce();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -187,7 +188,8 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        await maintainer.RunOnce();
+        
+        maintainer.RunOnce();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -198,9 +200,8 @@ public class NodeLocatorMaintainerTests
             nodesToProvide.Should().Contain(node);
         }
 
-        // second and third maintainer runs
-        await maintainer.RunOnce();
-        await maintainer.RunOnce();
+        // second maintainer run
+        maintainer.RunOnce();
 
         nodes = nodeLocator.GetAllNodes();
 
@@ -236,7 +237,7 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        await maintainer.RunOnce();
+        maintainer.RunOnce();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -247,9 +248,8 @@ public class NodeLocatorMaintainerTests
             nodesToProvide.Should().Contain(node);
         }
 
-        // second and third maintainer runs
-        await maintainer.RunOnce();
-        await maintainer.RunOnce();
+        // second maintainer run
+        maintainer.RunOnce();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -264,9 +264,8 @@ public class NodeLocatorMaintainerTests
 
         deadNodes.Remove(deadNodes[0]);
 
-        // fourth and fifth maintainer runs
-        await maintainer.RunOnce();
-        await maintainer.RunOnce();
+        // third maintainer run
+        maintainer.RunOnce();
         
         nodes = nodeLocator.GetAllNodes();
         

@@ -81,7 +81,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     /// Runs node health check and locator node rebuild tasks once, circumventing internal timers.
     /// </summary>
     /// <remarks>Primarily used in unit tests to remove time dependency.</remarks>
-    internal async Task RunOnce()
+    internal void RunOnce()
     {
         if (!_nodeProvider.IsConfigured())
         {
@@ -90,18 +90,12 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             return;
         }
 
-        List<Task> maintainerTasks = new(2);
-
-        var rebuildNodesAction = Task.Run(() => RebuildNodes(null));
-        maintainerTasks.Add(rebuildNodesAction);
-        
         if (_config.MemcachedMaintainer.NodeHealthCheckEnabled)
         {
-            var checkHealthAction = Task.Run(() => CheckNodesHealth(null));
-            maintainerTasks.Add(checkHealthAction);
+            CheckNodesHealth(null);
         }
-
-        await Task.WhenAll(maintainerTasks);
+        
+        RebuildNodes(null);
     }
 
     /// <summary>
@@ -165,7 +159,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                     nodesInLocator.Select(n => n.GetKey()));
             }
 
-            // 1 socket per 15 seconds seems to be ok for now. We can tune this strategy if needed.
+            // 1 socket per one _nodeRebuildingTimer tick seems to be ok for now. We can tune this strategy if needed.
             _commandExecutor.DestroyAvailableSockets(1, CancellationToken.None).GetAwaiter().GetResult();
 
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
