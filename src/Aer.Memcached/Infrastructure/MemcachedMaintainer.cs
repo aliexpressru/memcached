@@ -78,11 +78,22 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     }
 
     /// <summary>
+    /// Runs node health check and locator node rebuild tasks once, circumventing internal timers.
+    /// </summary>
+    /// <remarks>Primarily used in unit tests to remove time dependency.</remarks>
+    internal async Task RunOnce()
+    {
+        var checkHealthAction = Task.Run(() => CheckNodesHealth(null));
+        var rebuildNodesAction = Task.Run(() => RebuildNodes(null));
+
+        await Task.WhenAll(checkHealthAction, rebuildNodesAction);
+    }
+
+    /// <summary>
     /// Rebuilds the nodes in node locator using freshly discovered and statically configured nodes. 
     /// </summary>
-    /// <param name="_">Timer state. Not used.</param>
-    /// <remarks>This method is made internal to use it in unit tests to remove time dependence.</remarks>
-    internal void RebuildNodes(object _)
+    /// <param name="timerState">Timer state. Not used.</param>
+    private void RebuildNodes(object timerState)
     {
         try
         {
@@ -160,9 +171,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     /// <summary>
     /// Checks the freshly discovered and statically configured nodes health. 
     /// </summary>
-    /// <param name="_">Timer state. Not used.</param>
-    /// <remarks>This method is made internal to use it in unit tests to remove time dependence.</remarks>
-    internal void CheckNodesHealth(object _)
+    /// <param name="timerState">Timer state. Not used.</param>
+    private void CheckNodesHealth(object timerState)
     {
         try
         {

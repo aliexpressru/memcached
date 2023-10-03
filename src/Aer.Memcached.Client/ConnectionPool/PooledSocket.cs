@@ -12,7 +12,7 @@ public class PooledSocket : IDisposable
 
     private Socket _socket;
     private readonly EndPoint _endpoint;
-    private readonly int _connectionTimeout;
+    private readonly TimeSpan _connectionTimeout;
 
     private NetworkStream _inputStream;
     
@@ -40,8 +40,8 @@ public class PooledSocket : IDisposable
         socket.NoDelay = true;
 
         _connectionTimeout = connectionTimeout == TimeSpan.MaxValue
-            ? Timeout.Infinite
-            : (int)connectionTimeout.TotalMilliseconds;
+            ? Timeout.InfiniteTimeSpan
+            : connectionTimeout;
 
         _socket = socket;
         _endpoint = endpoint;
@@ -55,11 +55,11 @@ public class PooledSocket : IDisposable
         {
             var connTask = _socket.ConnectAsync(_endpoint, token).AsTask();
 
-            if (await Task.WhenAny(connTask, Task.Delay(_connectionTimeout, token)) == connTask)
+            try
             {
-                await connTask;
+                await connTask.WaitAsync(_connectionTimeout, token);
             }
-            else
+            catch (TaskCanceledException)
             {
                 if (_socket != null)
                 {

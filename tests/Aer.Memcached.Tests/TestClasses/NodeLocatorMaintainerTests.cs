@@ -60,8 +60,8 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
         await maintainer.StartAsync(CancellationToken.None);
 
-        await Task.Delay(TimeSpan.FromMilliseconds(PeriodBeforeFirstMaintainerRunMilliseconds));
-
+        // we don't need to wait any time - we can check node locator right away
+        
         var nodes = nodeLocator.GetAllNodes();
 
         nodes.Length.Should().Be(0);
@@ -83,7 +83,7 @@ public class NodeLocatorMaintainerTests
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
-        await RunMaintainerOnce(maintainer);
+        await maintainer.RunOnce();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -109,8 +109,8 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        
-        await RunMaintainerOnce(maintainer);
+
+        await maintainer.RunOnce();
         
         var nodes = nodeLocator.GetAllNodes();
 
@@ -124,8 +124,8 @@ public class NodeLocatorMaintainerTests
         nodesToProvide.Add(new TestHashRingNode());
 
         // second maintainer run
-        
-        await RunMaintainerOnce(maintainer);
+
+        await maintainer.RunOnce();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -151,7 +151,7 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        await RunMaintainerOnce(maintainer);
+        await maintainer.RunOnce();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -166,7 +166,7 @@ public class NodeLocatorMaintainerTests
         
         // second maintainer run
 
-        await RunMaintainerOnce(maintainer);
+        await maintainer.RunOnce();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -196,7 +196,7 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        await RunMaintainerOnce(maintainer);
+        await maintainer.RunOnce();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -208,8 +208,8 @@ public class NodeLocatorMaintainerTests
         }
 
         // second and third maintainer runs
-        await RunMaintainerOnce(maintainer);
-        await RunMaintainerOnce(maintainer);
+        await maintainer.RunOnce();
+        await maintainer.RunOnce();
 
         nodes = nodeLocator.GetAllNodes();
 
@@ -245,7 +245,7 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        await RunMaintainerOnce(maintainer);
+        await maintainer.RunOnce();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -257,8 +257,8 @@ public class NodeLocatorMaintainerTests
         }
 
         // second and third maintainer runs
-        await RunMaintainerOnce(maintainer);
-        await RunMaintainerOnce(maintainer);
+        await maintainer.RunOnce();
+        await maintainer.RunOnce();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -274,8 +274,8 @@ public class NodeLocatorMaintainerTests
         deadNodes.Remove(deadNodes[0]);
 
         // fourth and fifth maintainer runs
-        await RunMaintainerOnce(maintainer);
-        await RunMaintainerOnce(maintainer);
+        await maintainer.RunOnce();
+        await maintainer.RunOnce();
         
         nodes = nodeLocator.GetAllNodes();
         
@@ -327,13 +327,5 @@ public class NodeLocatorMaintainerTests
             _commandExecutorMock,
             memcachedConfiguration, 
             logger);
-    }
-
-    private async Task RunMaintainerOnce(MemcachedMaintainer<TestHashRingNode> maintainer)
-    {
-        var checkHealthAction = Task.Run(() => maintainer.CheckNodesHealth(null));
-        var rebuildNodesAction = Task.Run(() => maintainer.RebuildNodes(null));
-
-        await Task.WhenAll(checkHealthAction, rebuildNodesAction);
     }
 }

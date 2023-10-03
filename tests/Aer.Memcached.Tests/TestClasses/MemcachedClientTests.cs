@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
@@ -103,16 +104,21 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     }
 
     [TestMethod]
+    [SuppressMessage("ReSharper", "ExpressionIsAlwaysNull", Justification = "Using null as test and expected value")]
     public async Task StoreAndGet_NullAsString()
     {
         var key = Guid.NewGuid().ToString();
-        string value = null;
+        string nullValue = null;
 
-        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+        await Client.StoreAsync(
+            key,
+            nullValue,
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
+            CancellationToken.None);
 
         var getValue = await Client.GetAsync<string>(key, CancellationToken.None);
 
-        getValue.Result.Should().BeEquivalentTo(value);
+        getValue.Result.Should().BeEquivalentTo(nullValue);
         getValue.Success.Should().BeTrue();
         getValue.IsEmptyResult.Should().BeFalse();
     }
@@ -123,12 +129,16 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         var key = Guid.NewGuid().ToString();
         string value = "test";
 
-        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+        await Client.StoreAsync(
+            key,
+            value,
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
+            CancellationToken.None);
 
         await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
-        
+
         await Client.GetAsync<string>(key, CancellationToken.None);
-        
+
         var getValue = await Client.GetAsync<string>(key, CancellationToken.None);
 
         getValue.Result.Should().BeNull();
