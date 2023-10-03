@@ -77,7 +77,12 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         return Task.CompletedTask;
     }
 
-    internal void RebuildNodes(object state)
+    /// <summary>
+    /// Rebuilds the nodes in node locator using freshly discovered and statically configured nodes. 
+    /// </summary>
+    /// <param name="_">Timer state. Not used.</param>
+    /// <remarks>This method is made internal to use it in unit tests to remove time dependence.</remarks>
+    internal void RebuildNodes(object _)
     {
         try
         {
@@ -152,7 +157,12 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         }
     }
 
-    internal void CheckNodesHealth(object state)
+    /// <summary>
+    /// Checks the freshly discovered and statically configured nodes health. 
+    /// </summary>
+    /// <param name="_">Timer state. Not used.</param>
+    /// <remarks>This method is made internal to use it in unit tests to remove time dependence.</remarks>
+    internal void CheckNodesHealth(object _)
     {
         try
         {
