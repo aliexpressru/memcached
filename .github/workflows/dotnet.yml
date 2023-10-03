@@ -21,14 +21,10 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install libmemcached-dev memcached
-    - name: Start memcached daemon 1
+    - name: Start memcached daemons
       run: |
         memcached -d -p 11211
-    - name: Start memcached daemon 2
-      run: |
         memcached -d -p 11212
-    - name: Start memcached daemon 3
-      run: |
         memcached -d -p 11213
     - name: Add memcached host to /etc/hosts
       run: |
