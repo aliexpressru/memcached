@@ -6,6 +6,8 @@ namespace Aer.Memcached.Client.Commands.Base;
 
 public abstract class MemcachedCommandBase: IDisposable
 {
+    private bool _isDisposed;
+    
     internal BinaryResponseReader ResponseReader { get; set; }
 
     protected int StatusCode { get; set; }
@@ -47,7 +49,13 @@ public abstract class MemcachedCommandBase: IDisposable
 
     public void Dispose()
     {
+        if (_isDisposed)
+        { 
+            return;
+        }
+
         // dispose of response reader to return all underlying rented buffers
         ResponseReader?.Dispose();
+        _isDisposed = true;
     }
 }

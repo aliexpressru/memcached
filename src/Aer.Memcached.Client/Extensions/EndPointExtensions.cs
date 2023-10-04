@@ -9,7 +9,11 @@ public static class EndPointExtensions
 		// conditional Replace call here since, according to static analysis,
 		// for some reason ToString() can produce null even on non-null endPoint
 
-		var ret = endPoint.ToString()?.Replace("Unspecified/", string.Empty, StringComparison.InvariantCulture);
+		var ret = endPoint.ToString()
+			?.Replace(
+				"Unspecified/",
+				string.Empty,
+				StringComparison.InvariantCulture);
 
 		return ret ?? "";
 	}

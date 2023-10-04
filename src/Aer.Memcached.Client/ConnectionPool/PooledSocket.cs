@@ -17,15 +17,17 @@ public class PooledSocket : IDisposable
     private NetworkStream _inputStream;
     
     /// <summary>
-    /// The ID of this instance. Used by the <see cref="T:MemcachedServer"/> to identify the instance in its inner lists.
+    /// The ID of this instance. Used by the memecached server to identify the instance in its inner lists.
     /// </summary>
     public readonly Guid InstanceId = Guid.NewGuid();
 
     public bool IsAlive { get; private set; }
     
-    public Action<PooledSocket> CleanupCallback { get; set; }
+    public Action<PooledSocket> ReturnToPoolCallback { get; set; }
     
     public bool Authenticated { get; set; }
+
+    public string EndPointAddressString { get; }
 
     public PooledSocket(
         EndPoint endpoint, 
@@ -45,6 +47,8 @@ public class PooledSocket : IDisposable
 
         _socket = socket;
         _endpoint = endpoint;
+
+        EndPointAddressString = endpoint.GetEndPointString();
     }
 
     public async Task ConnectAsync(CancellationToken token)
@@ -139,7 +143,7 @@ public class PooledSocket : IDisposable
 
                 if (currentRead < 1)
                 {
-                    throw new IOException("The socket seems to be disconnected");
+                    throw new IOException("Failed to read data from socket. The socket seems to be disconnected");
                 }
 
                 read += currentRead;
@@ -194,9 +198,9 @@ public class PooledSocket : IDisposable
     }
 
     /// <summary>
-    /// Releases all resources used by this instance and shuts down the inner <see cref="T:Socket"/>. This instance will not be usable anymore.
+    /// Releases all resources used by this instance and shuts down the inner <see cref="Socket"/>. This instance will not be usable anymore.
     /// </summary>
-    /// <remarks>Use the IDisposable.Dispose method if you want to release this instance back into the pool.</remarks>
+    /// <remarks>Use the <see cref="Dispose"/> method if you want to release this instance back into the pool.</remarks>
     public void Destroy()
     {
         Dispose(true);
@@ -206,7 +210,7 @@ public class PooledSocket : IDisposable
     {
         try
         {
-            Dispose(true);
+            Destroy();
         }
         catch
         {
@@ -214,34 +218,27 @@ public class PooledSocket : IDisposable
         }
     }
 
-    private void Dispose(bool disposing)
+    private void Dispose(bool shouldDestroySocket)
     {
-        if (disposing)
+        if (shouldDestroySocket)
         {
             GC.SuppressFinalize(this);
 
             try
             {
-                try
-                {
-                    _socket?.Dispose();
-                }
-                catch (Exception e)
-                {
-                    _logger.LogError(e, $"Error occured while disposing {nameof(PooledSocket)}");
-                }
-
+                _socket?.Dispose();
                 _inputStream?.Dispose();
             }
             catch (Exception e)
             {
-                _logger.LogError(e, $"Error occured while disposing {nameof(PooledSocket)}");
+                _logger.LogError(e, "Error occured while destroying the socket");
             }
         }
         else
         {
-            Action<PooledSocket> cc = CleanupCallback;
-            cc?.Invoke(this);
+            // means we should return socket to the pool
+            var returnToPoolCallback = ReturnToPoolCallback;
+            returnToPoolCallback?.Invoke(this);
         }
     }
 
@@ -250,6 +247,7 @@ public class PooledSocket : IDisposable
         Dispose(false);
     }
 
+    // ReSharper disable once InconsistentNaming | Jsustification - IPEndPoint is the name of the return type
     private IPEndPoint GetIPEndPoint(EndPoint endpoint)
     {
         switch (endpoint)

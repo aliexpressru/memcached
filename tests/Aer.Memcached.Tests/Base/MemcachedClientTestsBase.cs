@@ -1,7 +1,10 @@
-﻿using Aer.ConsistentHash;
+﻿using System.Diagnostics;
+using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Diagnostics;
+using Aer.Memcached.Diagnostics.Listeners;
 using AutoFixture;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -43,7 +46,16 @@ public abstract class MemcachedClientTestsBase
 		using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 		
 		var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
-		var config = new MemcachedConfiguration();
+		
+		var config = new MemcachedConfiguration(){
+			Diagnostics = new MemcachedConfiguration.MemcachedDiagnosticsSettings(){
+				DisableDiagnostics = true,
+				DisableRebuildNodesStateLogging = true,
+				DisableSocketPoolDiagnosticsLogging = false,
+				SocketPoolDiagnosticsLoggingEventLevel = LogLevel.Information
+			}
+		};
+		
 		var authProvider = new DefaultAuthenticationProvider(
 			new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
@@ -68,6 +80,16 @@ public abstract class MemcachedClientTestsBase
 					NamingStrategy = new SnakeCaseNamingStrategy()
 				},
 				ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-			}); 
+			});
+
+		DiagnosticListener diagnosticSource = MemcachedDiagnosticSource.Instance;
+
+		IOptions<MemcachedConfiguration> memcachedOptions = new OptionsWrapper<MemcachedConfiguration>(config);
+
+		var loggingListener = new LoggingMemcachedDiagnosticListener(
+			loggerFactory.CreateLogger<LoggingMemcachedDiagnosticListener>(),
+			memcachedOptions);
+		
+		diagnosticSource.SubscribeWithAdapter(loggingListener);
 	}
 }

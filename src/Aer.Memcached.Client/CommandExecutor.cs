@@ -58,7 +58,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         {
             _logger.LogError(e, "Fatal error occured during replicated node command '{Command}' execution", command.ToString());
 
-            return CommandExecutionResult.Unsuccessful;
+            return CommandExecutionResult.Unsuccessful(command);
         }
     }
 
@@ -82,7 +82,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         {
             _logger.LogError(e, "Fatal error occured during node command '{Command}' execution", command.ToString());
 
-            return CommandExecutionResult.Unsuccessful;
+            return CommandExecutionResult.Unsuccessful(command);
         }
     }
 
@@ -185,13 +185,13 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             }
 
             // means no successful command found
-            return CommandExecutionResult.Unsuccessful;
+            return CommandExecutionResult.Unsuccessful(command);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error occured during command '{Command}' execution", command.ToString());
+            _logger.LogError(e, "Error occured during replicated command {Command} execution", command.ToString());
 
-            return CommandExecutionResult.Unsuccessful;
+            return CommandExecutionResult.Unsuccessful(command);
         }
     }
 
@@ -206,7 +206,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             
             if (socket == null)
             {
-                return CommandExecutionResult.Unsuccessful;
+                return CommandExecutionResult.Unsuccessful(command);
             }
 
             var buffer = command.GetBuffer();
@@ -221,20 +221,20 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             {
                 _logger.LogWarning("Write to socket timed out");
                 
-                return CommandExecutionResult.Unsuccessful;
+                return CommandExecutionResult.Unsuccessful(command);
             }
             
             var readResult = command.ReadResponse(socket);
             
             return readResult.Success 
                 ? CommandExecutionResult.Successful(command) 
-                : CommandExecutionResult.Unsuccessful;
+                : CommandExecutionResult.Unsuccessful(command);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error occured during command '{Command}' execution", command.ToString());
+            _logger.LogError(e, "Error occured during command {Command} execution", command.ToString());
 
-            return CommandExecutionResult.Unsuccessful;
+            return CommandExecutionResult.Unsuccessful(command);
         }
     }
 

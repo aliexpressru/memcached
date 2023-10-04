@@ -1,4 +1,5 @@
 using Aer.ConsistentHash.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.Config;
 
@@ -56,14 +57,24 @@ public class MemcachedConfiguration
     public class MemcachedDiagnosticsSettings
     {
         /// <summary>
-        /// Determines whether the memcached node rebuild process should report current state details as logs.
+        /// Determines whether the memcached node rebuild process should report socket pool capacities as logs.
         /// </summary>
-        public bool DisableRebuildNodesStateLogging { set; get; } = false;
+        public bool DisableRebuildNodesStateLogging { set; get; }
 
         /// <summary>
         /// Determines whether the memcached metrics should be written out.
         /// </summary>
-        public bool DisableDiagnostics { get; set; } = false;
+        public bool DisableDiagnostics { get; set; }
+
+        /// <summary>
+        /// Determines whether the memcached socket pool logs should be written out.
+        /// </summary>
+        public bool DisableSocketPoolDiagnosticsLogging { get; set; }
+
+        /// <summary>
+        /// The event level under which the socket pool diagniostics logs should be written out.
+        /// </summary>
+        public LogLevel SocketPoolDiagnosticsLoggingEventLevel { get; set; } = LogLevel.Information;
     }
     
     public class Server

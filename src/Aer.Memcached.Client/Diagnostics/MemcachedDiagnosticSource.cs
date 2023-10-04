@@ -8,6 +8,11 @@ public class MemcachedDiagnosticSource: DiagnosticListener
 
     public const string CommandDurationDiagnosticName = SourceName + ".CommandDuration";
     public const string CommandsTotalDiagnosticName = SourceName + ".CommandsTotal";
+    
+    public const string SocketPoolSocketCreatedDiagnosticName = SourceName + ".SocketPool.SocketCreated";
+    public const string SocketPoolSocketDestroyedDiagnosticName = SourceName + ".SocketPool.SocketDestroyed";
+    
+    public const string SocketPoolUsedSocketCountDiagnosticName = SourceName + ".SocketPool.UsedSocketCount";
 
     public static MemcachedDiagnosticSource Instance { get; } = new();
     

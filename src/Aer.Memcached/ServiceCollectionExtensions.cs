@@ -49,6 +49,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton(collectorRegistry);
             services.AddSingleton<MemcachedMetrics>();
             services.AddSingleton<MetricsMemcachedDiagnosticListener>();
+            services.AddSingleton<LoggingMemcachedDiagnosticListener>();
             services.AddSingleton(MemcachedDiagnosticSource.Instance);
         }
         
@@ -58,11 +59,20 @@ public static class ServiceCollectionExtensions
     public static IApplicationBuilder EnableMemcachedDiagnostics(this IApplicationBuilder applicationBuilder, IConfiguration configuration)
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
+        
         if (!config.Diagnostics.DisableDiagnostics)
         {
-            DiagnosticListener diagnosticListener = applicationBuilder.ApplicationServices.GetRequiredService<MemcachedDiagnosticSource>();
-            var listener = applicationBuilder.ApplicationServices.GetRequiredService<MetricsMemcachedDiagnosticListener>();
-            diagnosticListener.SubscribeWithAdapter(listener);
+            DiagnosticListener diagnosticSource = 
+                applicationBuilder.ApplicationServices.GetRequiredService<MemcachedDiagnosticSource>();
+            
+            var metricsListener = 
+                applicationBuilder.ApplicationServices.GetRequiredService<MetricsMemcachedDiagnosticListener>();
+            
+            var loggingListener = 
+                applicationBuilder.ApplicationServices.GetRequiredService<LoggingMemcachedDiagnosticListener>();
+            
+            diagnosticSource.SubscribeWithAdapter(metricsListener);
+            diagnosticSource.SubscribeWithAdapter(loggingListener);
         }
 
         return applicationBuilder;
