@@ -112,7 +112,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
     }
 
     /// <inheritdoc />
-    public async Task DestroyAvailableSockets(int numberOfSocketsToDestroy, CancellationToken token)
+    public async Task DestroyAvailablePooledSockets(int numberOfSocketsToDestroy, CancellationToken token)
     {
         // no rush here because it is used in background process
         foreach (var socketPool in _socketPools)
@@ -122,6 +122,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
                 await socketPool.Value.DestroyAvailableSocketAsync(token);
             }
         }
+    }
+
+    /// <inheritdoc />
+    public Task<PooledSocket> GetSocketForNodeAsync(TNode node, bool isAuthenticateSocketIfRequired, CancellationToken token)
+    {
+        return GetSocketAsync(node, isAuthenticateSocketIfRequired, token);
     }
 
     private async Task<CommandExecutionResult> ExecuteCommandInternalAsync(
@@ -202,7 +208,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
     {
         try
         {
-            using var socket = await GetSocketAsync(node, token);
+            using var socket = await GetSocketAsync(node, isAuthenticateSocketIfRequired: true, token);
             
             if (socket == null)
             {
@@ -238,7 +244,10 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         }
     }
 
-    private async Task<PooledSocket> GetSocketAsync(TNode node, CancellationToken token)
+    private async Task<PooledSocket> GetSocketAsync(
+        TNode node,
+        bool isAuthenticateSocketIfRequired,
+        CancellationToken token)
     {
         var socketPool = _socketPools.GetOrAdd(
             node,
@@ -251,27 +260,29 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         {
             // remove node from configuration if it's endpoint is considered broken
             _nodeLocator.MarkNodeDead(node);
-            
+
             return null;
         }
 
-        var pooledSocket = await socketPool.GetAsync(token);
-        
+        var pooledSocket = await socketPool.GetSocketAsync(token);
+
         if (pooledSocket == null)
         {
             return null;
         }
-        
-        if (!_authenticationProvider.AuthRequired || pooledSocket.Authenticated)
+
+        if (!isAuthenticateSocketIfRequired
+            || !_authenticationProvider.AuthRequired
+            || pooledSocket.Authenticated)
         {
             return pooledSocket;
         }
 
         await AuthenticateAsync(pooledSocket);
-        
+
         return pooledSocket;
     }
-    
+
     private async Task AuthenticateAsync(PooledSocket pooledSocket)
     {
         var saslStart = new SaslStartCommand(_authenticationProvider.GetAuthData());

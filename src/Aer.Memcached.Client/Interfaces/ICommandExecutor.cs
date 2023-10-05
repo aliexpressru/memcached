@@ -1,6 +1,7 @@
 using Aer.ConsistentHash;
 using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Commands.Base;
+using Aer.Memcached.Client.ConnectionPool;
 using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Interfaces;
@@ -51,5 +52,20 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     /// </summary>
     /// <param name="numberOfSocketsToDestroy">Number of sockets to destroy</param>
     /// <param name="token">Cancellation token</param>
-    Task DestroyAvailableSockets(int numberOfSocketsToDestroy, CancellationToken token);
+    Task DestroyAvailablePooledSockets(int numberOfSocketsToDestroy, CancellationToken token);
+
+    /// <summary>
+    /// Gets the <see cref="PooledSocket"/> instance for the specified node.
+    /// The obtained socket is produced from socket pool. 
+    /// </summary>
+    /// <param name="node">The node to get pooled socket for.</param>
+    /// <param name="isAuthenticateSocketIfRequired">
+    /// If set to <c>true</c> performs authentication on obtained socket if
+    /// it is required by authentication provider settings.
+    /// </param>
+    /// <param name="token">The cancellation token.</param>
+    Task<PooledSocket> GetSocketForNodeAsync(
+        TNode node,
+        bool isAuthenticateSocketIfRequired,
+        CancellationToken token);
 }

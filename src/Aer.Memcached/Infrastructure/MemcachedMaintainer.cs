@@ -160,7 +160,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             }
 
             // 1 socket per one _nodeRebuildingTimer tick seems to be ok for now. We can tune this strategy if needed.
-            _commandExecutor.DestroyAvailableSockets(1, CancellationToken.None).GetAwaiter().GetResult();
+            _commandExecutor.DestroyAvailablePooledSockets(1, CancellationToken.None).GetAwaiter().GetResult();
 
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
             {

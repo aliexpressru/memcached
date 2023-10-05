@@ -2,6 +2,7 @@ using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.ConnectionPool;
 using Aer.Memcached.Client.Extensions;
+using Aer.Memcached.Client.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -11,10 +12,15 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
 {
     private readonly ILogger<NodeHealthChecker<TNode>> _logger;
     private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
+    private readonly ICommandExecutor<TNode> _commandExecutor;
 
-    public NodeHealthChecker(IOptions<MemcachedConfiguration> config, ILogger<NodeHealthChecker<TNode>> logger)
+    public NodeHealthChecker(
+        IOptions<MemcachedConfiguration> config, 
+        ILogger<NodeHealthChecker<TNode>> logger,
+        ICommandExecutor<TNode> commandExecutor)
     {
         _logger = logger;
+        _commandExecutor = commandExecutor;
         _config = config.Value.SocketPool;
     }
 
@@ -31,11 +37,17 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
             {
                 // We need to recreate it each time to resolve the exception:
                 // System.PlatformNotSupportedException: Sockets on this platform are invalid for use after a failed connection attempt.
-                socket = new PooledSocket(nodeEndPoint, _config.ConnectionTimeout, _logger);
+                socket = _config.UseSocketPoolForNodeHealthChecks
+                    ? await _commandExecutor.GetSocketForNodeAsync(
+                        node,
+                        isAuthenticateSocketIfRequired: false,
+                        CancellationToken.None)
+                    : new PooledSocket(nodeEndPoint, _config.ConnectionTimeout, _logger);
                 
                 try
                 {
                     await socket.ConnectAsync(CancellationToken.None);
+                    
                     return false;
                 }
                 catch (Exception e)
@@ -53,7 +65,14 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
             }
             finally
             {
-                socket?.Destroy();
+                if (_config.UseSocketPoolForNodeHealthChecks)
+                {
+                    socket?.Dispose();
+                }
+                else
+                {
+                    socket?.Destroy();
+                }
             }
         }
 

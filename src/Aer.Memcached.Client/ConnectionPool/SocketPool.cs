@@ -55,7 +55,7 @@ internal class SocketPool : IDisposable
         _availableSockets = new ConcurrentStack<PooledSocket>();
     }
 
-    public async Task<PooledSocket> GetAsync(CancellationToken token)
+    public async Task<PooledSocket> GetSocketAsync(CancellationToken token)
     {
         var result = await TryGetAvailableSocket(token);
         

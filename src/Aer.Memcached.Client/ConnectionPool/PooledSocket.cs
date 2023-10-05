@@ -251,11 +251,11 @@ public class PooledSocket : IDisposable
         }
     }
 
-    void IDisposable.Dispose()
+    public void Dispose()
     {
         Dispose(false);
     }
-
+    
     // ReSharper disable once InconsistentNaming | Jsustification - IPEndPoint is the name of the return type
     private IPEndPoint GetIPEndPoint(EndPoint endpoint)
     {
