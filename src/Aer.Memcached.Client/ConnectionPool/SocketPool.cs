@@ -177,16 +177,6 @@ internal class SocketPool : IDisposable
         {
             // kill this item
             socket.Destroy();
-
-            if (MemcachedDiagnosticSource.Instance.IsEnabled())
-            {
-                MemcachedDiagnosticSource.Instance.Write(
-                    MemcachedDiagnosticSource.SocketPoolSocketDestroyedDiagnosticName,
-                    new
-                    {
-                        enpointAddress = socket.EndPointAddressString
-                    });
-            }
         }
         finally
         {

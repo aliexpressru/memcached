@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
 
@@ -71,7 +72,7 @@ public class PooledSocket : IDisposable
                     _socket = null;
                 }
 
-                throw new TimeoutException($"Timeout to connect to {_endpoint}.");
+                throw new TimeoutException($"Timeout to connect to {EndPointAddressString}.");
             }
         }
         catch (PlatformNotSupportedException)
@@ -102,7 +103,7 @@ public class PooledSocket : IDisposable
         }
         else
         {
-            throw new TimeoutException($"Could not connect to {_endpoint}.");
+            throw new TimeoutException($"Could not connect to {EndPointAddressString}.");
         }
     }
     
@@ -113,8 +114,8 @@ public class PooledSocket : IDisposable
         if (available > 0)
         {
             _logger.LogWarning(
-                "Socket bound to {RemoteEndPoint} has {AvailableDataCount} unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
-                _socket.RemoteEndPoint.GetEndPointString(),
+                "Socket bound to {EndPoint} has {AvailableDataCount} unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
+                EndPointAddressString,
                 available,
                 InstanceId);
 
@@ -173,15 +174,13 @@ public class PooledSocket : IDisposable
             var bytesTransferred = await _socket.SendAsync(buffers, SocketFlags.None);
             if (bytesTransferred <= 0)
             {
-                var endPointStr = _endpoint.GetEndPointString();
-                
                 IsAlive = false;
                 _logger.LogError(
-                    "Failed to write data to the socket '{EndPoint}'. Bytes transferred until failure: {BytesTransferred}",
-                    endPointStr,
+                    "Failed to write data to the socket {EndPoint}. Bytes transferred until failure: {BytesTransferred}",
+                    EndPointAddressString,
                     bytesTransferred);
                 
-                throw new IOException($"Failed to write to the socket '{endPointStr}'.");
+                throw new IOException($"Failed to write to the socket {EndPointAddressString}.");
             }
         }
         catch (Exception ex)
@@ -228,6 +227,16 @@ public class PooledSocket : IDisposable
             {
                 _socket?.Dispose();
                 _inputStream?.Dispose();
+
+                if (MemcachedDiagnosticSource.Instance.IsEnabled())
+                {
+                    MemcachedDiagnosticSource.Instance.Write(
+                        MemcachedDiagnosticSource.SocketPoolSocketDestroyedDiagnosticName,
+                        new
+                        {
+                            enpointAddress = EndPointAddressString
+                        });
+                }
             }
             catch (Exception e)
             {
@@ -258,7 +267,7 @@ public class PooledSocket : IDisposable
                     ip.AddressFamily == AddressFamily.InterNetwork);
                 if (address == null)
                 {
-                    throw new ArgumentException($"Could not resolve host '{endpoint.GetEndPointString()}'.");
+                    throw new ArgumentException($"Could not resolve host {EndPointAddressString}.");
                 }
                 
                 return new IPEndPoint(address, dnsEndPoint.Port);

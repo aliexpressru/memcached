@@ -46,8 +46,8 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
                     {
                         _logger.LogError(
                             e,
-                            "Node '{NodeEndPoint}' health check failed. Considering node dead",
-                            nodeEndPoint.GetEndPointString());
+                            "Node {EndPoint} health check failed. Considering node dead",
+                            socket.EndPointAddressString);
                     }
                 }
             }

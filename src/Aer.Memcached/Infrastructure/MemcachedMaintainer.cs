@@ -188,14 +188,14 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             var currentNodes = _nodeProvider.GetNodes();
 
             var recheckDeadNodesActionBlock = new ActionBlock<TNode>(
-                node =>
+                async node =>
                 {
                     if (!currentNodes.Contains(node, NodeEqualityComparer<TNode>.Instance))
                     {
                         return;
                     }
 
-                    if (CheckNodeIsDead(node))
+                    if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
                     {
                         _deadNodes.Add(node);
                     }
@@ -205,6 +205,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                     MaxDegreeOfParallelism = 16
                 });
 
+            // recheck nodes considered dead
+            
             try
             {
                 _locker.EnterWriteLock();
@@ -223,6 +225,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 _locker.ExitWriteLock();
             }
 
+            // check nodes in locator
+            
             var nodesInLocator = _nodeLocator.GetAllNodes();
 
             try
@@ -238,16 +242,18 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 _locker.ExitReadLock();
             }
 
-            Parallel.ForEach(
+            var parallelDeadNodesCheckTask = Parallel.ForEachAsync(
                 nodesInLocator,
                 new ParallelOptions {MaxDegreeOfParallelism = 16},
-                node =>
+                async node =>
                 {
-                    if (CheckNodeIsDead(node))
+                    if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
                     {
                         _deadNodes.Add(node);
                     }
                 });
+            
+            parallelDeadNodesCheckTask.GetAwaiter().GetResult();
 
             if (!_deadNodes.IsEmpty)
             {
@@ -278,8 +284,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         _nodeHealthCheckTimer?.Dispose();
     }
 
-    private bool CheckNodeIsDead(TNode node)
-    {
-        return _nodeHealthChecker.CheckNodeIsDeadAsync(node).GetAwaiter().GetResult();
-    }
+    // private bool CheckNodeIsDead(TNode node)
+    // {
+    //     return 
+    // }
 }
