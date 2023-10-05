@@ -245,8 +245,9 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             var parallelDeadNodesCheckTask = Parallel.ForEachAsync(
                 nodesInLocator,
                 new ParallelOptions {MaxDegreeOfParallelism = 16},
-                async node =>
+                async (node, _) =>
                 {
+                    // pass no cancellation token since the caller method is synchronous 
                     if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
                     {
                         _deadNodes.Add(node);
@@ -283,9 +284,4 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         _nodeRebuildingTimer?.Dispose();
         _nodeHealthCheckTimer?.Dispose();
     }
-
-    // private bool CheckNodeIsDead(TNode node)
-    // {
-    //     return 
-    // }
 }
