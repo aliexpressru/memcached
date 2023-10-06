@@ -150,6 +150,10 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                     nodesToAdd.Select(n => n.GetKey()));
             }
 
+            // destroy 1 socket per one _nodeRebuildingTimer tick seems to be ok for now.
+            // This is done to refresh sockets in the pool. We can tune this strategy if needed.
+            _commandExecutor.DestroyAvailablePooledSockets(1, CancellationToken.None).GetAwaiter().GetResult();
+            
             nodesInLocator = _nodeLocator.GetAllNodes();
 
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
@@ -157,15 +161,9 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 _logger.LogInformation(
                     "Nodes in locator: [{NodesInLocator}]",
                     nodesInLocator.Select(n => n.GetKey()));
-            }
 
-            // 1 socket per one _nodeRebuildingTimer tick seems to be ok for now. We can tune this strategy if needed.
-            _commandExecutor.DestroyAvailablePooledSockets(1, CancellationToken.None).GetAwaiter().GetResult();
-
-            if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
-            {
                 var socketPools = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
-                
+
                 _logger.LogInformation(
                     "Created sockets statistics: [{SocketStatisctics}]",
                     socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"));

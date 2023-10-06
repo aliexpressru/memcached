@@ -11,7 +11,7 @@ namespace Aer.Memcached.Infrastructure;
 internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode: class, INode
 {
     private readonly ILogger<NodeHealthChecker<TNode>> _logger;
-    private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
+    private readonly MemcachedConfiguration _config;
     private readonly ICommandExecutor<TNode> _commandExecutor;
 
     public NodeHealthChecker(
@@ -21,7 +21,7 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
     {
         _logger = logger;
         _commandExecutor = commandExecutor;
-        _config = config.Value.SocketPool;
+        _config = config.Value;
     }
 
     public async Task<bool> CheckNodeIsDeadAsync(TNode node)
@@ -37,12 +37,12 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
             {
                 // We need to recreate it each time to resolve the exception:
                 // System.PlatformNotSupportedException: Sockets on this platform are invalid for use after a failed connection attempt.
-                socket = _config.UseSocketPoolForNodeHealthChecks
+                socket = _config.MemcachedMaintainer.UseSocketPoolForNodeHealthChecks
                     ? await _commandExecutor.GetSocketForNodeAsync(
                         node,
                         isAuthenticateSocketIfRequired: false,
                         CancellationToken.None)
-                    : new PooledSocket(nodeEndPoint, _config.ConnectionTimeout, _logger);
+                    : new PooledSocket(nodeEndPoint, _config.SocketPool.ConnectionTimeout, _logger);
                 
                 try
                 {
@@ -65,7 +65,7 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
             }
             finally
             {
-                if (_config.UseSocketPoolForNodeHealthChecks)
+                if (_config.MemcachedMaintainer.UseSocketPoolForNodeHealthChecks)
                 {
                     socket?.Dispose();
                 }

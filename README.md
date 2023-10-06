@@ -6,7 +6,7 @@ This solution allows to easily add memcached to a service
 
 ## Configuration
 
-To use the library add MemcachedConfiguration section to appsettings.json as follows:
+To use the library add `MemcachedConfiguration` section to appsettings.json as follows:
 
 ```json
 {
@@ -18,23 +18,35 @@ To use the library add MemcachedConfiguration section to appsettings.json as fol
 
 `HeadlessServiceAddress` groups all memcached pods. Using dns lookup all the ip addresses of the pods can be obtained.
 
-For local settings or if you static amount of pods you can specify `Servers` instead of `HeadlessServiceAddress`:
+Default Memcached port is `11211`, but you can also specify it in config.
 
 ```json
 {
-    "MemcachedConfiguration": {
-        "Servers": [
-            {
-                "IpAddress": "1.1.1.1"
-            },
-            {
-                "IpAddress": "2.2.2.2"
-            },
-            {
-                "IpAddress": "3.3.3.3"
-            }
-        ]
-    }
+  "MemcachedConfiguration": {
+    "MemcachedPort": 12345
+  }
+}
+```
+
+`MemcachedPort` is an optional setting that specifies which port should each memcached node use. If not set the default value of `11211` used.
+
+For local run or if you have a static amount and setup of pods you can specify `Servers` manually instead of seting the `HeadlessServiceAddress`:
+
+```json
+{
+  "MemcachedConfiguration": {
+    "Servers": [
+      {
+        "IpAddress": "1.1.1.1"
+      },
+      {
+        "IpAddress": "2.2.2.2"
+      },
+      {
+        "IpAddress": "3.3.3.3"
+      }
+    ]
+  }
 }
 ```
 
@@ -42,18 +54,19 @@ Default Memcached port is `11211`, but you can also specify it in config
 
 ```json
 {
-    "MemcachedConfiguration": {
-        "Servers": [
-            {
-                "IpAddress": "1.1.1.1",
-                "Port": 12345
-            }
-        ]
-    }
+  "MemcachedConfiguration": {
+    "Servers": [
+      {
+        "IpAddress": "1.1.1.1",
+        "Port": 12345
+      }
+    ]
+  }
 }
 ```
 
-In case you have only one instance deployed in k8s specify consistent dns name of a pod:
+In case you have only one instance deployed in k8s specify consistent dns name of a pod.
+
 ```json
 {
   "MemcachedConfiguration": {
@@ -66,6 +79,7 @@ In case you have only one instance deployed in k8s specify consistent dns name o
 }
 ```
 
+Ypu can have both `HeadlessServiceAddress` and `Servers` nodes in configuration. In this case the resulting nodes will be collected from both headless service and static configuration.
 
 ## Usage
 
@@ -80,8 +94,7 @@ public void ConfigureServices(IServiceCollection services)
 
 Then inject `IMemcachedClient` whenever you need it.
 
-
-This client supports single-key `get`, `store`, `delete`, `inc`, `decr`, `flush` operaions. Multiple keys counterparts are available for `get`, `store` and `delete` operations. 
+This client supports single-key `get`, `store`, `delete`, `inc`, `decr`, `flush` operaions. Multiple keys counterparts are available for `get`, `store` and `delete` operations.
 
 ### Store
 
@@ -196,7 +209,6 @@ Task<MemcachedClientValueResult<ulong>> DecrAsync(
 - `expirationTime` : the absolute expiration time for the key-value entry
 - `token` : the cancellation token
 
-
 ### Flush
 
 Clears the cache on all the memcached cluster nodes.
@@ -232,30 +244,22 @@ new BatchingOptions(){
 
 Note that the batch size lower than zero is invalid and `MaxDegreeOfParallelism` lower then zero is equivalent to `Environment.ProcessorCount`.
 
-To enable diagnostics:
-```c#
-public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
-{
-    ...
-
-    app.EnableMemcachedDiagnostics(Configuration);
-}
-```
-
 ### Replication
 
 For `MultiStoreAsync`, `MultiGetAsync` and `MultiDeleteAsync` methods there is an optional argument `replicationFactor`. If `replicationFactor > 0` a key will be stored on `replicationFactor` additional physical nodes clockwise from initial one chosen by hash. In case of `MultiGetAsync` if you need replica fallback you can specify `replicationFactor = 1` even if `replicationFactor` for `MultiStoreAsync` is more than 1. While physical node does not respond but still is on HashRing `MultiGetAsync` command will try to fetch data from both initial node and it's replica. When request to initial node is cancelled you still have data from it's replica. In case the broken node is already removed from HashRing you will have some probability to hit it's replica and with higher `replicationFactor` probability is higher as well.
 
 Be careful using this parameter as it increases workload by `x replicationFactor`. You also should consider some tunings for memcached - see [Memcached tuning](#memcached-tuning) part of the README.
 
-# Restrictions
+## Restrictions
 
 Key must be less than 250 characters and value must be less than 1MB of data.
 
-# Additional configuration
+## Additional configuration
 
+### SASL
 
 To use SASL specify `MemcachedAuth` section in config:
+
 ```json
 {
   "MemcachedConfiguration": {
@@ -268,8 +272,25 @@ To use SASL specify `MemcachedAuth` section in config:
 }
 ```
 
+### Metrics && Disagnostics
 
-By default `MemcachedClient` writes RT and RPS metrics to diagnostics. To disable it specify:
+This library utilizes diagnostic source to write out metrics and diagnostic data. But the diagnostcs data output is switched off by default.
+
+To enable metrics and diagnostics use tho following DI extension method in `Startup` class in `Configure` method.
+
+```c#
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+    {
+        // some previous calls here
+        app.EnableMemcachedDiagnostics(configuration);
+    }
+
+```
+
+#### Metrics
+
+`MemcachedClient` writes RT and RPS metrics to diagnostics. To disable it specify:
+
 ```json
 {
   "MemcachedConfiguration": {
@@ -281,7 +302,9 @@ By default `MemcachedClient` writes RT and RPS metrics to diagnostics. To disabl
 }
 ```
 
-By default `MemcachedClient` writes memcached nodes rebuild process state to diagnostics. To disable it specify:
+#### Disagnostic information
+
+`MemcachedClient` writes memcached nodes rebuild process state to diagnostics. This state includes the nodes that are currently in use and socket pools statistics. To disable this data logging specify:
 
 ```json
 {
@@ -294,45 +317,72 @@ By default `MemcachedClient` writes memcached nodes rebuild process state to dia
 }
 ```
 
-Socket pool and maintainer have default configuration.
-If you need to tune it, add the following sections in config:
+`MemcachedClient` writes socket pool diagnostic data. This data includes events for the socket being created and destroyed. By default this data is written out as `LogLevel.Information` log events. To disable this diagnostics or configure event level use the following settings.
+
 ```json
 {
   "MemcachedConfiguration": {
     "HeadlessServiceAddress": "my-memchached-service-headless.namespace.svc.cluster.local",
-    "SocketPool": {
-      "ConnectionTimeout": "00:00:01",
-      "ReceiveTimeout": "00:00:01",
-      "SocketPoolingTimeout": "00:00:00.150",
-      "MaxPoolSize": 100
-    },
-    "MemcachedMaintainer": {
-      "NodesRebuildingPeriod": "00:00:15",
-      "NodesHealthCheckPeriod": "00:00:15",
-      "NodeHealthCheckEnabled": true
+    "Diagnostics": {
+      "DisableSocketPoolDiagnosticsLogging": true, // this disables socket pool diagnostics entirely
+      "SocketPoolDiagnosticsLoggingEventLevel" : "Debug"
     }
   }
 }
 ```
 
-SocketPool settings:
+### Socket Pooling
 
-`ConnectionTimeout`: Amount of time after which the connection attempt will fail
+Socket pool has a default configuration.
+If you need to tune it, add the following sections in config:
 
-`ReceiveTimeout`: Amount of time after which receiving data from the socket will fail
+```json
+{
+  "MemcachedConfiguration": {
+    "SocketPool": {
+      "ConnectionTimeout": "00:00:01",
+      "ReceiveTimeout": "00:00:01",
+      "SocketPoolingTimeout": "00:00:00.150",
+      "MaxPoolSize": 100
+    }
+  }
+}
+```
 
-`SocketPoolingTimeout`: Amount of time to acquire socket from pool
+**`SocketPool` settings**
 
-`MaxPoolSize`: Maximum amount of sockets per memcached instance in the socket pool
+- `ConnectionTimeout`: Amount of time after which the connection attempt will fail
+- `ReceiveTimeout`: Amount of time after which receiving data from the socket will fail
+- `SocketPoolingTimeout`: Amount of time to acquire socket from pool
+- `MaxPoolSize`: Maximum amount of sockets per memcached instance in the socket pool
+- `MaximumSocketCreationAttempts`: Maximum number of attempts to create a socket before the associated SocketPool is considered poisoned and its underlying endpoint broken
 
-MemcachedMaintainer settings:
+### Maintenance background service
 
-`NodesRebuildingPeriod`: Period to rebuild nodes using dns lookup by Headless Service
+Maintainer service has a default configuration.
+If you need to tune it, add the following sections in config:
 
-`NodesHealthCheckPeriod`: Period to check if nodes are responsive. If node is not responded during `SocketPool.ConnectionTimeout` it is marked as dead and will be deleted from memcached nodes until it is responsive again.
+```json
+{
+  "MemcachedConfiguration": {
+    "MemcachedMaintainer": {
+      "NodesRebuildingPeriod": "00:00:15",
+      "NodesHealthCheckPeriod": "00:00:15",
+      "NodeHealthCheckEnabled": true,
+      "UseSocketPoolForNodeHealthChecks" : true
+    }
+  }
+}
+```
 
+**`MemcachedMaintainer` settings**
 
-# Monitoring
+- `NodesRebuildingPeriod`: Period to rebuild nodes using dns lookup by Headless Service
+- `NodesHealthCheckPeriod`: Period to check if nodes are responsive. If node is not responded during `SocketPool.ConnectionTimeout` it is marked as dead and will be deleted from memcached nodes until it is responsive again
+- `UseSocketPoolForNodeHealthChecks` : If set to `true` node health checker mechanism should use socket pool to obtain sockets for nodes health checks. If set to `false`, new non-pooled socket will be created for each node health check
+
+## Monitoring
+
 Other than logs check Prometheus metrics.
 
 To check if there are any unsuccesful commands: problems with connection, pool is run out of sockets, etc. :
@@ -342,9 +392,9 @@ RPS:
 `sum(irate(memcached_commands_total{app_kubernetes_io_instance="$instance",kube_cluster=~"$cluster"}[$__interval])) by (command_name)`
 
 RT:
-` histogram_quantile(0.9, sum by (le, command_name) (rate(memcached_command_duration_seconds_bucket{app_kubernetes_io_instance=~"$instance",kube_cluster=~"$cluster"}[$__interval])))`
+`histogram_quantile(0.9, sum by (le, command_name) (rate(memcached_command_duration_seconds_bucket{app_kubernetes_io_instance=~"$instance",kube_cluster=~"$cluster"}[$__interval])))`
 
-# Docker compose
+## Docker compose
 
 ```yaml
 version: "3"
@@ -359,20 +409,21 @@ services:
       - 11211:11211
 ```
 
-# Memcached tuning
+## Memcached tuning
 
 Consider setting memory limit to have all your data in cache and avoid unneccessary evictions.
 Also make sure that number of connections is enough, it will spike in moment of redeployment.
 
-```
-# MaxMemoryLimit, this should be less than the resources.limits.memory, or memcached will crash.  Default is 64MB
+```plaintext
+# MaxMemoryLimit, this should be less than the resources.limits.memory, or memcached will crash. Default is 64MB
 - -m 8192 
 # Specify the maximum number of simultaneous connections to the memcached service. The default is 1024. 
 - -c 20000
 ```
 
 In multi key client methods of the library there is a default `BatchSize = 15`, if you want to change it consider tuning the following parameter:
-```
+
+```plaintext
 - -R 40
 The command-line parameter -R is in charge of the maximum number of requests per 
 network IO event (default value is 20). The application should adopt its batch 
@@ -383,7 +434,8 @@ affect multi-key reads, or the number of keys per get request.
 Each multi key client method requires addition noop operation so you need to set `-R` parameter as `BatchSize + 1`.
 
 Otherwise you can encounter the limit:
-```
+
+```plaintext
 STAT conn_yields 126672162
 Number of times any connection yielded to another due to hitting the -R limit
 ```
