@@ -150,6 +150,10 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                     nodesToAdd.Select(n => n.GetKey()));
             }
 
+            // destroy 1 socket per one _nodeRebuildingTimer tick seems to be ok for now.
+            // This is done to refresh sockets in the pool. We can tune this strategy if needed.
+            _commandExecutor.DestroyAvailablePooledSockets(1, CancellationToken.None).GetAwaiter().GetResult();
+            
             nodesInLocator = _nodeLocator.GetAllNodes();
 
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
@@ -157,15 +161,9 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 _logger.LogInformation(
                     "Nodes in locator: [{NodesInLocator}]",
                     nodesInLocator.Select(n => n.GetKey()));
-            }
 
-            // 1 socket per one _nodeRebuildingTimer tick seems to be ok for now. We can tune this strategy if needed.
-            _commandExecutor.DestroyAvailableSockets(1, CancellationToken.None).GetAwaiter().GetResult();
-
-            if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
-            {
                 var socketPools = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
-                
+
                 _logger.LogInformation(
                     "Created sockets statistics: [{SocketStatisctics}]",
                     socketPools.Select(s => $"{s.Key.GetKey()}:{s.Value}"));
@@ -188,14 +186,14 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             var currentNodes = _nodeProvider.GetNodes();
 
             var recheckDeadNodesActionBlock = new ActionBlock<TNode>(
-                node =>
+                async node =>
                 {
                     if (!currentNodes.Contains(node, NodeEqualityComparer<TNode>.Instance))
                     {
                         return;
                     }
 
-                    if (CheckNodeIsDead(node))
+                    if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
                     {
                         _deadNodes.Add(node);
                     }
@@ -205,6 +203,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                     MaxDegreeOfParallelism = 16
                 });
 
+            // recheck nodes considered dead
+            
             try
             {
                 _locker.EnterWriteLock();
@@ -223,6 +223,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 _locker.ExitWriteLock();
             }
 
+            // check nodes in locator
+            
             var nodesInLocator = _nodeLocator.GetAllNodes();
 
             try
@@ -238,16 +240,19 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 _locker.ExitReadLock();
             }
 
-            Parallel.ForEach(
+            var parallelDeadNodesCheckTask = Parallel.ForEachAsync(
                 nodesInLocator,
                 new ParallelOptions {MaxDegreeOfParallelism = 16},
-                node =>
+                async (node, _) =>
                 {
-                    if (CheckNodeIsDead(node))
+                    // pass no cancellation token since the caller method is synchronous 
+                    if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
                     {
                         _deadNodes.Add(node);
                     }
                 });
+            
+            parallelDeadNodesCheckTask.GetAwaiter().GetResult();
 
             if (!_deadNodes.IsEmpty)
             {
@@ -276,10 +281,5 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     {
         _nodeRebuildingTimer?.Dispose();
         _nodeHealthCheckTimer?.Dispose();
-    }
-
-    private bool CheckNodeIsDead(TNode node)
-    {
-        return _nodeHealthChecker.CheckNodeIsDeadAsync(node).GetAwaiter().GetResult();
     }
 }

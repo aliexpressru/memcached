@@ -1,4 +1,5 @@
 using Aer.ConsistentHash.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.Config;
 
@@ -56,14 +57,24 @@ public class MemcachedConfiguration
     public class MemcachedDiagnosticsSettings
     {
         /// <summary>
-        /// Determines whether the memcached node rebuild process should report current state details as logs.
+        /// Determines whether the memcached node rebuild process should report socket pool capacities as logs.
         /// </summary>
-        public bool DisableRebuildNodesStateLogging { set; get; } = false;
+        public bool DisableRebuildNodesStateLogging { set; get; }
 
         /// <summary>
         /// Determines whether the memcached metrics should be written out.
         /// </summary>
-        public bool DisableDiagnostics { get; set; } = false;
+        public bool DisableDiagnostics { get; set; }
+
+        /// <summary>
+        /// Determines whether the memcached socket pool logs should be written out.
+        /// </summary>
+        public bool DisableSocketPoolDiagnosticsLogging { get; set; }
+
+        /// <summary>
+        /// The event level under which the socket pool diagniostics logs should be written out.
+        /// </summary>
+        public LogLevel SocketPoolDiagnosticsLoggingEventLevel { get; set; } = LogLevel.Information;
     }
     
     public class Server
@@ -155,6 +166,13 @@ public class MemcachedConfiguration
         /// Enables health check of nodes to remove dead nodes
         /// </summary>
         public bool NodeHealthCheckEnabled { get; set; } = true;
+        
+        /// <summary>
+        /// If set to <c>true</c>, node health checker mechanism should use socket pool
+        /// to obtain sockets for nodes health checks. If set to <c>false</c>,
+        /// new non-pooled socket will be created for each node health check. 
+        /// </summary>
+        public bool UseSocketPoolForNodeHealthChecks { get; set; }
 
         public static MaintainerConfiguration DefaultConfiguration()
         {

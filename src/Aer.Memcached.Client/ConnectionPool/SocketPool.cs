@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
 
@@ -10,11 +11,11 @@ internal class SocketPool : IDisposable
 {
     #region Nested types
 
-    private class CanCreateSocketResult
+    private class TryGetAvailableSocketResult
     {
         public bool CanCreateSocket { get; set; }
 
-        public bool SemaphoreEntered { get; set; }
+        public bool AvailableSocketsCounterDecremented { get; set; }
 
         public PooledSocket AvailableSocket { get; set; }
     }
@@ -25,7 +26,10 @@ internal class SocketPool : IDisposable
     private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
     private readonly ILogger _logger;
 
-    private readonly SemaphoreSlim _semaphore;
+    // this semaphore is used to count the available number of sockets in this pool
+    // each time the socket is created - ths semaphore gets decremented
+    // when socket is returned to the pool - this semaphore gets incremented
+    private readonly SemaphoreSlim _availableSocketsCounter;
     private readonly ConcurrentStack<PooledSocket> _availableSockets;
 
     private int _failedSocketCreationAttemptsCount;
@@ -47,13 +51,14 @@ internal class SocketPool : IDisposable
         _endPoint = endPoint ?? throw new ArgumentNullException(nameof(endPoint));
         _config = config;
         _logger = logger;
-        _semaphore = new SemaphoreSlim(_config.MaxPoolSize, _config.MaxPoolSize);
+        _availableSocketsCounter = new SemaphoreSlim(_config.MaxPoolSize, _config.MaxPoolSize);
         _availableSockets = new ConcurrentStack<PooledSocket>();
     }
 
-    public async Task<PooledSocket> GetAsync(CancellationToken token)
+    public async Task<PooledSocket> GetSocketAsync(CancellationToken token)
     {
-        var result = await CanCreateSocket(token);
+        var result = await TryGetAvailableSocket(token);
+        
         if (result.AvailableSocket != null)
         {
             return result.AvailableSocket;
@@ -61,30 +66,43 @@ internal class SocketPool : IDisposable
 
         if (!result.CanCreateSocket)
         {
+            // means socket pool is full or disposed
             return null;
         }
 
-        var createdSocketOrNull = await CreateSocketAsync(token);
+        var createdSocket = await CreateSocketAsync(token);
 
-        return createdSocketOrNull;
+        if (MemcachedDiagnosticSource.Instance.IsEnabled())
+        {
+            MemcachedDiagnosticSource.Instance.Write(
+                MemcachedDiagnosticSource.SocketPoolUsedSocketCountDiagnosticName,
+                new
+                {
+                    enpointAddress = createdSocket.EndPointAddressString,
+                    usedSocketCount = _config.MaxPoolSize - _availableSocketsCounter.CurrentCount
+                });
+        }
+
+        return createdSocket;
     }
 
     public async Task DestroyAvailableSocketAsync(CancellationToken token)
     {
-        var result = await CanCreateSocket(token);
+        var result = await TryGetAvailableSocket(token);
+        
         if (result.AvailableSocket != null)
         {
             DestroySocket(result.AvailableSocket);
         }
-        else if (result.SemaphoreEntered)
+        else if (result.AvailableSocketsCounterDecremented)
         {
-            _semaphore?.Release();
+            _availableSocketsCounter.Release();
         }
     }
 
-    private async Task<CanCreateSocketResult> CanCreateSocket(CancellationToken token)
+    private async Task<TryGetAvailableSocketResult> TryGetAvailableSocket(CancellationToken token)
     {
-        var result = new CanCreateSocketResult
+        var result = new TryGetAvailableSocketResult
         {
             CanCreateSocket = false,
             AvailableSocket = null
@@ -92,17 +110,23 @@ internal class SocketPool : IDisposable
 
         if (_isDisposed)
         {
-            _logger.LogWarning("Pool for endpoint '{EndPoint}' is disposed", _endPoint.GetEndPointString());
+            _logger.LogWarning(
+                "Socket pool for endpoint {EndPoint} is disposed",
+                _endPoint.GetEndPointString());
+
             return result;
         }
 
-        if (!await _semaphore.WaitAsync(_config.SocketPoolingTimeout, token))
+        if (!await _availableSocketsCounter.WaitAsync(_config.SocketPoolingTimeout, token))
         {
-            _logger.LogWarning("Pool for endpoint '{EndPoint}' ran out of sockets", _endPoint.GetEndPointString());
+            _logger.LogWarning(
+                "Socket pool for endpoint {EndPoint} ran out of sockets",
+                _endPoint.GetEndPointString());
+
             return result;
         }
 
-        result.SemaphoreEntered = true;
+        result.AvailableSocketsCounterDecremented = true;
 
         if (_availableSockets.TryPop(out var pooledSocket))
         {
@@ -117,11 +141,12 @@ internal class SocketPool : IDisposable
             {
                 _logger.LogError(
                     e,
-                    "Failed to reset an acquired socket for endpoint '{EndPoint}'",
-                    _endPoint
-                        .GetEndPointString());
+                    "Failed to reset an acquired socket for endpoint {EndPoint}",
+                    pooledSocket.EndPointAddressString);
+                
+                pooledSocket.Destroy();
 
-                _semaphore.Release();
+                _availableSocketsCounter.Release();
 
                 return result;
             }
@@ -131,19 +156,14 @@ internal class SocketPool : IDisposable
         return result;
     }
 
-    private void ReleaseSocket(PooledSocket socket)
+    private void ReturnSocketToPool(PooledSocket socket)
     {
         if (socket.IsAlive)
         {
-            try
-            {
-                _availableSockets.Push(socket);
-            }
-            finally
-            {
-                // signal the event so if someone is waiting for it can reuse this item
-                _semaphore?.Release();
-            }
+            _availableSockets.Push(socket);
+
+            // signal the counter so if other thread is waiting for the socket to reuse, it can get one
+            _availableSocketsCounter.Release();
         }
         else
         {
@@ -160,9 +180,7 @@ internal class SocketPool : IDisposable
         }
         finally
         {
-            // make sure to signal the Acquire so it can create a new connection
-            // if the failure policy keeps the pool alive
-            _semaphore?.Release();
+            _availableSocketsCounter.Release();
         }
     }
 
@@ -174,20 +192,38 @@ internal class SocketPool : IDisposable
 
             await socket.ConnectAsync(token);
 
-            socket.CleanupCallback = ReleaseSocket;
+            socket.ReturnToPoolCallback = ReturnSocketToPool;
+
+            if (_failedSocketCreationAttemptsCount > 0)
+            {
+                _logger.LogInformation(
+                    "Socket for endpoint {EndPoint} successfully created after {AttemptCount} attempts",
+                    socket.EndPointAddressString,
+                    _failedSocketCreationAttemptsCount);
+            }
 
             _failedSocketCreationAttemptsCount = 0;
+
+            if (MemcachedDiagnosticSource.Instance.IsEnabled())
+            {
+                MemcachedDiagnosticSource.Instance.Write(
+                    MemcachedDiagnosticSource.SocketPoolSocketCreatedDiagnosticName,
+                    new
+                    {
+                        enpointAddress = socket.EndPointAddressString
+                    });
+            }
 
             return socket;
         }
         catch (Exception ex)
         {
-            var endPointStr = _endPoint.GetEndPointString();
-
+            var endPointAddressString = _endPoint.GetEndPointString();
+            
             _logger.LogError(
                 ex,
-                "Failed to create socket for endpoint '{EndPoint}'. Attempt {AttemptNumber} / {MaxAttemptsNumber}",
-                endPointStr,
+                "Failed to create socket for endpoint {EndPoint}. Attempt {AttemptNumber} / {MaxAttemptsNumber}",
+                endPointAddressString,
                 _failedSocketCreationAttemptsCount + 1, // +1 because we are reporting attempt number
                 _config.MaximumSocketCreationAttempts);
 
@@ -197,14 +233,14 @@ internal class SocketPool : IDisposable
 
                 _logger.LogError(
                     ex,
-                    "Can't create socket for endpoint '{EndPoint}' {AttemptNumber} times in a row. Considering endpoint broken",
-                    endPointStr,
+                    "Failed to create socket for endpoint {EndPoint} {AttemptNumber} times in a row. Considering endpoint broken",
+                    endPointAddressString,
                     _failedSocketCreationAttemptsCount);
             }
 
             _failedSocketCreationAttemptsCount++;
 
-            _semaphore.Release();
+            _availableSocketsCounter.Release();
 
             return null;
         }
@@ -230,6 +266,7 @@ internal class SocketPool : IDisposable
         }
 
         _isDisposed = true;
+        
         while (_availableSockets.TryPop(out var socket))
         {
             try
@@ -242,6 +279,6 @@ internal class SocketPool : IDisposable
             }
         }
 
-        _semaphore.Dispose();
+        _availableSocketsCounter.Dispose();
     }
 }

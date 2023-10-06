@@ -8,12 +8,18 @@ public class CommandExecutionResult : IDisposable
     /// Contains the executed command, since the actual result of the memcached command
     /// is stored on the command itself, this property is used to get the execution result.
     /// </summary>
-    public MemcachedCommandBase ExecutedCommand { set; get; }
+    public MemcachedCommandBase ExecutedCommand { get; }
 
     /// <summary>
     /// Indicates whether the command execution was successful.
     /// </summary>
-    public bool Success { get; init; }
+    public bool Success { get; }
+
+    private CommandExecutionResult(MemcachedCommandBase executedCommand, bool isSuccess)
+    {
+        ExecutedCommand = executedCommand;
+        Success = isSuccess;
+    }
 
     /// <summary>
     /// Gets the encapsulated command as spcific concrete command type.
@@ -36,19 +42,11 @@ public class CommandExecutionResult : IDisposable
         throw new InvalidCastException($"Can't cast command of type '{ExecutedCommand?.GetType()}' to type '{typeof(T)}'");
     }
 
-    public static CommandExecutionResult Unsuccessful { get; } = new()
-    {
-        Success = false
-    };
+    public static CommandExecutionResult Unsuccessful(MemcachedCommandBase executedCommand)
+        => new(executedCommand, false);
 
     public static CommandExecutionResult Successful(MemcachedCommandBase executedCommand)
-    {
-        return new ()
-        {
-            ExecutedCommand = executedCommand,
-            Success = true
-        };
-    }
+        => new(executedCommand, true);
 
     public void Dispose()
     {

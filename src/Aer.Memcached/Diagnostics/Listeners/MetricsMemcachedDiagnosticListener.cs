@@ -24,7 +24,7 @@ public class MetricsMemcachedDiagnosticListener
             return;
         }
         
-        _metrics.CommandDurationSecondsObserve(commandName, duration);
+        _metrics.ObserveCommandDurationSeconds(commandName, duration);
     }
     
     [DiagnosticName(MemcachedDiagnosticSource.CommandsTotalDiagnosticName)]
@@ -35,6 +35,17 @@ public class MetricsMemcachedDiagnosticListener
             return;
         }
         
-        _metrics.CommandsTotalObserve(commandName, isSuccessful);
+        _metrics.ObserveExecutedCommand(commandName, isSuccessful);
+    }
+
+    [DiagnosticName(MemcachedDiagnosticSource.SocketPoolUsedSocketCountDiagnosticName)]
+    public void ObserveSocketPoolUsedSocketsCount(string enpointAddress, int usedSocketCount)
+    {
+        if (_config.Diagnostics.DisableDiagnostics)
+        {
+            return;
+        }
+        
+        _metrics.ObserveSocketPoolUsedSocketsCount(enpointAddress, usedSocketCount);
     }
 }

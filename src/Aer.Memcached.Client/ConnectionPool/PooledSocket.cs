@@ -1,6 +1,8 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using Aer.Memcached.Client.Diagnostics;
+using Aer.Memcached.Client.Exceptions;
 using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
 
@@ -17,15 +19,17 @@ public class PooledSocket : IDisposable
     private NetworkStream _inputStream;
     
     /// <summary>
-    /// The ID of this instance. Used by the <see cref="T:MemcachedServer"/> to identify the instance in its inner lists.
+    /// The ID of this instance. Used by the memecached server to identify the instance in its inner lists.
     /// </summary>
     public readonly Guid InstanceId = Guid.NewGuid();
 
     public bool IsAlive { get; private set; }
     
-    public Action<PooledSocket> CleanupCallback { get; set; }
+    public Action<PooledSocket> ReturnToPoolCallback { get; set; }
     
     public bool Authenticated { get; set; }
+
+    public string EndPointAddressString { get; }
 
     public PooledSocket(
         EndPoint endpoint, 
@@ -45,6 +49,8 @@ public class PooledSocket : IDisposable
 
         _socket = socket;
         _endpoint = endpoint;
+
+        EndPointAddressString = endpoint.GetEndPointString();
     }
 
     public async Task ConnectAsync(CancellationToken token)
@@ -59,7 +65,7 @@ public class PooledSocket : IDisposable
             {
                 await connTask.WaitAsync(_connectionTimeout, token);
             }
-            catch (TaskCanceledException)
+            catch (TimeoutException)
             {
                 if (_socket != null)
                 {
@@ -67,7 +73,7 @@ public class PooledSocket : IDisposable
                     _socket = null;
                 }
 
-                throw new TimeoutException($"Timeout to connect to {_endpoint}.");
+                throw new TimeoutException($"Endpoint {EndPointAddressString} connection timeout.");
             }
         }
         catch (PlatformNotSupportedException)
@@ -98,7 +104,7 @@ public class PooledSocket : IDisposable
         }
         else
         {
-            throw new TimeoutException($"Could not connect to {_endpoint}.");
+            throw new EndPointConnectionFailedException(EndPointAddressString);
         }
     }
     
@@ -109,8 +115,8 @@ public class PooledSocket : IDisposable
         if (available > 0)
         {
             _logger.LogWarning(
-                "Socket bound to {RemoteEndPoint} has {AvailableDataCount} unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
-                _socket.RemoteEndPoint.GetEndPointString(),
+                "Socket bound to {EndPoint} has {AvailableDataCount} unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
+                EndPointAddressString,
                 available,
                 InstanceId);
 
@@ -139,7 +145,7 @@ public class PooledSocket : IDisposable
 
                 if (currentRead < 1)
                 {
-                    throw new IOException("The socket seems to be disconnected");
+                    throw new IOException("Failed to read data from socket. The socket seems to be disconnected");
                 }
 
                 read += currentRead;
@@ -169,15 +175,13 @@ public class PooledSocket : IDisposable
             var bytesTransferred = await _socket.SendAsync(buffers, SocketFlags.None);
             if (bytesTransferred <= 0)
             {
-                var endPointStr = _endpoint.GetEndPointString();
-                
                 IsAlive = false;
                 _logger.LogError(
-                    "Failed to write data to the socket '{EndPoint}'. Bytes transferred until failure: {BytesTransferred}",
-                    endPointStr,
+                    "Failed to write data to the socket {EndPoint}. Bytes transferred until failure: {BytesTransferred}",
+                    EndPointAddressString,
                     bytesTransferred);
                 
-                throw new IOException($"Failed to write to the socket '{endPointStr}'.");
+                throw new IOException($"Failed to write to the socket {EndPointAddressString}.");
             }
         }
         catch (Exception ex)
@@ -194,9 +198,9 @@ public class PooledSocket : IDisposable
     }
 
     /// <summary>
-    /// Releases all resources used by this instance and shuts down the inner <see cref="T:Socket"/>. This instance will not be usable anymore.
+    /// Releases all resources used by this instance and shuts down the inner <see cref="Socket"/>. This instance will not be usable anymore.
     /// </summary>
-    /// <remarks>Use the IDisposable.Dispose method if you want to release this instance back into the pool.</remarks>
+    /// <remarks>Use the <see cref="Dispose"/> method if you want to release this instance back into the pool.</remarks>
     public void Destroy()
     {
         Dispose(true);
@@ -206,7 +210,7 @@ public class PooledSocket : IDisposable
     {
         try
         {
-            Dispose(true);
+            Destroy();
         }
         catch
         {
@@ -214,42 +218,46 @@ public class PooledSocket : IDisposable
         }
     }
 
-    private void Dispose(bool disposing)
+    private void Dispose(bool shouldDestroySocket)
     {
-        if (disposing)
+        if (shouldDestroySocket)
         {
             GC.SuppressFinalize(this);
 
             try
             {
-                try
-                {
-                    _socket?.Dispose();
-                }
-                catch (Exception e)
-                {
-                    _logger.LogError(e, $"Error occured while disposing {nameof(PooledSocket)}");
-                }
-
+                _socket?.Dispose();
                 _inputStream?.Dispose();
+
+                if (MemcachedDiagnosticSource.Instance.IsEnabled())
+                {
+                    MemcachedDiagnosticSource.Instance.Write(
+                        MemcachedDiagnosticSource.SocketPoolSocketDestroyedDiagnosticName,
+                        new
+                        {
+                            enpointAddress = EndPointAddressString
+                        });
+                }
             }
             catch (Exception e)
             {
-                _logger.LogError(e, $"Error occured while disposing {nameof(PooledSocket)}");
+                _logger.LogError(e, "Error occured while destroying the socket");
             }
         }
         else
         {
-            Action<PooledSocket> cc = CleanupCallback;
-            cc?.Invoke(this);
+            // means we should return socket to the pool
+            var returnToPoolCallback = ReturnToPoolCallback;
+            returnToPoolCallback?.Invoke(this);
         }
     }
 
-    void IDisposable.Dispose()
+    public void Dispose()
     {
         Dispose(false);
     }
-
+    
+    // ReSharper disable once InconsistentNaming | Jsustification - IPEndPoint is the name of the return type
     private IPEndPoint GetIPEndPoint(EndPoint endpoint)
     {
         switch (endpoint)
@@ -260,7 +268,7 @@ public class PooledSocket : IDisposable
                     ip.AddressFamily == AddressFamily.InterNetwork);
                 if (address == null)
                 {
-                    throw new ArgumentException($"Could not resolve host '{endpoint.GetEndPointString()}'.");
+                    throw new ArgumentException($"Could not resolve host {EndPointAddressString}.");
                 }
                 
                 return new IPEndPoint(address, dnsEndPoint.Port);
