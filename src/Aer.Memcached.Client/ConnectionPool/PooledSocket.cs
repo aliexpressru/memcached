@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using Aer.Memcached.Client.Diagnostics;
+using Aer.Memcached.Client.Exceptions;
 using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
 
@@ -64,7 +65,7 @@ public class PooledSocket : IDisposable
             {
                 await connTask.WaitAsync(_connectionTimeout, token);
             }
-            catch (TaskCanceledException)
+            catch (TimeoutException)
             {
                 if (_socket != null)
                 {
@@ -72,7 +73,7 @@ public class PooledSocket : IDisposable
                     _socket = null;
                 }
 
-                throw new TimeoutException($"Timeout to connect to {EndPointAddressString}.");
+                throw new TimeoutException($"Endpoint {EndPointAddressString} connection timeout.");
             }
         }
         catch (PlatformNotSupportedException)
@@ -103,7 +104,7 @@ public class PooledSocket : IDisposable
         }
         else
         {
-            throw new TimeoutException($"Could not connect to {EndPointAddressString}.");
+            throw new EndPointConnectionFailedException(EndPointAddressString);
         }
     }
     

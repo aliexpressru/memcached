@@ -162,7 +162,7 @@ internal class SocketPool : IDisposable
         {
             _availableSockets.Push(socket);
 
-            // signal the counter so if other thread is waiting for the socket to reuse it can get one
+            // signal the counter so if other thread is waiting for the socket to reuse, it can get one
             _availableSocketsCounter.Release();
         }
         else
@@ -180,8 +180,6 @@ internal class SocketPool : IDisposable
         }
         finally
         {
-            // make sure to signal the Acquire so it can create a new connection
-            // if the failure policy keeps the pool alive
             _availableSocketsCounter.Release();
         }
     }
@@ -235,7 +233,7 @@ internal class SocketPool : IDisposable
 
                 _logger.LogError(
                     ex,
-                    "Can't create socket for endpoint {EndPoint} {AttemptNumber} times in a row. Considering endpoint broken",
+                    "Failed to create socket for endpoint {EndPoint} {AttemptNumber} times in a row. Considering endpoint broken",
                     endPointAddressString,
                     _failedSocketCreationAttemptsCount);
             }
