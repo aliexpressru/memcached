@@ -1,4 +1,4 @@
-namespace Aer.Memcached.Tests.Models;
+namespace Aer.Memcached.Tests.Model.StoredObjectModels;
 
 public class ObjectWithCollections
 {

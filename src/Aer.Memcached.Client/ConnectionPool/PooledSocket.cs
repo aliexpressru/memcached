@@ -31,6 +31,10 @@ public class PooledSocket : IDisposable
 
     public string EndPointAddressString { get; }
 
+    public Socket Socket => _socket;
+    
+    public EndPoint EndPoint => _endpoint;
+
     public PooledSocket(
         EndPoint endpoint, 
         TimeSpan connectionTimeout, 

@@ -1,7 +1,6 @@
 using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.ConnectionPool;
-using Aer.Memcached.Client.Extensions;
 using Aer.Memcached.Client.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -46,6 +45,11 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
                 
                 try
                 {
+                    if (socket.Socket.Connected)
+                    { 
+                        await socket.Socket.DisconnectAsync(true);
+                    }
+
                     await socket.ConnectAsync(CancellationToken.None);
                     
                     return false;
