@@ -264,7 +264,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
             var parallelDeadNodesCheckTask = Parallel.ForEachAsync(
                 nodesInLocator,
-                new ParallelOptions {MaxDegreeOfParallelism = 1 }, // Environment.ProcessorCount},
+                new ParallelOptions {MaxDegreeOfParallelism = Environment.ProcessorCount},
                 async (node, _) =>
                 {
                     // pass no cancellation token since the caller method is synchronous 
