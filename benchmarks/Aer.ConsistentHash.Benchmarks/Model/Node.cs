@@ -2,15 +2,15 @@ using System.Net;
 using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Config;
 
-namespace Aer.ConsistentHash.Benchmarks;
+namespace Aer.ConsistentHash.Benchmarks.Model;
 
-public class Node: INode
+internal class Node: INode
 {
     public string IpAddress { get; init; }
 
     public string GetKey()
     {
-        return IpAddress;
+        return $"{IpAddress}:{MemcachedConfiguration.DefaultMemcachedPort}";
     }
 
     public EndPoint GetEndpoint()

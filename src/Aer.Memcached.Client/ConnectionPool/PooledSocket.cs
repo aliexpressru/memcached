@@ -44,7 +44,9 @@ public class PooledSocket : IDisposable
         IsAlive = true;
 
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        
         socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+        
         socket.NoDelay = true;
 
         _connectionTimeout = connectionTimeout == TimeSpan.MaxValue

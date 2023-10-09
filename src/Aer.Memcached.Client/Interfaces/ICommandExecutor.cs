@@ -14,7 +14,6 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     /// <param name="node">Node to execute a command on</param>
     /// <param name="command">Command to execute</param>
     /// <param name="token">Cancellation token</param>
-    /// <returns>Command execution result</returns>
     Task<CommandExecutionResult> ExecuteCommandAsync(
         TNode node, 
         MemcachedCommandBase command,
@@ -27,7 +26,6 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     /// <param name="node">A replicated node to execute a command on</param>
     /// <param name="command">Command to execute</param>
     /// <param name="token">Cancellation token</param>
-    /// <returns>Command execution result</returns>
     Task<CommandExecutionResult> ExecuteCommandAsync(
         ReplicatedNode<TNode> node,
         MemcachedCommandBase command,
@@ -40,19 +38,18 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     void RemoveSocketPoolForNodes(IEnumerable<TNode> nodes);
 
     /// <summary>
-    /// Gets map of node and number of created sockets on them
+    /// Gets available, current and remaining socket counts for each node's socket pool
     /// </summary>
-    /// <param name="nodes">Nodes to get socket pool statistics</param>
-    /// <returns>Node to number of created sockets mapping</returns>
-    IDictionary<TNode, int> GetSocketPoolsStatistics(TNode[] nodes);
+    /// <param name="nodes">Nodes to get pool statistics for</param>
+    IReadOnlyCollection<SocketPoolStatisctics> GetSocketPoolsStatistics(TNode[] nodes);
 
     /// <summary>
-    /// Destroys available sockets from socket pool.
-    /// Allows to release some connections if workload is changed
+    /// Destroys specified number of pooled sockets if they are present in socket pool.
+    /// Allows to release some connections if workload is changed. Used for socket pool refresh
     /// </summary>
     /// <param name="numberOfSocketsToDestroy">Number of sockets to destroy</param>
-    /// <param name="token">Cancellation token</param>
-    Task DestroyAvailablePooledSockets(int numberOfSocketsToDestroy, CancellationToken token);
+    /// <returns>Number of actually destroyed sockets.</returns>
+    int DestroyAvailablePooledSocketsInAllSocketPools(int numberOfSocketsToDestroy);
 
     /// <summary>
     /// Gets the <see cref="PooledSocket"/> instance for the specified node.

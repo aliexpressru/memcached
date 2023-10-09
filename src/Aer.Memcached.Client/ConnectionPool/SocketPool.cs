@@ -15,8 +15,6 @@ internal class SocketPool : IDisposable
     {
         public bool CanCreateSocket { get; set; }
 
-        public bool AvailableSocketsCounterDecremented { get; set; }
-
         public PooledSocket AvailableSocket { get; set; }
     }
 
@@ -29,15 +27,19 @@ internal class SocketPool : IDisposable
     // this semaphore is used to count the available number of sockets in this pool
     // each time the socket is created - ths semaphore gets decremented
     // when socket is returned to the pool - this semaphore gets incremented
-    private readonly SemaphoreSlim _availableSocketsCounter;
-    private readonly ConcurrentStack<PooledSocket> _availableSockets;
+    private readonly SemaphoreSlim _remainingPoolCapacityCounter;
+    private readonly ConcurrentStack<PooledSocket> _pooledSockets = new();
 
     private int _failedSocketCreationAttemptsCount;
     private bool _isEndPointBroken;
 
     private bool _isDisposed;
 
-    public int AvailableSocketsCount => _availableSockets.Count;
+    public int PooledSocketsCount => _pooledSockets.Count;
+
+    public int UsedSocketsCount => _config.MaxPoolSize - _remainingPoolCapacityCounter.CurrentCount;
+    
+    public int RemainingPoolCapacity => _remainingPoolCapacityCounter.CurrentCount;
 
     /// <summary>
     /// Indicates that the underlying endpoint can't be reached continously for some time.
@@ -51,8 +53,7 @@ internal class SocketPool : IDisposable
         _endPoint = endPoint ?? throw new ArgumentNullException(nameof(endPoint));
         _config = config;
         _logger = logger;
-        _availableSocketsCounter = new SemaphoreSlim(_config.MaxPoolSize, _config.MaxPoolSize);
-        _availableSockets = new ConcurrentStack<PooledSocket>();
+        _remainingPoolCapacityCounter = new SemaphoreSlim(_config.MaxPoolSize, _config.MaxPoolSize);
     }
 
     public async Task<PooledSocket> GetSocketAsync(CancellationToken token)
@@ -79,25 +80,26 @@ internal class SocketPool : IDisposable
                 new
                 {
                     enpointAddress = createdSocket.EndPointAddressString,
-                    usedSocketCount = _config.MaxPoolSize - _availableSocketsCounter.CurrentCount
+                    usedSocketCount = UsedSocketsCount
                 });
         }
 
         return createdSocket;
     }
 
-    public async Task DestroyAvailableSocketAsync(CancellationToken token)
+    public bool DestroyPooledSocket()
     {
-        var result = await TryGetAvailableSocket(token);
-        
-        if (result.AvailableSocket != null)
+        if (_pooledSockets.TryPop(out var pooledSocketToDestroy))
         {
-            DestroySocket(result.AvailableSocket);
+            // since we are getting pooledSocketToDestroy directly from _pooledSockets
+            // structure we didn't decrement pool capacity counter,
+            // therefore we don't need to increment it back
+            DestroySocket(pooledSocketToDestroy, isIncrementPoolCapacityCounter: false);
+            
+            return true;
         }
-        else if (result.AvailableSocketsCounterDecremented)
-        {
-            _availableSocketsCounter.Release();
-        }
+
+        return false;
     }
 
     private async Task<TryGetAvailableSocketResult> TryGetAvailableSocket(CancellationToken token)
@@ -117,7 +119,7 @@ internal class SocketPool : IDisposable
             return result;
         }
 
-        if (!await _availableSocketsCounter.WaitAsync(_config.SocketPoolingTimeout, token))
+        if (!await _remainingPoolCapacityCounter.WaitAsync(_config.SocketPoolingTimeout, token))
         {
             _logger.LogWarning(
                 "Socket pool for endpoint {EndPoint} ran out of sockets",
@@ -126,9 +128,8 @@ internal class SocketPool : IDisposable
             return result;
         }
 
-        result.AvailableSocketsCounterDecremented = true;
-
-        if (_availableSockets.TryPop(out var pooledSocket))
+        // try get socket from pool
+        if (_pooledSockets.TryPop(out var pooledSocket))
         {
             try
             {
@@ -141,18 +142,22 @@ internal class SocketPool : IDisposable
             {
                 _logger.LogError(
                     e,
-                    "Failed to reset an acquired socket for endpoint {EndPoint}",
+                    "Failed to reset an acquired socket for endpoint {EndPoint}. Giong to destroy this socket",
                     pooledSocket.EndPointAddressString);
                 
                 pooledSocket.Destroy();
 
-                _availableSocketsCounter.Release();
+                _remainingPoolCapacityCounter.Release();
 
                 return result;
             }
         }
 
+        // means there is no available sockets in the pool 
+        // but the maximal capacity is not yet reached
+        // so we can create a new socket
         result.CanCreateSocket = true;
+        
         return result;
     }
 
@@ -160,18 +165,18 @@ internal class SocketPool : IDisposable
     {
         if (socket.IsAlive)
         {
-            _availableSockets.Push(socket);
+            _pooledSockets.Push(socket);
 
             // signal the counter so if other thread is waiting for the socket to reuse, it can get one
-            _availableSocketsCounter.Release();
+            _remainingPoolCapacityCounter.Release();
         }
         else
         {
-            DestroySocket(socket);
+            DestroySocket(socket, isIncrementPoolCapacityCounter: true);
         }
     }
 
-    private void DestroySocket(PooledSocket socket)
+    private void DestroySocket(PooledSocket socket, bool isIncrementPoolCapacityCounter)
     {
         try
         {
@@ -180,7 +185,10 @@ internal class SocketPool : IDisposable
         }
         finally
         {
-            _availableSocketsCounter.Release();
+            if (isIncrementPoolCapacityCounter)
+            {
+                _remainingPoolCapacityCounter.Release();
+            }
         }
     }
 
@@ -240,7 +248,7 @@ internal class SocketPool : IDisposable
 
             _failedSocketCreationAttemptsCount++;
 
-            _availableSocketsCounter.Release();
+            _remainingPoolCapacityCounter.Release();
 
             return null;
         }
@@ -267,7 +275,7 @@ internal class SocketPool : IDisposable
 
         _isDisposed = true;
         
-        while (_availableSockets.TryPop(out var socket))
+        while (_pooledSockets.TryPop(out var socket))
         {
             try
             {
@@ -279,6 +287,6 @@ internal class SocketPool : IDisposable
             }
         }
 
-        _availableSocketsCounter.Dispose();
+        _remainingPoolCapacityCounter.Dispose();
     }
 }

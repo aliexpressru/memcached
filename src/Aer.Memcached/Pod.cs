@@ -6,33 +6,33 @@ namespace Aer.Memcached;
 
 public class Pod: INode
 {
-    public int MemcachedPort { get; init; } = MemcachedConfiguration.DefaultMemcachedPort;
-    
-    public string IpAddress { get; init; }
+    private readonly string _nodeKey;
 
-    public Pod(string ipAddress)
+    public string IpAddress { get; }
+        
+    public int MemcachedPort { get; }
+
+    public Pod(string ipAddress, int port = MemcachedConfiguration.DefaultMemcachedPort)
     {
         if (ipAddress is null or {Length: 0})
         {
             throw new ArgumentException($"Non-empty {nameof(ipAddress)} must be specified");
         }
 
-        IpAddress = ipAddress;
-    }
-
-    public Pod(string ipAddress, int port) : this(ipAddress)
-    {
         if (port <= 0)
         {
             throw new ArgumentException($"{nameof(port)} must be greater than 0");
         }
 
+        IpAddress = ipAddress;
         MemcachedPort = port;
+        
+        _nodeKey = $"{IpAddress}:{MemcachedPort}"; 
     }
 
     public string GetKey()
     {
-        return $"{IpAddress}:{MemcachedPort}";
+        return _nodeKey;
     }
 
     public EndPoint GetEndpoint()

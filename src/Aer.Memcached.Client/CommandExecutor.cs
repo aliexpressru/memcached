@@ -97,31 +97,47 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
     }
     
     /// <inheritdoc />
-    public IDictionary<TNode, int> GetSocketPoolsStatistics(TNode[] nodes)
+    public IReadOnlyCollection<SocketPoolStatisctics> GetSocketPoolsStatistics(TNode[] nodes)
     {
-        var socketPools = new Dictionary<TNode, int>(NodeEqualityComparer<TNode>.Instance);
+        var ret = new List<SocketPoolStatisctics>(nodes.Length);
+        
         SocketPool ValueFactory(TNode node) => new(node.GetEndpoint(), _config, _logger);
         
         foreach (var node in nodes)
         {
             var socketPool = _socketPools.GetOrAdd(node, ValueFactory);
-            socketPools[node] = socketPool.AvailableSocketsCount;
+            
+            var socketPoolStatistics = new SocketPoolStatisctics(
+                node.GetKey(),
+                socketPool.PooledSocketsCount,
+                socketPool.UsedSocketsCount,
+                socketPool.RemainingPoolCapacity);
+            
+            ret.Add(socketPoolStatistics);
         }
 
-        return socketPools;
+        return ret;
     }
 
     /// <inheritdoc />
-    public async Task DestroyAvailablePooledSockets(int numberOfSocketsToDestroy, CancellationToken token)
+    public int DestroyAvailablePooledSocketsInAllSocketPools(int numberOfSocketsToDestroy)
     {
+        int actuallyDestroyedSocketsCount = 0;
+        
         // no rush here because it is used in background process
-        foreach (var socketPool in _socketPools)
+        foreach (var (_, socketPool) in _socketPools)
         {
             for (int i = 0; i < numberOfSocketsToDestroy; i++)
             {
-                await socketPool.Value.DestroyAvailableSocketAsync(token);
+                var isPooledSocketDestroyed = socketPool.DestroyPooledSocket();
+                if (isPooledSocketDestroyed)
+                {
+                    actuallyDestroyedSocketsCount++;
+                }
             }
         }
+
+        return actuallyDestroyedSocketsCount;
     }
 
     /// <inheritdoc />

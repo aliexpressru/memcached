@@ -2,6 +2,7 @@ using Aer.ConsistentHash;
 using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
+using Aer.Memcached.Client.Models;
 using Aer.Memcached.Infrastructure;
 using Aer.Memcached.Tests.Model;
 using FluentAssertions;
@@ -291,7 +292,7 @@ public class NodeLocatorMaintainerTests
         _nodeProviderMock.IsConfigured().Returns(isConfigured);
 
         _commandExecutorMock.GetSocketPoolsStatistics(Arg.Any<TestHashRingNode[]>())
-            .Returns(new Dictionary<TestHashRingNode, int>());
+            .Returns(new List<SocketPoolStatisctics>());
     }
 
     private MemcachedMaintainer<TestHashRingNode> GetMemcachedMaintainer(INodeLocator<TestHashRingNode> nodeLocator)
