@@ -1,6 +1,7 @@
+using Aer.ConsistentHash.Benchmarks.Model;
 using BenchmarkDotNet.Attributes;
 
-namespace Aer.ConsistentHash.Benchmarks;
+namespace Aer.ConsistentHash.Benchmarks.BenchmarkClasses;
 
 public class HashRingBenchmarks
 {

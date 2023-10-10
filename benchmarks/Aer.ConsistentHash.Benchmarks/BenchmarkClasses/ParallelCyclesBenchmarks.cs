@@ -1,6 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 
-namespace Aer.ConsistentHash.Benchmarks;
+namespace Aer.ConsistentHash.Benchmarks.BenchmarkClasses;
 
 [MemoryDiagnoser(displayGenColumns: true)]
 public class ParallelCyclesBenchmarks

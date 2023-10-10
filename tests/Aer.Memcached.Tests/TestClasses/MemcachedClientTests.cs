@@ -5,7 +5,7 @@ using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Tests.Base;
-using Aer.Memcached.Tests.Models;
+using Aer.Memcached.Tests.Model.StoredObjectModels;
 using AutoFixture;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;

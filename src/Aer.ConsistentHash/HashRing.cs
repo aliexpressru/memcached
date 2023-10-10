@@ -80,7 +80,7 @@ public class HashRing<TNode> : INodeLocator<TNode>
 
             Parallel.ForEach(
                 keys,
-                new ParallelOptions {MaxDegreeOfParallelism = 16},
+                new ParallelOptions {MaxDegreeOfParallelism = Environment.ProcessorCount},
                 key =>
                 {
                     var replicatedNode = GetReplicatedNodeInternal(key, replicationFactor);

@@ -1,4 +1,5 @@
-﻿using Aer.Memcached.Client;
+﻿using Aer.ConsistentHash.Benchmarks.Model;
+using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
@@ -12,7 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MoreLinq;
 
-namespace Aer.ConsistentHash.Benchmarks;
+namespace Aer.ConsistentHash.Benchmarks.BenchmarkClasses;
 
 [HardwareCounters(HardwareCounter.Timer)]
 [MemoryDiagnoser(displayGenColumns: true)]
