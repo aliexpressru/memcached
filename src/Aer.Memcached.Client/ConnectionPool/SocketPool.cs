@@ -163,7 +163,7 @@ internal class SocketPool : IDisposable
 
     private void ReturnSocketToPool(PooledSocket socket)
     {
-        if (socket.IsAlive)
+        if (socket.IsExceptionDetected)
         {
             _pooledSockets.Push(socket);
 

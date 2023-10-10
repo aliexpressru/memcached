@@ -23,7 +23,10 @@ public class PooledSocket : IDisposable
     /// </summary>
     public readonly Guid InstanceId = Guid.NewGuid();
 
-    public bool IsAlive { get; private set; }
+    /// <summary>
+    /// This property indicates whether any exceptions were raised during socket operations.
+    /// </summary>
+    public bool IsExceptionDetected { get; private set; }
     
     public Action<PooledSocket> ReturnToPoolCallback { get; set; }
     
@@ -32,8 +35,6 @@ public class PooledSocket : IDisposable
     public string EndPointAddressString { get; }
 
     public Socket Socket => _socket;
-    
-    public EndPoint EndPoint => _endpoint;
 
     public PooledSocket(
         EndPoint endpoint, 
@@ -41,7 +42,7 @@ public class PooledSocket : IDisposable
         ILogger logger)
     {
         _logger = logger;
-        IsAlive = true;
+        IsExceptionDetected = true;
 
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         
@@ -162,7 +163,7 @@ public class PooledSocket : IDisposable
             {
                 if (ex is IOException or SocketException)
                 {
-                    IsAlive = false;
+                    IsExceptionDetected = false;
                 }
 
                 _logger.LogError(ex, "An exception happened during socket read");
@@ -181,7 +182,7 @@ public class PooledSocket : IDisposable
             var bytesTransferred = await _socket.SendAsync(buffers, SocketFlags.None);
             if (bytesTransferred <= 0)
             {
-                IsAlive = false;
+                IsExceptionDetected = false;
                 _logger.LogError(
                     "Failed to write data to the socket {EndPoint}. Bytes transferred until failure: {BytesTransferred}",
                     EndPointAddressString,
@@ -194,7 +195,7 @@ public class PooledSocket : IDisposable
         {
             if (ex is IOException or SocketException)
             {
-                IsAlive = false;
+                IsExceptionDetected = false;
             }
 
             _logger.LogError(ex, "An exception happened during socket write");

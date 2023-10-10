@@ -43,32 +43,32 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
     /// <param name="node">The node to check liveness of.</param>
     private async Task<bool> CheckSocketIsDeadUsingSocketPool(TNode node)
     {
-        using var socketFromPool = await _commandExecutor.GetSocketForNodeAsync(
+        using var pooledSocket = await _commandExecutor.GetSocketForNodeAsync(
             node,
             isAuthenticateSocketIfRequired: false,
             CancellationToken.None);
 
-        if (socketFromPool is null)
+        if (pooledSocket is null)
         { 
             // means the the endpoint is broken - consider node dead
             return true;
         }
 
-        if (socketFromPool.Socket.Connected)
+        if (pooledSocket.Socket.Connected)
         {
             // no need to reconnect - just consider node alive 
             return false;
         }
 
         // finally - check the property on the pooled socket
-        bool isNodeDead = !socketFromPool.IsAlive;
+        bool isNodeDead = !pooledSocket.IsExceptionDetected;
 
         return isNodeDead;
     }
 
     /// <summary>
     /// Checks if the socket is dead without using the socket pool.
-    /// Jyst creates new socket to the specified edndpoint and tries to connect to it.
+    /// Just creates new socket to the specified edndpoint and tries to connect to it.
     /// </summary>
     /// <param name="nodeEndPoint">The endpoint to check liveness of.</param>
     private async Task<bool> CheckSocketIsDead(EndPoint nodeEndPoint)
