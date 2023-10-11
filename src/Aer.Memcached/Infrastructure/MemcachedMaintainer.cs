@@ -154,7 +154,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
             {
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Going to destroy {NumberOfDestroyedSockets} pooled sockets in each socket pool during maintenance",
                     NUMBER_OF_SOCKETS_TO_DESTROY_PER_POOL_PER_MAINTENANCE_CYCLE);
             }
