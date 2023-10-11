@@ -73,7 +73,7 @@ internal class SocketPool : IDisposable
 
         var createdSocket = await CreateSocketAsync(token);
 
-        if (MemcachedDiagnosticSource.Instance.IsEnabled())
+        if (createdSocket is not null && MemcachedDiagnosticSource.Instance.IsEnabled())
         {
             MemcachedDiagnosticSource.Instance.Write(
                 MemcachedDiagnosticSource.SocketPoolUsedSocketCountDiagnosticName,
@@ -194,6 +194,15 @@ internal class SocketPool : IDisposable
 
     private async Task<PooledSocket> CreateSocketAsync(CancellationToken token)
     {
+        if (_isEndPointBroken)
+        {
+            _logger.LogWarning(
+                "Can't create socket for a broken endpoint {EndPoint}",
+                _endPoint.GetEndPointString());
+
+            return null;
+        }
+
         try
         {
             var socket = new PooledSocket(_endPoint, _config.ConnectionTimeout, _logger);
