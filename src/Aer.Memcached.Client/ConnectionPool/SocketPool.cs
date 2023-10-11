@@ -196,8 +196,8 @@ internal class SocketPool : IDisposable
     {
         if (_isEndPointBroken)
         {
-            _logger.LogError(
-                "Can't create socket for broken endpoint {EndPoint}",
+            _logger.LogWarning(
+                "Can't create socket for a broken endpoint {EndPoint}",
                 _endPoint.GetEndPointString());
 
             return null;
