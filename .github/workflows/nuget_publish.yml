@@ -16,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.1.0
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v3.2.0
       with:
         dotnet-version: 6.0.x
     - name: Restore dependencies
@@ -27,7 +27,7 @@ jobs:
       run: dotnet build --no-restore --configuration Release
     - name: Get version
       id: get_version
-      uses: battila7/get-version-action@v2
+      uses: battila7/get-version-action@v2.2.1
     - name: Pack project Aer.ConsistentHash
       run: dotnet pack src/Aer.ConsistentHash/Aer.ConsistentHash.csproj --no-restore --no-build --configuration Release --include-symbols -p:PackageVersion=${{ steps.get_version.outputs.version-without-v }} --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
     - name: Pack project Aer.Memcached.Client
