@@ -244,7 +244,7 @@ internal class SocketPool : IDisposable
                 _failedSocketCreationAttemptsCount + 1, // +1 because we are reporting attempt number
                 _config.MaximumSocketCreationAttempts);
 
-            if (_failedSocketCreationAttemptsCount > _config.MaximumSocketCreationAttempts)
+            if (!_isEndPointBroken && _failedSocketCreationAttemptsCount > _config.MaximumSocketCreationAttempts)
             {
                 _isEndPointBroken = true;
 
@@ -254,8 +254,8 @@ internal class SocketPool : IDisposable
                     endPointAddressString,
                     _failedSocketCreationAttemptsCount);
             }
-
-            _failedSocketCreationAttemptsCount++;
+            
+            Interlocked.Increment(ref _failedSocketCreationAttemptsCount);
 
             _remainingPoolCapacityCounter.Release();
 
