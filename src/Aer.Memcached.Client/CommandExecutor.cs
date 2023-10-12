@@ -277,7 +277,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             // remove node from configuration if it's endpoint is considered broken
             _nodeLocator.MarkNodeDead(node);
             // then remove socket pool with broken endpoint to not get into this pool again
-            _socketPools.TryRemove(node, out var _);
+            _socketPools.TryRemove(node, out _);
 
             return null;
         }
