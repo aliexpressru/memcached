@@ -38,7 +38,7 @@ internal class BinaryRequest
 
         if (keyLength > MaxKeyLength)
         {
-            throw new InvalidOperationException("KeyTooLong");
+            throw new InvalidOperationException($"Key '{Key}' length of {keyLength} bytes is greater than maximum allowed length of {MaxKeyLength} bytes");
         }
 
         // extra size
@@ -119,7 +119,7 @@ internal class BinaryRequest
         // NOTE key must be already encoded and should not contain any invalid characters which are not allowed by the protocol
         if (keyLength > 0)
         {
-            result.Add(new ArraySegment<byte>(keyData));
+            result.Add(new ArraySegment<byte>(keyData!)); // if keyLength > 0 then keyData is definitely not null
         }
 
         if (bodyLength > 0)

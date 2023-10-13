@@ -239,10 +239,10 @@ internal class SocketPool : IDisposable
             
             _logger.LogError(
                 ex,
-                "Failed to create socket for endpoint {EndPoint}. Attempt {AttemptNumber} / {MaxAttemptsNumber}",
+                "Failed to create socket for endpoint {EndPoint}. Attempt {AttemptNumber}",
                 endPointAddressString,
-                _failedSocketCreationAttemptsCount + 1, // +1 because we are reporting attempt number
-                _config.MaximumSocketCreationAttempts);
+                _failedSocketCreationAttemptsCount + 1 // +1 because we are reporting attempt number not length
+            );
 
             if (!_isEndPointBroken && _failedSocketCreationAttemptsCount > _config.MaximumSocketCreationAttempts)
             {
