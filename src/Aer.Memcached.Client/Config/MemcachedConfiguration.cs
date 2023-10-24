@@ -200,11 +200,15 @@ public class MemcachedConfiguration
     public class ExpirationJitterSettings
     {
         /// <summary>
-        /// Initial number of seconds is got by last digit of calculated hash
+        /// Initial number of seconds is got by last digits of calculated hash
+        /// Number of digits depends on <see cref="SpreadFactor"/>,
+        /// be default it is the remainder of the division by <see cref="SpreadFactor"/> = 2 digits
         /// Then it is multiplied by this factor to get final expiration time
-        /// MultiplicationFactor = 1 makes jitter in a range of 0 to 9 seconds
-        /// MultiplicationFactor = 10 makes jitter in a range of 0 to 90 seconds etc.
+        /// MultiplicationFactor = 1 makes jitter in a range of 0 to 99 seconds
+        /// MultiplicationFactor = 10 makes jitter in a range of 0 to 990 seconds (0, 10, 20, ..., 990) etc.
         /// </summary>
         public double MultiplicationFactor { get; set; }
+
+        public ulong SpreadFactor { get; set; } = 100;
     }
 }

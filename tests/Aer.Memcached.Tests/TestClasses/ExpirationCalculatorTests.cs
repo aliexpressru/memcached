@@ -68,7 +68,7 @@ public class ExpirationCalculatorTests
 
         var key = "test";
         var hash = hashCalculator.ComputeHash(key);
-        var jitter = (hash % 10) * multiplication;
+        var jitter = (hash % config.ExpirationJitter.SpreadFactor) * multiplication;
         
         var expirationTime = TimeSpan.FromSeconds(10);
         var expectedExpiration = (uint)((DateTimeOffset.UtcNow + expirationTime).ToUnixTimeSeconds() + jitter);
@@ -105,7 +105,7 @@ public class ExpirationCalculatorTests
         foreach (var testKey in testKeys)
         {
             var hash = hashCalculator.ComputeHash(testKey);
-            var jitter = (hash % 10) * multiplication;
+            var jitter = (hash % config.ExpirationJitter.SpreadFactor) * multiplication;
             
             var expectedExpiration = (uint)((DateTimeOffset.UtcNow + expirationTime).ToUnixTimeSeconds() + jitter);
 

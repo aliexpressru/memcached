@@ -77,7 +77,7 @@ public class ExpirationCalculator: IExpirationCalculator
         }
         
         var hash = _hashCalculator.ComputeHash(key);
-        var lastDigit = hash % 10;
+        var lastDigit = hash % _expirationJitterSettings.SpreadFactor;
         var jitter = lastDigit * _expirationJitterSettings.MultiplicationFactor;
 
         var expirationWithJitter = expirationTime.Value.Add(TimeSpan.FromSeconds(jitter));
