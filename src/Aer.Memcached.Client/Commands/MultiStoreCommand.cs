@@ -12,13 +12,13 @@ namespace Aer.Memcached.Client.Commands;
 internal class MultiStoreCommand: MemcachedCommandBase
 {
     private readonly Dictionary<string, CacheItemForRequest> _keyValues;
-    private readonly uint _expires;
+    private readonly Dictionary<string, uint> _expires;
     private int _noopId;
 
     public MultiStoreCommand(
         StoreMode storeMode, 
         Dictionary<string, CacheItemForRequest> keyValues, 
-        uint expires): base(storeMode.Resolve())
+        Dictionary<string, uint> expires): base(storeMode.Resolve())
     {
         _keyValues = keyValues;
         _expires = expires;
@@ -90,7 +90,7 @@ internal class MultiStoreCommand: MemcachedCommandBase
             var span = extra.AsSpan(0, 8);
 
             BinaryConverter.EncodeUInt32(cacheItem.Flags, span, 0);
-            BinaryConverter.EncodeUInt32(_expires, span, 4);
+            BinaryConverter.EncodeUInt32(_expires[key], span, 4);
 
             var request = new BinaryRequest(OpCode)
             {

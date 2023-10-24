@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         
         services.AddHostedService<MemcachedMaintainer<Pod>>();
         services.AddScoped<IMemcachedClient, MemcachedClient<Pod>>();
+        services.AddScoped<IExpirationCalculator, ExpirationCalculator>();
 
         services.AddSingleton<IAuthenticationProvider, DefaultAuthenticationProvider>();
         services.Configure<MemcachedConfiguration.AuthenticationCredentials>(configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
