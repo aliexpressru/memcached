@@ -8,10 +8,8 @@ namespace Aer.Memcached.Client;
 public class ExpirationCalculator: IExpirationCalculator
 {
     private readonly IHashCalculator _hashCalculator;
-
     private readonly MemcachedConfiguration.ExpirationJitterSettings _expirationJitterSettings;
-
-
+    
     public ExpirationCalculator(
         IHashCalculator hashCalculator,
         IOptions<MemcachedConfiguration> config)
