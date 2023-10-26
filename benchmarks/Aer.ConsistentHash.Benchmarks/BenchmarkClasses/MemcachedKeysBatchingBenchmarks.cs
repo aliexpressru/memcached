@@ -50,6 +50,8 @@ public class MemcachedKeysBatchingBenchmarks
 		
 		var authProvider = new DefaultAuthenticationProvider(
 			new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
+		
+		var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
 
 		_commandExecutor = new CommandExecutor<Node>(
 			new OptionsWrapper<MemcachedConfiguration>(config),
@@ -57,7 +59,7 @@ public class MemcachedKeysBatchingBenchmarks
 			commandExecutorLogger,
 			_nodeLocator);
 		
-		_memcachedClient = new MemcachedClient<Node>(_nodeLocator, _commandExecutor);
+		_memcachedClient = new MemcachedClient<Node>(_nodeLocator, _commandExecutor, expirationCalculator);
 
 		foreach (var key in Enumerable.Range(0, TEST_KEYS_COUNT))
 		{ 

@@ -42,6 +42,11 @@ public class MemcachedConfiguration
     /// Internal workings diagnostics configuration.
     /// </summary>
     public MemcachedDiagnosticsSettings Diagnostics { get; set; } = new();
+    
+    /// <summary>
+    /// Enables additional jitter for key expiration if property is not null
+    /// </summary>
+    public ExpirationJitterSettings ExpirationJitter { get; set; }
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified
@@ -190,5 +195,20 @@ public class MemcachedConfiguration
         public string Username { get; set; }
         
         public string Password { get; set; }
+    }
+    
+    public class ExpirationJitterSettings
+    {
+        /// <summary>
+        /// Initial number of seconds is got by last digits of calculated hash
+        /// Number of digits depends on <see cref="SpreadFactor"/>,
+        /// be default it is the remainder of the division by <see cref="SpreadFactor"/> = 2 digits
+        /// Then it is multiplied by this factor to get final expiration time
+        /// MultiplicationFactor = 1 makes jitter in a range of 0 to 99 seconds
+        /// MultiplicationFactor = 10 makes jitter in a range of 0 to 990 seconds (0, 10, 20, ..., 990) etc.
+        /// </summary>
+        public double MultiplicationFactor { get; set; }
+
+        public ulong SpreadFactor { get; set; } = 100;
     }
 }

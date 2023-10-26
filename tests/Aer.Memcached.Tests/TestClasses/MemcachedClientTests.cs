@@ -440,12 +440,14 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         nodeLocator.AddNodes(
             new Pod("localhost")
         );
-
+        
         var loggerMock = Substitute.For<ILogger<CommandExecutor<Pod>>>();
 
         var config = new MemcachedConfiguration();
         var authProvider = new DefaultAuthenticationProvider(
             new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
+
+        var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
 
         var client = new MemcachedClient<Pod>(
             nodeLocator,
@@ -453,7 +455,8 @@ public class MemcachedClientTests : MemcachedClientTestsBase
                 new OptionsWrapper<MemcachedConfiguration>(config),
                 authProvider,
                 loggerMock,
-                nodeLocator)
+                nodeLocator),
+            expirationCalculator
         );
 
         var key = new string('*', 251); // this key is too long to be stored

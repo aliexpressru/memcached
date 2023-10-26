@@ -17,13 +17,16 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 {
     private readonly INodeLocator<TNode> _nodeLocator;
     private readonly ICommandExecutor<TNode> _commandExecutor;
+    private readonly IExpirationCalculator _expirationCalculator;
 
     public MemcachedClient(
         INodeLocator<TNode> nodeLocator,
-        ICommandExecutor<TNode> commandExecutor)
+        ICommandExecutor<TNode> commandExecutor,
+        IExpirationCalculator expirationCalculator)
     {
         _nodeLocator = nodeLocator;
         _commandExecutor = commandExecutor;
+        _expirationCalculator = expirationCalculator;
     }
 
     /// <inheritdoc />
@@ -42,7 +45,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }
 
         var cacheItem = BinaryConverter.Serialize(value);
-        var expiration = GetExpiration(expirationTime);
+        var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
         using (var command = new StoreCommand(storeMode, key, cacheItem, expiration))
         {
@@ -70,7 +73,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             return;
         }
 
-        var expiration = GetExpiration(expirationTime);
+        var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
 
         if (batchingOptions is not null)
         {
@@ -78,7 +81,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 nodes,
                 keyValues,
                 batchingOptions,
-                expiration,
+                keyToExpirationMap,
                 storeMode,
                 token);
             
@@ -101,7 +104,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                     keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
                 }
 
-                var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration);
+                var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap);
 
                 var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
                 
@@ -285,7 +288,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             return MemcachedClientValueResult<ulong>.Unsuccessful;
         }
 
-        var expiration = GetExpiration(expirationTime);
+        var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
         // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
         using (var command = new IncrCommand(key, amountToAdd, initialValue, expiration))
@@ -315,7 +318,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             return MemcachedClientValueResult<ulong>.Unsuccessful;
         }
 
-        var expiration = GetExpiration(expirationTime);
+        var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
         using (var command = new DecrCommand(key, amountToSubtract, initialValue, expiration))
         {
@@ -360,7 +363,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, T> keyValues,
         BatchingOptions batchingOptions,
-        uint expiration,
+        Dictionary<string, uint> keyToExpirationMap,
         StoreMode storeMode,
         CancellationToken token)
     {
@@ -392,7 +395,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                             keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
                         }
 
-                        using (var command = new MultiStoreCommand(storeMode, keyValuesToStore, expiration))
+                        using (var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap))
                         {
                             await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
                         }

@@ -58,6 +58,8 @@ public abstract class MemcachedClientTestsBase
 		
 		var authProvider = new DefaultAuthenticationProvider(
 			new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
+		
+		var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
 
 		Client = new MemcachedClient<Pod>(
 			nodeLocator,
@@ -65,7 +67,8 @@ public abstract class MemcachedClientTestsBase
 				new OptionsWrapper<MemcachedConfiguration>(config),
 				authProvider,
 				commandExecutorLogger,
-				nodeLocator)
+				nodeLocator),
+			expirationCalculator
 		);
 
 		Fixture = new Fixture();

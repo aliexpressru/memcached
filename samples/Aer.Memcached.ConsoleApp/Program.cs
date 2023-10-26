@@ -16,13 +16,16 @@ var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
 var config = new MemcachedConfiguration();
 var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
+var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
+
 var client = new MemcachedClient<Pod>(
     nodeLocator,
     new CommandExecutor<Pod>(
         new OptionsWrapper<MemcachedConfiguration>(config),
         authProvider,
         commandExecutorLogger,
-        nodeLocator));
+        nodeLocator),
+    expirationCalculator);
 
 try
 {

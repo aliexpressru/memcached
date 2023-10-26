@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeLocator<Pod>, HashRing<Pod>>();
         services.AddSingleton<INodeHealthChecker<Pod>, NodeHealthChecker<Pod>>();
         services.AddSingleton<ICommandExecutor<Pod>, CommandExecutor<Pod>>();
+        services.AddSingleton<IExpirationCalculator, ExpirationCalculator>();
         
         services.AddHostedService<MemcachedMaintainer<Pod>>();
         services.AddScoped<IMemcachedClient, MemcachedClient<Pod>>();
