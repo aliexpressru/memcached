@@ -381,6 +381,22 @@ If you need to tune it, add the following sections in config:
 - `NodesHealthCheckPeriod`: Period to check if nodes are responsive. If node is not responded during `SocketPool.ConnectionTimeout` it is marked as dead and will be deleted from memcached nodes until it is responsive again
 - `UseSocketPoolForNodeHealthChecks` : If set to `true` node health checker mechanism should use socket pool to obtain sockets for nodes health checks. If set to `false`, new non-pooled socket will be created for each node health check
 
+### Jitter
+
+Initial number of seconds is got by last digits of calculated hash. Number of digits depends on `SpreadFactor`, be default it is the remainder of the division by `SpreadFactor` = 2 digits. Then it is multiplied by this factor to get final expiration time. `MultiplicationFactor` = 1 makes jitter in a range of 0 to 99 seconds. `MultiplicationFactor` = 10 makes jitter in a range of 0 to 990 seconds (0, 10, 20, ..., 990) etc.
+
+```json
+{
+  "MemcachedConfiguration": {
+    "HeadlessServiceAddress": "my-memchached-service-headless.namespace.svc.cluster.local",
+    "ExpirationJitter": {
+      "MultiplicationFactor": 1,
+      "SpreadFactor": 100
+    }
+  }
+}
+```
+
 ## Monitoring
 
 Other than logs check Prometheus metrics.
