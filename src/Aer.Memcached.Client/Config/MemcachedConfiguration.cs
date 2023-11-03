@@ -47,6 +47,8 @@ public class MemcachedConfiguration
     /// Enables additional jitter for key expiration if property is not null
     /// </summary>
     public ExpirationJitterSettings ExpirationJitter { get; set; }
+    
+    public SynchronizationSettings SyncSettings { get; set; }
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified
@@ -210,5 +212,26 @@ public class MemcachedConfiguration
         public double MultiplicationFactor { get; set; }
 
         public ulong SpreadFactor { get; set; } = 100;
+    }
+
+    public class SynchronizationSettings
+    {
+        /// <summary>
+        /// Period to check if clients are responsive
+        /// If client is not responded during it is marked as dead
+        /// and will be deleted from the list of sync addresses until it is responsive again
+        /// </summary>
+        public TimeSpan? SyncAddressesHealthCheckPeriod { get; set; } = TimeSpan.FromSeconds(15);
+        
+        public string ClusterNameEnvVariable { get; set; }
+        
+        public SyncServer[] SyncServers { get; set; }
+    }
+
+    public class SyncServer
+    {
+        public string Address { get; set; }
+        
+        public string ClusterName { get; set; }
     }
 }

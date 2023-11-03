@@ -1,6 +1,6 @@
 using Aer.ConsistentHash.Abstractions;
 
-namespace Aer.Memcached;
+namespace Aer.Memcached.Abstractions;
 
 public interface INodeProvider<TNode> where TNode : class, INode
 {

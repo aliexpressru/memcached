@@ -1,5 +1,6 @@
 using Aer.ConsistentHash;
 using Aer.ConsistentHash.Abstractions;
+using Aer.Memcached.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;

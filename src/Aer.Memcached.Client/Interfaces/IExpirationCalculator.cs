@@ -12,4 +12,10 @@ public interface IExpirationCalculator
     /// </summary>
     /// <returns>Mapping of key to expiration time</returns>
     Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, TimeSpan? expirationTime);
+
+    /// <summary>
+    /// Batch version of getting expiration in unix seconds using DateTimeOffset
+    /// </summary>
+    /// <returns>Mapping of key to expiration time</returns>
+    Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, DateTimeOffset? expirationTime);
 }

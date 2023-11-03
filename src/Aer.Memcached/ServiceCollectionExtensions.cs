@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Aer.ConsistentHash;
 using Aer.ConsistentHash.Abstractions;
+using Aer.Memcached.Abstractions;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
@@ -33,8 +34,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeHealthChecker<Pod>, NodeHealthChecker<Pod>>();
         services.AddSingleton<ICommandExecutor<Pod>, CommandExecutor<Pod>>();
         services.AddSingleton<IExpirationCalculator, ExpirationCalculator>();
+        services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
+        services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
         
         services.AddHostedService<MemcachedMaintainer<Pod>>();
+        services.AddHostedService<CacheSyncMaintainer>();
         services.AddScoped<IMemcachedClient, MemcachedClient<Pod>>();
 
         services.AddSingleton<IAuthenticationProvider, DefaultAuthenticationProvider>();
