@@ -54,7 +54,7 @@ public class ExpirationCalculator: IExpirationCalculator
         
         if (expirationTime.HasValue && expirationTime.Value > utcNow)
         {
-            timeSpan = utcNow.Subtract(expirationTime.Value);
+            timeSpan = expirationTime.Value.Subtract(utcNow);
         }
 
         return GetExpirationInternal(keys, utcNow, timeSpan);

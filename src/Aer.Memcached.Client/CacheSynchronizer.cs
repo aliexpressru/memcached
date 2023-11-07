@@ -1,34 +1,32 @@
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
+using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client;
 
 public class CacheSynchronizer : ICacheSynchronizer
 {
-    private readonly MemcachedConfiguration.SynchronizationSettings _syncSettings;
+    private readonly ISyncServersProvider _syncServersProvider;
+    private readonly ICacheSyncClient _cacheSyncClient;
 
-    private ICollection<MemcachedConfiguration.SyncServer> _syncServers;
+    private readonly ICollection<MemcachedConfiguration.SyncServer> _syncServers;
 
-    public CacheSynchronizer(MemcachedConfiguration configuration)
+    public CacheSynchronizer(ISyncServersProvider syncServersProvider, ICacheSyncClient cacheSyncClient)
     {
-        _syncSettings = configuration.SyncSettings;
-        _syncServers = Array.Empty<MemcachedConfiguration.SyncServer>();
+        _syncServersProvider = syncServersProvider;
+        _cacheSyncClient = cacheSyncClient;
+
+        _syncServers = _syncServersProvider.GetSyncServers();
     }
 
-    public bool IsSyncOn() => _syncSettings != null;
-
-    public Task SyncCache(Dictionary<string, object> keyValues, DateTimeOffset? expirationTime, CancellationToken token)
+    public async Task SyncCache<T>(CacheSyncModel<T> model, CancellationToken token)
     {
-        if (_syncServers.Count == 0)
+        if (_syncServersProvider.IsConfigured())
         {
-            return Task.CompletedTask;
+            foreach (var syncServer in _syncServers)
+            {
+                await _cacheSyncClient.Sync(syncServer, model, token);
+            }
         }
-
-        return Task.CompletedTask;
-    }
-
-    public void UpdateSyncServers(ICollection<MemcachedConfiguration.SyncServer> servers)
-    {
-        _syncServers = servers;
     }
 }

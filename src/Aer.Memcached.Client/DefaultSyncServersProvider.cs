@@ -1,8 +1,8 @@
-using Aer.Memcached.Abstractions;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Interfaces;
 using Microsoft.Extensions.Options;
 
-namespace Aer.Memcached.Infrastructure;
+namespace Aer.Memcached.Client;
 
 public class DefaultSyncServersProvider: ISyncServersProvider
 {
@@ -22,15 +22,20 @@ public class DefaultSyncServersProvider: ISyncServersProvider
     
     public MemcachedConfiguration.SyncServer[] GetSyncServers()
     {
-        if (_config.SyncSettings == null)
+        if (IsConfigured())
         {
-            return Array.Empty<MemcachedConfiguration.SyncServer>();
+            var servers = _config.SyncSettings.SyncServers;
+
+            return servers
+                .Where(s => s.ClusterName != _currentCluster)
+                .ToArray();
         }
 
-        var servers = _config.SyncSettings.SyncServers;
+        return Array.Empty<MemcachedConfiguration.SyncServer>();
+    }
 
-        return servers
-            .Where(s => s.ClusterName != _currentCluster)
-            .ToArray();
+    public bool IsConfigured()
+    {
+        return _config.SyncSettings != null && _config.SyncSettings.SyncServers?.Length != 0;
     }
 }

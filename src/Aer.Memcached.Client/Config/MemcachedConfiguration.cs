@@ -9,6 +9,11 @@ public class MemcachedConfiguration
     /// The default port for memcached service.
     /// </summary>
     public const int DefaultMemcachedPort = 11211;
+
+    /// <summary>
+    /// The default sync endpoint
+    /// </summary>
+    public const string DefaultSyncEndpoint = "/memcached/multi-store";
     
     /// <summary>
     /// List of servers with hosted memcached
@@ -216,12 +221,7 @@ public class MemcachedConfiguration
 
     public class SynchronizationSettings
     {
-        /// <summary>
-        /// Period to check if clients are responsive
-        /// If client is not responded during it is marked as dead
-        /// and will be deleted from the list of sync addresses until it is responsive again
-        /// </summary>
-        public TimeSpan? SyncAddressesHealthCheckPeriod { get; set; } = TimeSpan.FromSeconds(15);
+        public string SyncEndpoint { get; set; } = DefaultSyncEndpoint;
         
         public string ClusterNameEnvVariable { get; set; }
         

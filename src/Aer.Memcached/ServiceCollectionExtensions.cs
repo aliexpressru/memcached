@@ -34,11 +34,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeHealthChecker<Pod>, NodeHealthChecker<Pod>>();
         services.AddSingleton<ICommandExecutor<Pod>, CommandExecutor<Pod>>();
         services.AddSingleton<IExpirationCalculator, ExpirationCalculator>();
-        services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
-        services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
         
         services.AddHostedService<MemcachedMaintainer<Pod>>();
-        services.AddHostedService<CacheSyncMaintainer>();
         services.AddScoped<IMemcachedClient, MemcachedClient<Pod>>();
 
         services.AddSingleton<IAuthenticationProvider, DefaultAuthenticationProvider>();
@@ -56,6 +53,16 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<MetricsMemcachedDiagnosticListener>();
             services.AddSingleton<LoggingMemcachedDiagnosticListener>();
             services.AddSingleton(MemcachedDiagnosticSource.Instance);
+        }
+
+        if (config.SyncSettings != null)
+        {
+            services.AddHttpClient();
+            
+            services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
+            services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
+            
+            services.AddScoped<ICacheSyncClient, CacheSyncClient>();
         }
         
         return services;

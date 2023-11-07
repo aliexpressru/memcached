@@ -1,16 +1,8 @@
-using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Interfaces;
 
 public interface ICacheSynchronizer
 {
-    bool IsSyncOn();
-    
-    Task SyncCache(
-        Dictionary<string, object> keyValues,
-        DateTimeOffset? expirationTime,
-        CancellationToken token
-    );
-
-    void UpdateSyncServers(ICollection<MemcachedConfiguration.SyncServer> servers);
+    Task SyncCache<T>(CacheSyncModel<T> model, CancellationToken token);
 }
