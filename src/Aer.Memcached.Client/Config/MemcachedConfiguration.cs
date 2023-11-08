@@ -224,6 +224,10 @@ public class MemcachedConfiguration
         public string SyncEndpoint { get; set; } = DefaultSyncEndpoint;
         
         public string ClusterNameEnvVariable { get; set; }
+
+        public int RetryCount { get; set; } = 3;
+
+        public TimeSpan TimeToSync { get; set; } = TimeSpan.FromSeconds(1);
         
         public SyncServer[] SyncServers { get; set; }
     }

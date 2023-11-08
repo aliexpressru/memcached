@@ -7,10 +7,13 @@ using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Interfaces;
+using Aer.Memcached.Client.Models;
 using Aer.Memcached.Diagnostics;
 using Aer.Memcached.Diagnostics.Listeners;
 using Aer.Memcached.Infrastructure;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -88,5 +91,21 @@ public static class ServiceCollectionExtensions
         }
 
         return applicationBuilder;
+    }
+
+    public static void AddMemcachedSyncEndpoint(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
+    {
+        var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
+
+        if (config.SyncSettings != null)
+        {
+            endpoints.MapPost(config.SyncSettings.SyncEndpoint,
+                async ([FromBody] CacheSyncModel<string> model, IMemcachedClient memcachedClient,
+                    CancellationToken token) =>
+                {
+                    await memcachedClient.MultiStoreAsync(model.KeyValues, model.ExpirationTime, token,
+                        isManualSyncOn: false);
+                });
+        }
     }
 }
