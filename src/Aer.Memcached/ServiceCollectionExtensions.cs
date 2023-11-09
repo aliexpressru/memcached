@@ -4,6 +4,7 @@ using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Abstractions;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
+using Aer.Memcached.Client.CacheSync;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Interfaces;
@@ -64,6 +65,7 @@ public static class ServiceCollectionExtensions
             
             services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
             services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
+            services.AddSingleton<IErrorStatisticsStore, SlidingWindowStatisticsStore>();
             
             services.AddScoped<ICacheSyncClient, CacheSyncClient>();
         }

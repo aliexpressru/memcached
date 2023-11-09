@@ -2,7 +2,7 @@ using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Microsoft.Extensions.Options;
 
-namespace Aer.Memcached.Client;
+namespace Aer.Memcached.Client.CacheSync;
 
 public class DefaultSyncServersProvider: ISyncServersProvider
 {

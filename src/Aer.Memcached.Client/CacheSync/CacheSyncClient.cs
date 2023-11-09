@@ -9,7 +9,7 @@ using Polly;
 using Polly.Retry;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
-namespace Aer.Memcached.Client;
+namespace Aer.Memcached.Client.CacheSync;
 
 public class CacheSyncClient: ICacheSyncClient
 {

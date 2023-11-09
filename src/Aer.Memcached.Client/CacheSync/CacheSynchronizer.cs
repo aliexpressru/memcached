@@ -4,7 +4,7 @@ using Aer.Memcached.Client.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aer.Memcached.Client;
+namespace Aer.Memcached.Client.CacheSync;
 
 public class CacheSynchronizer : ICacheSynchronizer
 {
