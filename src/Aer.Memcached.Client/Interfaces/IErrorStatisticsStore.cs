@@ -11,6 +11,6 @@ namespace Aer.Memcached.Client.Interfaces
         /// <param name="maxErrors">Number of errors allowed within timeframe</param>
         /// <param name="interval">Interval for initialized statistics</param>
         /// <returns></returns>
-        Task<RequestStatistics> GetRequestStatistics(string key, long maxErrors, TimeSpan interval);
+        Task<RequestStatistics> GetRequestStatisticsAsync(string key, long maxErrors, TimeSpan interval);
     }
 }

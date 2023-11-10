@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Aer.ConsistentHash;
 using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Abstractions;
@@ -95,17 +96,20 @@ public static class ServiceCollectionExtensions
         return applicationBuilder;
     }
 
-    public static void AddMemcachedSyncEndpoint(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
+    public static void AddMemcachedSyncEndpoint<T>(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
 
         if (config.SyncSettings != null)
         {
-            endpoints.MapPost(config.SyncSettings.SyncEndpoint,
-                async ([FromBody] CacheSyncModel<string> model, IMemcachedClient memcachedClient,
+            endpoints.MapPost(config.SyncSettings.SyncEndpoint + $"-{typeof(T).Name.ToLowerInvariant()}",
+                async ([FromBody] CacheSyncModel<T> model, IMemcachedClient memcachedClient,
                     CancellationToken token) =>
                 {
-                    await memcachedClient.MultiStoreAsync(model.KeyValues, model.ExpirationTime, token,
+                    await memcachedClient.MultiStoreAsync(
+                        model.KeyValues, 
+                        model.ExpirationTime, 
+                        token,
                         isManualSyncOn: false);
                 });
         }

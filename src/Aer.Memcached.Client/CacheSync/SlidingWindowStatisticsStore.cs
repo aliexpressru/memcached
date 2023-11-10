@@ -13,7 +13,7 @@ namespace Aer.Memcached.Client.CacheSync
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _lockers = new();
 
         /// <inheritdoc/>
-        public async Task<RequestStatistics> GetRequestStatistics(string key, long maxErrors, TimeSpan interval)
+        public async Task<RequestStatistics> GetRequestStatisticsAsync(string key, long maxErrors, TimeSpan interval)
         {
             var windowStatistic = _statisticsLogs.GetOrAdd(key, new WindowStatistic());
             var utcNow = DateTimeOffset.UtcNow;
@@ -40,7 +40,7 @@ namespace Aer.Memcached.Client.CacheSync
 
             if (currentTimeFrameStatisticLog == null)
             {
-                await UpdateCurrentTimeFrameStatisticsIfNeeded(key, interval);
+                await UpdateCurrentTimeFrameStatistics(key, interval);
                 return new RequestStatistics
                 {
                     IsTooManyErrors = false,
@@ -86,15 +86,14 @@ namespace Aer.Memcached.Client.CacheSync
                         utcNow);
             }
 
-            var numberOfSuccessfulRequestsInCurrentFrame = (long) (currentWindowPercentage *
+            var numberOfErrorsInCurrentFrame = (long) (currentWindowPercentage *
                                                   currentTimeFrameStatisticLog.TimeFrameStatistics.NumberOfErrors);
-            var numberOfSuccessfulRequestsInPreviousFrame = (long) (previousWindowPercentage *
+            var numberOfErrorsInPreviousFrame = (long) (previousWindowPercentage *
                                                   previousTimeFrameWithinIntervalLog?.TimeFrameStatistics.NumberOfErrors ?? 0);
 
-            var isTooManyRequests = numberOfSuccessfulRequestsInCurrentFrame + numberOfSuccessfulRequestsInPreviousFrame > maxErrors;
-            if (isTooManyRequests)
+            var isTooManyErrors = numberOfErrorsInCurrentFrame + numberOfErrorsInPreviousFrame > maxErrors;
+            if (isTooManyErrors)
             {
-                await UpdateCurrentTimeFrameStatisticsIfNeeded(key, interval);
                 return new RequestStatistics
                 {
                     IsTooManyErrors = true,
@@ -102,19 +101,18 @@ namespace Aer.Memcached.Client.CacheSync
                 };
             }
 
-            numberOfSuccessfulRequestsInCurrentFrame = (long)(currentWindowPercentage * currentTimeFrameStatisticLog.TimeFrameStatistics.IncrementRequests());
+            numberOfErrorsInCurrentFrame = (long)(currentWindowPercentage * currentTimeFrameStatisticLog.TimeFrameStatistics.IncrementRequests());
 
-            isTooManyRequests = numberOfSuccessfulRequestsInCurrentFrame + numberOfSuccessfulRequestsInPreviousFrame > maxErrors;
+            isTooManyErrors = numberOfErrorsInCurrentFrame + numberOfErrorsInPreviousFrame > maxErrors;
             
-            await UpdateCurrentTimeFrameStatisticsIfNeeded(key, interval);
             return new RequestStatistics
             {
-                IsTooManyErrors = isTooManyRequests,
+                IsTooManyErrors = isTooManyErrors,
                 TimeFrameStatistics = currentTimeFrameStatistics
             };
         }
         
-        private async Task UpdateCurrentTimeFrameStatisticsIfNeeded(string key, TimeSpan interval)
+        private async Task UpdateCurrentTimeFrameStatistics(string key, TimeSpan interval)
         {
             var utcNow = DateTimeOffset.UtcNow;
             var locker = _lockers.GetOrAdd(key, new SemaphoreSlim(1, 1));

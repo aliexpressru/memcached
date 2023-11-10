@@ -230,6 +230,8 @@ public class MemcachedConfiguration
         public TimeSpan TimeToSync { get; set; } = TimeSpan.FromSeconds(1);
         
         public SyncServer[] SyncServers { get; set; }
+        
+        public CacheSyncCircuitBreakerSettings CacheSyncCircuitBreaker { get; set; }
     }
 
     public class SyncServer
@@ -237,5 +239,23 @@ public class MemcachedConfiguration
         public string Address { get; set; }
         
         public string ClusterName { get; set; }
+    }
+
+    public class CacheSyncCircuitBreakerSettings
+    {
+        /// <summary>
+        /// Time window for counting errors
+        /// </summary>
+        public TimeSpan Interval { get; set; } = TimeSpan.FromSeconds(15);
+
+        /// <summary>
+        /// Max errors in the <see cref="Interval"/>
+        /// </summary>
+        public int MaxErrors { get; set; } = 50;
+
+        /// <summary>
+        /// When <see cref="MaxErrors"/> reached switch of sync to a server for <see cref="SwitchOffTime"/>
+        /// </summary>
+        public TimeSpan SwitchOffTime { get; set; } = TimeSpan.FromMinutes(5);
     }
 }

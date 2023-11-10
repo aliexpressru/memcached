@@ -48,7 +48,7 @@ public class CacheSyncClient: ICacheSyncClient
                     MediaTypeNames.Application.Json);
 
                 var baseUri = new Uri(syncServer.Address);
-                var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint);
+                var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + $"-{typeof(T).Name.ToLowerInvariant()}");
 
                 var response = await httpClient.PostAsync(endpointUri, content, token);
 
@@ -58,6 +58,8 @@ public class CacheSyncClient: ICacheSyncClient
         catch (Exception e)
         {
             _logger.LogError(e, $"Unable to sync data to {syncServer.Address}");
+
+            throw;
         }
     }
 }
