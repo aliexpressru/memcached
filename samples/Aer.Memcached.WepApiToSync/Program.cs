@@ -2,7 +2,7 @@ using Aer.Memcached.Shared;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 
-namespace Aer.Memcached.WebApi;
+namespace Aer.Memcached.WepApiToSync;
 
 public class Program
 {

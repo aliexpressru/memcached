@@ -70,7 +70,7 @@ public class CacheSynchronizer : ICacheSynchronizer
                         {
                             if (_config.SyncSettings.CacheSyncCircuitBreaker != null)
                             {
-                                var errorStatistics = await _errorStatisticsStore.GetRequestStatisticsAsync(serverKey,
+                                var errorStatistics = await _errorStatisticsStore.GetErrorStatisticsAsync(serverKey,
                                     _config.SyncSettings.CacheSyncCircuitBreaker.MaxErrors,
                                     _config.SyncSettings.CacheSyncCircuitBreaker.Interval);
 

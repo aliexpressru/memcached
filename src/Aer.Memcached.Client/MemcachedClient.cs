@@ -101,7 +101,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
-        if (isManualSyncOn)
+        if (isManualSyncOn && _cacheSynchronizer != null)
         {
             await _cacheSynchronizer.SyncCache(new CacheSyncModel<T>
             {

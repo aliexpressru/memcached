@@ -1,12 +1,12 @@
 ﻿{
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
-    "Aer.Memcached.WebApi": {
+    "Aer.Memcached.WebApiToSync": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
       "launchUrl": "swagger",
-      "applicationUrl": "http://localhost:5112",
+      "applicationUrl": "http://localhost:5113",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

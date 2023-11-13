@@ -3,7 +3,7 @@ using Aer.Memcached.Shared;
 using Aer.Memcached.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Aer.Memcached.WebApi.Controllers;
+namespace Aer.Memcached.WepApiToSync.Controllers;
 
 [ApiController]
 [Route("[controller]")]

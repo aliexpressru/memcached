@@ -13,7 +13,7 @@ namespace Aer.Memcached.Client.CacheSync
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _lockers = new();
 
         /// <inheritdoc/>
-        public async Task<RequestStatistics> GetRequestStatisticsAsync(string key, long maxErrors, TimeSpan interval)
+        public async Task<ErrorStatistics> GetErrorStatisticsAsync(string key, long maxErrors, TimeSpan interval)
         {
             var windowStatistic = _statisticsLogs.GetOrAdd(key, new WindowStatistic());
             var utcNow = DateTimeOffset.UtcNow;
@@ -41,7 +41,7 @@ namespace Aer.Memcached.Client.CacheSync
             if (currentTimeFrameStatisticLog == null)
             {
                 await UpdateCurrentTimeFrameStatistics(key, interval);
-                return new RequestStatistics
+                return new ErrorStatistics
                 {
                     IsTooManyErrors = false,
                     TimeFrameStatistics = null
@@ -94,7 +94,7 @@ namespace Aer.Memcached.Client.CacheSync
             var isTooManyErrors = numberOfErrorsInCurrentFrame + numberOfErrorsInPreviousFrame > maxErrors;
             if (isTooManyErrors)
             {
-                return new RequestStatistics
+                return new ErrorStatistics
                 {
                     IsTooManyErrors = true,
                     TimeFrameStatistics = currentTimeFrameStatistics
@@ -105,7 +105,7 @@ namespace Aer.Memcached.Client.CacheSync
 
             isTooManyErrors = numberOfErrorsInCurrentFrame + numberOfErrorsInPreviousFrame > maxErrors;
             
-            return new RequestStatistics
+            return new ErrorStatistics
             {
                 IsTooManyErrors = isTooManyErrors,
                 TimeFrameStatistics = currentTimeFrameStatistics

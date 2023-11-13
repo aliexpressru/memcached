@@ -5,7 +5,7 @@ namespace Aer.Memcached.Client.Models
     /// <summary>
     /// Represents object for <see cref="IErrorStatisticsStore"/> to operate with
     /// </summary>
-    public class RequestStatistics
+    public class ErrorStatistics
     {
         /// <summary>
         /// Current time frame statistics

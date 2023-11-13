@@ -67,8 +67,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
             services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
             services.AddSingleton<IErrorStatisticsStore, SlidingWindowStatisticsStore>();
-            
-            services.AddScoped<ICacheSyncClient, CacheSyncClient>();
+            services.AddSingleton<ICacheSyncClient, CacheSyncClient>();
         }
         
         return services;
