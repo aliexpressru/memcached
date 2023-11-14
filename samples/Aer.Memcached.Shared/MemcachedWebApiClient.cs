@@ -27,6 +27,20 @@ public class MemcachedWebApiClient
 
         return await GetResult<MultiGetResponse?>(msg);
     }
+    
+    public async Task<MultiStoreComplexResponse?> MultiStoreComplex(MultiStoreComplexRequest request)
+    {
+        var msg = await PostAsync("Memcached/multi-store-complex", request);
+
+        return await GetResult<MultiStoreComplexResponse?>(msg);
+    }
+
+    public async Task<MultiGetComplexResponse?> MultiGetComplex(MultiGetComplexRequest request)
+    {
+        var msg = await PostAsync("Memcached/multi-get-complex", request);
+
+        return await GetResult<MultiGetComplexResponse?>(msg);
+    }
 
     private async Task<HttpResponseMessage> PostAsync<T>(string requestUri, T data)
     {
