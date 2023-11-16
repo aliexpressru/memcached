@@ -31,7 +31,7 @@ public class CacheSyncClient: ICacheSyncClient
             .Retry(_config.SyncSettings.RetryCount);
     }
 
-    public async Task Sync<T>(
+    public async Task SyncAsync<T>(
         MemcachedConfiguration.SyncServer syncServer,
         CacheSyncModel<T> data, 
         CancellationToken token)

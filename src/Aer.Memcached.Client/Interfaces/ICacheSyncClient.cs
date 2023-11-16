@@ -5,7 +5,7 @@ namespace Aer.Memcached.Client.Interfaces;
 
 public interface ICacheSyncClient
 {
-    Task Sync<T>(
+    Task SyncAsync<T>(
         MemcachedConfiguration.SyncServer syncServer,
         CacheSyncModel<T> data,
         CancellationToken token);

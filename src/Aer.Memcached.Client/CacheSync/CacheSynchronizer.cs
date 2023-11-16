@@ -64,7 +64,7 @@ public class CacheSynchronizer : ICacheSynchronizer
                                 return;
                             }
 
-                            await _cacheSyncClient.Sync(syncServer, model, syncCancellationToken.Token);
+                            await _cacheSyncClient.SyncAsync(syncServer, model, syncCancellationToken.Token);
                         }
                         catch (Exception)
                         {

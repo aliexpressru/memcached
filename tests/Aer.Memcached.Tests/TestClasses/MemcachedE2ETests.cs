@@ -4,7 +4,6 @@ using Aer.Memcached.Tests.Helpers;
 using Aer.Memcached.WebApi;
 using AutoFixture;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Aer.Memcached.Tests.TestClasses;
@@ -27,7 +26,7 @@ public class MemcachedE2ETests
             Port = "5112"
         };
         
-        var httpServerFixture2 = new HttpServerFixture<Program>
+        var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
         {
             Port = "5113"
         };
@@ -35,21 +34,7 @@ public class MemcachedE2ETests
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
         
-        var keyValues = Enumerable.Range(0, 5)
-            .ToDictionary(_ => Guid.NewGuid().ToString(), _ => Guid.NewGuid().ToString());
-
-        await client1.MultiStore(new MultiStoreRequest
-        {
-            KeyValues = keyValues,
-            ExpirationTime = DateTimeOffset.UtcNow.AddMinutes(2)
-        });
-
-        var result = await client1.MultiGet(new MultiGetRequest
-        {
-            Keys = keyValues.Keys.ToArray()
-        });
-
-        result.KeyValues.Should().BeEquivalentTo(keyValues);
+        var keyValues = await StoreAndAssert(client1);
         
         var result2 = await client2.MultiGet(new MultiGetRequest
         {
@@ -70,7 +55,7 @@ public class MemcachedE2ETests
             Port = "5112"
         };
         
-        var httpServerFixture2 = new HttpServerFixture<Program>
+        var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
         {
             Port = "5113"
         };
@@ -103,5 +88,88 @@ public class MemcachedE2ETests
         
         await httpServerFixture1.DisposeAsync();
         await httpServerFixture2.DisposeAsync();
+    }
+    
+    [TestMethod]
+    public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_CircuitBreaker()
+    {
+        var httpServerFixture1 = new HttpServerFixture<Program>
+        {
+            Port = "5112"
+        };
+        
+        var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
+
+        var keyValuesArray = new List<Dictionary<string, string>>();
+        var maxErrors = 4;
+        Dictionary<string, string> keyValues;
+        MultiGetResponse? result;
+        // Store data while second cluster is off
+        for (int i = 0; i < maxErrors; i++)
+        {
+            keyValues = await StoreAndAssert(client1);
+            keyValuesArray.Add(keyValues);
+        }
+
+        // switch on second cluster
+        var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
+        {
+            Port = "5113"
+        };
+        
+        var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
+        
+        // store more data while second cluster is still off for synchronizer
+        keyValues = await StoreAndAssert(client1);
+        keyValuesArray.Add(keyValues);
+
+        // no data is stored is second cluster
+        MultiGetResponse? result2;
+        foreach (var keyValuesFromArr in keyValuesArray)
+        {
+            result2 = await client2.MultiGet(new MultiGetRequest
+            {
+                Keys = keyValuesFromArr.Keys.ToArray()
+            });
+
+            result2.KeyValues.Count.Should().Be(0);
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(1));
+
+        // store more data while second cluster is on for synchronizer
+        keyValues = await StoreAndAssert(client1);
+        keyValuesArray.Add(keyValues);
+        
+        result2 = await client2.MultiGet(new MultiGetRequest
+        {
+            Keys = keyValues.Keys.ToArray()
+        });
+
+        result2.KeyValues.Should().BeEquivalentTo(keyValues);
+        
+        await httpServerFixture1.DisposeAsync();
+        await httpServerFixture2.DisposeAsync();
+    }
+
+    private async Task<Dictionary<string, string>> StoreAndAssert(MemcachedWebApiClient client)
+    {
+        var keyValues = Enumerable.Range(0, 5)
+            .ToDictionary(_ => Guid.NewGuid().ToString(), _ => Guid.NewGuid().ToString());
+
+        await client.MultiStore(new MultiStoreRequest
+        {
+            KeyValues = keyValues,
+            ExpirationTime = DateTimeOffset.UtcNow.AddMinutes(2)
+        });
+
+        var result = await client.MultiGet(new MultiGetRequest
+        {
+            Keys = keyValues.Keys.ToArray()
+        });
+
+        result.KeyValues.Should().BeEquivalentTo(keyValues);
+
+        return keyValues;
     }
 }
