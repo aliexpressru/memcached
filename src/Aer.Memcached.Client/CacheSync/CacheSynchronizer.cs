@@ -19,6 +19,9 @@ public class CacheSynchronizer : ICacheSynchronizer
 
     private readonly ConcurrentDictionary<string, DateTimeOffset> _serverBySwitchOffTime;
 
+    private readonly SemaphoreSlim _syncWindowLocker;
+    private CacheSyncWindow _syncWindow;
+
     public CacheSynchronizer(
         ISyncServersProvider syncServersProvider,
         ICacheSyncClient cacheSyncClient,
@@ -34,6 +37,8 @@ public class CacheSynchronizer : ICacheSynchronizer
 
         _syncServers = _syncServersProvider.GetSyncServers();
         _serverBySwitchOffTime = new ConcurrentDictionary<string, DateTimeOffset>();
+
+        _syncWindowLocker = new SemaphoreSlim(1, 1);
     }
 
     public async Task SyncCache<T>(CacheSyncModel<T> model, CancellationToken token)
@@ -42,10 +47,21 @@ public class CacheSynchronizer : ICacheSynchronizer
         {
             if (_syncServersProvider.IsConfigured())
             {
+                if (model.KeyValues == null)
+                {
+                    return;
+                }
+                
                 var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
                 var syncCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
                 var utcNow = DateTimeOffset.UtcNow;
-
+                
+                await UpdateSyncWindowAndInputKeyValues(model, utcNow);
+                if (model.KeyValues.Count == 0)
+                {
+                    return;
+                }
+                
                 await Parallel.ForEachAsync(
                     _syncServers,
                     new ParallelOptions()
@@ -100,11 +116,71 @@ public class CacheSynchronizer : ICacheSynchronizer
                             throw;
                         }
                     });
+
+                UpdateKeyValuesInSyncWindow(model);
             }
         }
         catch (Exception)
         {
             // no need to crash if something goes wrong with sync
+        }
+    }
+
+    private async Task UpdateSyncWindowAndInputKeyValues<T>(CacheSyncModel<T> model, DateTimeOffset utcNow)
+    {
+        if (!_config.SyncSettings.CacheSyncInterval.HasValue)
+        {
+            return;
+        }
+
+        if (_syncWindow != null)
+        {
+            if (utcNow > _syncWindow.OpenUntil)
+            {
+                await _syncWindowLocker.WaitAsync();
+                
+                _syncWindow.OpenUntil = utcNow.Add(_config.SyncSettings.CacheSyncInterval.Value);
+                _syncWindow.SyncedKeyValues = new ConcurrentDictionary<string, DateTimeOffset>();
+
+                _syncWindowLocker.Release();
+            }
+            else
+            {
+                foreach (var syncedKeyValue in _syncWindow.SyncedKeyValues)
+                {
+                    if (model.KeyValues.ContainsKey(syncedKeyValue.Key) &&
+                        model.ExpirationTime.HasValue &&
+                        model.ExpirationTime.Value.Equals(syncedKeyValue.Value))
+                    {
+                        model.KeyValues.Remove(syncedKeyValue.Key);
+                    }
+                }   
+            }
+        }
+        else
+        {
+            await _syncWindowLocker.WaitAsync();
+            
+            _syncWindow = new CacheSyncWindow
+            {
+                OpenUntil = utcNow.Add(_config.SyncSettings.CacheSyncInterval.Value),
+                SyncedKeyValues = new ConcurrentDictionary<string, DateTimeOffset>()
+            };
+            
+            _syncWindowLocker.Release();
+        }
+    }
+
+    private void UpdateKeyValuesInSyncWindow<T>(CacheSyncModel<T> model)
+    {
+        if (_syncWindow == null || !model.ExpirationTime.HasValue)
+        {
+            return;
+        }
+
+        foreach (var inputKeyValue in model.KeyValues)
+        {
+            _syncWindow.SyncedKeyValues.TryAdd(inputKeyValue.Key, model.ExpirationTime.Value);
         }
     }
 }

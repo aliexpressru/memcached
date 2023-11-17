@@ -232,6 +232,11 @@ public class MemcachedConfiguration
         public SyncServer[] SyncServers { get; set; }
         
         public CacheSyncCircuitBreakerSettings CacheSyncCircuitBreaker { get; set; }
+        
+        /// <summary>
+        /// Sync interval to avoid multiple rewritings
+        /// </summary>
+        public TimeSpan? CacheSyncInterval { get; set; }
     }
 
     public class SyncServer
