@@ -28,9 +28,10 @@ public class CacheSyncClient: ICacheSyncClient
         _logger = logger;
 
         _retryPolicy = Policy.Handle<Exception>()
-            .Retry(_config.SyncSettings.RetryCount);
+            .Retry(_config.SyncSettings?.RetryCount ?? 3);
     }
 
+    /// <inheritdoc />
     public async Task SyncAsync<T>(
         MemcachedConfiguration.SyncServer syncServer,
         CacheSyncModel<T> data, 

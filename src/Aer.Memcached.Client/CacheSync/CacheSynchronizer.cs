@@ -41,6 +41,7 @@ public class CacheSynchronizer : ICacheSynchronizer
         _syncWindowLocker = new SemaphoreSlim(1, 1);
     }
 
+    /// <inheritdoc />
     public async Task SyncCache<T>(CacheSyncModel<T> model, CancellationToken token)
     {
         try

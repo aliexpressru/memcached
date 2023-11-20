@@ -53,6 +53,9 @@ public class MemcachedConfiguration
     /// </summary>
     public ExpirationJitterSettings ExpirationJitter { get; set; }
     
+    /// <summary>
+    /// Sync settings to store data in multiple clusters
+    /// </summary>
     public SynchronizationSettings SyncSettings { get; set; }
 
     /// <summary>
@@ -221,16 +224,36 @@ public class MemcachedConfiguration
 
     public class SynchronizationSettings
     {
+        /// <summary>
+        /// Endpoint that is created by current service to allow other services to sync data
+        /// </summary>
         public string SyncEndpoint { get; set; } = DefaultSyncEndpoint;
         
+        /// <summary>
+        /// Name of environment variable to get current cluster name
+        /// It is needed to filter out sync servers and don't try to send data
+        /// to a service itself
+        /// </summary>
         public string ClusterNameEnvVariable { get; set; }
 
+        /// <summary>
+        /// Number of retries to send data to a sync server
+        /// </summary>
         public int RetryCount { get; set; } = 3;
 
+        /// <summary>
+        /// Time to sync data before a task is cancelled
+        /// </summary>
         public TimeSpan TimeToSync { get; set; } = TimeSpan.FromSeconds(1);
         
+        /// <summary>
+        /// Sync Servers
+        /// </summary>
         public SyncServer[] SyncServers { get; set; }
         
+        /// <summary>
+        /// Settings of circuit breaker
+        /// </summary>
         public CacheSyncCircuitBreakerSettings CacheSyncCircuitBreaker { get; set; }
         
         /// <summary>
@@ -241,8 +264,14 @@ public class MemcachedConfiguration
 
     public class SyncServer
     {
+        /// <summary>
+        /// Http address of a server
+        /// </summary>
         public string Address { get; set; }
         
+        /// <summary>
+        /// Name of a cluster
+        /// </summary>
         public string ClusterName { get; set; }
     }
 

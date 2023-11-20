@@ -40,12 +40,19 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICommandExecutor<Pod>, CommandExecutor<Pod>>();
         services.AddSingleton<IExpirationCalculator, ExpirationCalculator>();
         
+        services.AddHttpClient();
+        services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
+        services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
+        services.AddSingleton<IErrorStatisticsStore, SlidingWindowStatisticsStore>();
+        services.AddSingleton<ICacheSyncClient, CacheSyncClient>();
+
         services.AddHostedService<MemcachedMaintainer<Pod>>();
         services.AddScoped<IMemcachedClient, MemcachedClient<Pod>>();
 
         services.AddSingleton<IAuthenticationProvider, DefaultAuthenticationProvider>();
-        services.Configure<MemcachedConfiguration.AuthenticationCredentials>(configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
-        
+        services.Configure<MemcachedConfiguration.AuthenticationCredentials>(
+            configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
+
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
         if (!config.Diagnostics.DisableDiagnostics)
         {
@@ -59,35 +66,26 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<LoggingMemcachedDiagnosticListener>();
             services.AddSingleton(MemcachedDiagnosticSource.Instance);
         }
-
-        if (config.SyncSettings != null)
-        {
-            services.AddHttpClient();
-            
-            services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
-            services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
-            services.AddSingleton<IErrorStatisticsStore, SlidingWindowStatisticsStore>();
-            services.AddSingleton<ICacheSyncClient, CacheSyncClient>();
-        }
         
         return services;
     }
-    
-    public static IApplicationBuilder EnableMemcachedDiagnostics(this IApplicationBuilder applicationBuilder, IConfiguration configuration)
+
+    public static IApplicationBuilder EnableMemcachedDiagnostics(this IApplicationBuilder applicationBuilder,
+        IConfiguration configuration)
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
-        
+
         if (!config.Diagnostics.DisableDiagnostics)
         {
-            DiagnosticListener diagnosticSource = 
+            DiagnosticListener diagnosticSource =
                 applicationBuilder.ApplicationServices.GetRequiredService<MemcachedDiagnosticSource>();
-            
-            var metricsListener = 
+
+            var metricsListener =
                 applicationBuilder.ApplicationServices.GetRequiredService<MetricsMemcachedDiagnosticListener>();
-            
-            var loggingListener = 
+
+            var loggingListener =
                 applicationBuilder.ApplicationServices.GetRequiredService<LoggingMemcachedDiagnosticListener>();
-            
+
             diagnosticSource.SubscribeWithAdapter(metricsListener);
             diagnosticSource.SubscribeWithAdapter(loggingListener);
         }
@@ -106,8 +104,8 @@ public static class ServiceCollectionExtensions
                     CancellationToken token) =>
                 {
                     await memcachedClient.MultiStoreAsync(
-                        model.KeyValues, 
-                        model.ExpirationTime, 
+                        model.KeyValues,
+                        model.ExpirationTime,
                         token,
                         isManualSyncOn: false);
                 });

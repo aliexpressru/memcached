@@ -456,7 +456,8 @@ public class MemcachedClientTests : MemcachedClientTestsBase
                 authProvider,
                 loggerMock,
                 nodeLocator),
-            expirationCalculator
+            expirationCalculator,
+            null
         );
 
         var key = new string('*', 251); // this key is too long to be stored

@@ -24,7 +24,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         INodeLocator<TNode> nodeLocator,
         ICommandExecutor<TNode> commandExecutor,
         IExpirationCalculator expirationCalculator,
-        ICacheSynchronizer cacheSynchronizer = null) // TODO: remove default
+        ICacheSynchronizer cacheSynchronizer)
     {
         _nodeLocator = nodeLocator;
         _commandExecutor = commandExecutor;
@@ -101,7 +101,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
-        if (isManualSyncOn && _cacheSynchronizer != null)
+        if (isManualSyncOn)
         {
             await _cacheSynchronizer.SyncCache(new CacheSyncModel<T>
             {
