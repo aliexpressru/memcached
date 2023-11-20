@@ -44,15 +44,15 @@ public class CacheSynchronizer : ICacheSynchronizer
     /// <inheritdoc />
     public async Task SyncCache<T>(CacheSyncModel<T> model, CancellationToken token)
     {
+        if (model.KeyValues == null)
+        {
+            return;
+        }
+        
         try
         {
             if (_syncServersProvider.IsConfigured())
             {
-                if (model.KeyValues == null)
-                {
-                    return;
-                }
-                
                 var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
                 var syncCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
                 var utcNow = DateTimeOffset.UtcNow;
