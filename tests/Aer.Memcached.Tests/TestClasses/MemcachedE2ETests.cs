@@ -1,9 +1,13 @@
+using Aer.Memcached.Client.Config;
 using Aer.Memcached.Shared;
 using Aer.Memcached.Shared.Models;
 using Aer.Memcached.Tests.Helpers;
 using Aer.Memcached.WebApi;
 using AutoFixture;
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Aer.Memcached.Tests.TestClasses;
@@ -21,15 +25,62 @@ public class MemcachedE2ETests
     [TestMethod]
     public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_Success()
     {
+        var port1 = "5112";
+        var port2 = "5113";
+        
         var httpServerFixture1 = new HttpServerFixture<Program>
         {
-            Port = "5112"
-        };
-        
+            Port = port1
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new [] {new MemcachedConfiguration.SyncServer
+                        {
+                            Address = $"http://localhost:{port2}",
+                            ClusterName = "test2"
+                        }},
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
+
         var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
         {
-            Port = "5113"
-        };
+            Port = port2
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new [] {new MemcachedConfiguration.SyncServer
+                        {
+                            Address = $"http://localhost:{port1}",
+                            ClusterName = "test1"
+                        }},
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });;
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -50,15 +101,62 @@ public class MemcachedE2ETests
     [TestMethod]
     public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_ComplexModel_Success()
     {
+        var port1 = "5114";
+        var port2 = "5115";
+        
         var httpServerFixture1 = new HttpServerFixture<Program>
         {
-            Port = "5112"
-        };
-        
+            Port = port1
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new [] {new MemcachedConfiguration.SyncServer
+                        {
+                            Address = $"http://localhost:{port2}",
+                            ClusterName = "test2"
+                        }},
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
+
         var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
         {
-            Port = "5113"
-        };
+            Port = port2
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new [] {new MemcachedConfiguration.SyncServer
+                        {
+                            Address = $"http://localhost:{port1}",
+                            ClusterName = "test1"
+                        }},
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });;
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -93,10 +191,35 @@ public class MemcachedE2ETests
     [TestMethod]
     public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_CircuitBreaker()
     {
+        var port1 = "5116";
+        var port2 = "5117";
+        
         var httpServerFixture1 = new HttpServerFixture<Program>
         {
-            Port = "5112"
-        };
+            Port = port1
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new [] {new MemcachedConfiguration.SyncServer
+                        {
+                            Address = $"http://localhost:{port2}",
+                            ClusterName = "test2"
+                        }},
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
         
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
 
@@ -114,8 +237,30 @@ public class MemcachedE2ETests
         // switch on second cluster
         var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
         {
-            Port = "5113"
-        };
+            Port = port2
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new [] {new MemcachedConfiguration.SyncServer
+                        {
+                            Address = $"http://localhost:{port1}",
+                            ClusterName = "test1"
+                        }},
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });;
         
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
         
