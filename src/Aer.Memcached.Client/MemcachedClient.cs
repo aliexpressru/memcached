@@ -18,15 +18,18 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     private readonly INodeLocator<TNode> _nodeLocator;
     private readonly ICommandExecutor<TNode> _commandExecutor;
     private readonly IExpirationCalculator _expirationCalculator;
+    private readonly ICacheSynchronizer _cacheSynchronizer;
 
     public MemcachedClient(
         INodeLocator<TNode> nodeLocator,
         ICommandExecutor<TNode> commandExecutor,
-        IExpirationCalculator expirationCalculator)
+        IExpirationCalculator expirationCalculator,
+        ICacheSynchronizer cacheSynchronizer)
     {
         _nodeLocator = nodeLocator;
         _commandExecutor = commandExecutor;
         _expirationCalculator = expirationCalculator;
+        _cacheSynchronizer = cacheSynchronizer;
     }
 
     /// <inheritdoc />
@@ -75,50 +78,36 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
 
-        if (batchingOptions is not null)
+        await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
+    }
+    
+    /// <inheritdoc />
+    public async Task MultiStoreAsync<T>(
+        Dictionary<string, T> keyValues, 
+        DateTimeOffset? expirationTime, 
+        CancellationToken token,
+        StoreMode storeMode = StoreMode.Set,
+        BatchingOptions batchingOptions = null,
+        CacheSyncOptions cacheSyncOptions = null,
+        uint replicationFactor = 0)
+    {
+        var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
+        if (nodes.Keys.Count == 0)
         {
-            await MultiStoreBatchedInternalAsync(
-                nodes,
-                keyValues,
-                batchingOptions,
-                keyToExpirationMap,
-                storeMode,
-                token);
-            
             return;
         }
 
-        var setTasks = new List<Task>(nodes.Count);
-        var commandsToDispose = new List<MemcachedCommandBase>(nodes.Count);
+        var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
 
-        foreach (var replicatedNode in nodes)
+        await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
+
+        if (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn)
         {
-            var keys = replicatedNode.Value;
-            
-            foreach (var node in replicatedNode.Key.EnumerateNodes())
+            await _cacheSynchronizer.SyncCache(new CacheSyncModel<T>
             {
-                var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
-                
-                foreach (var key in keys)
-                {
-                    keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
-                }
-
-                var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap);
-
-                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
-                
-                setTasks.Add(executeTask);
-                commandsToDispose.Add(command);
-            }
-        }
-
-        await Task.WhenAll(setTasks);
-        
-        // dispose only after deserialization is done and allocated memory from array pool can be returned
-        foreach (var commandBase in commandsToDispose)
-        {
-            commandBase.Dispose();
+                KeyValues = keyValues,
+                ExpirationTime = expirationTime
+            }, cacheSyncOptions, token);
         }
     }
     
@@ -359,6 +348,61 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }        
     }
     
+    private async Task MultiStoreInternalAsync<T>(
+        IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
+        Dictionary<string, uint> keyToExpirationMap,
+        Dictionary<string, T> keyValues, 
+        CancellationToken token, 
+        StoreMode storeMode = StoreMode.Set,
+        BatchingOptions batchingOptions = null)
+    {
+        if (batchingOptions is not null)
+        {
+            await MultiStoreBatchedInternalAsync(
+                nodes,
+                keyValues,
+                batchingOptions,
+                keyToExpirationMap,
+                storeMode,
+                token);
+            
+            return;
+        }
+
+        var setTasks = new List<Task>(nodes.Count);
+        var commandsToDispose = new List<MemcachedCommandBase>(nodes.Count);
+
+        foreach (var replicatedNode in nodes)
+        {
+            var keys = replicatedNode.Value;
+            
+            foreach (var node in replicatedNode.Key.EnumerateNodes())
+            {
+                var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
+                
+                foreach (var key in keys)
+                {
+                    keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                }
+
+                var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap);
+
+                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+                
+                setTasks.Add(executeTask);
+                commandsToDispose.Add(command);
+            }
+        }
+
+        await Task.WhenAll(setTasks);
+        
+        // dispose only after deserialization is done and allocated memory from array pool can be returned
+        foreach (var commandBase in commandsToDispose)
+        {
+            commandBase.Dispose();
+        }
+    }
+    
     private async Task MultiStoreBatchedInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, T> keyValues,
@@ -497,12 +541,5 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                     }
                 }
             });
-    }
-
-    private uint GetExpiration(TimeSpan? expirationTime)
-    {
-        return expirationTime.HasValue
-            ? (uint)(DateTimeOffset.UtcNow + expirationTime.Value).ToUnixTimeSeconds()
-            : 0;
     }
 }

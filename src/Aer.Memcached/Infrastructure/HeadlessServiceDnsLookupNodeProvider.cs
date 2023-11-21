@@ -1,4 +1,5 @@
 using System.Net;
+using Aer.Memcached.Abstractions;
 using Aer.Memcached.Client.Config;
 using Microsoft.Extensions.Options;
 

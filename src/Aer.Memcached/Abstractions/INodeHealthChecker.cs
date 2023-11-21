@@ -1,6 +1,6 @@
 using Aer.ConsistentHash.Abstractions;
 
-namespace Aer.Memcached;
+namespace Aer.Memcached.Abstractions;
 
 public interface INodeHealthChecker<in TNode> where TNode: class, INode
 {

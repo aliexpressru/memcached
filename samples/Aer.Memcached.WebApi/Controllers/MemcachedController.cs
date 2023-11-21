@@ -1,4 +1,6 @@
 using Aer.Memcached.Client.Interfaces;
+using Aer.Memcached.Shared;
+using Aer.Memcached.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Aer.Memcached.WebApi.Controllers;
@@ -14,21 +16,41 @@ public class MemcachedController : ControllerBase
         _memcachedClient = memcachedClient;
     }
 
-    [HttpGet(Name = "GetByKey")]
-    public async Task<string> Get(string key)
+    [HttpPost("multi-store")]
+    public async Task<ActionResult<MultiStoreResponse>> Get(MultiStoreRequest request)
     {
-        var getResult = await _memcachedClient.GetAsync<string>(key, CancellationToken.None);
-        var value = getResult.Result;
+        await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
 
-        if (value == null)
+        return Ok(new MultiStoreResponse());
+    }
+    
+    [HttpPost("multi-get")]
+    public async Task<ActionResult<MultiGetResponse>> Get(MultiGetRequest request)
+    {
+        var result = await _memcachedClient.MultiGetAsync<string>(request.Keys, CancellationToken.None);
+
+        return Ok(new MultiGetResponse()
         {
-            await _memcachedClient.StoreAsync(
-                key, 
-                Guid.NewGuid().ToString(), 
-                TimeSpan.FromSeconds(30), 
-                CancellationToken.None);
-        }
+            KeyValues = result
+        });
+    }
+    
+    [HttpPost("multi-store-complex")]
+    public async Task<ActionResult<MultiStoreResponse>> Get(MultiStoreComplexRequest request)
+    {
+        await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
 
-        return value;
+        return Ok(new MultiStoreComplexResponse());
+    }
+    
+    [HttpPost("multi-get-complex")]
+    public async Task<ActionResult<MultiGetComplexResponse>> Get(MultiGetComplexRequest request)
+    {
+        var result = await _memcachedClient.MultiGetAsync<ComplexModel>(request.Keys, CancellationToken.None);
+
+        return Ok(new MultiGetComplexResponse()
+        {
+            KeyValues = result
+        });
     }
 }

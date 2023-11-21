@@ -41,9 +41,31 @@ public class ExpirationCalculator: IExpirationCalculator
     /// <inheritdoc />
     public Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, TimeSpan? expirationTime)
     {
-        var result = new Dictionary<string, uint>();
-
         var utcNow = DateTimeOffset.UtcNow;
+        
+        return GetExpirationInternal(keys, utcNow, expirationTime);
+    }
+    
+    /// <inheritdoc />
+    public Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, DateTimeOffset? expirationTime)
+    {
+        TimeSpan? timeSpan = null;
+        var utcNow = DateTimeOffset.UtcNow;
+        
+        if (expirationTime.HasValue && expirationTime.Value > utcNow)
+        {
+            timeSpan = expirationTime.Value.Subtract(utcNow);
+        }
+
+        return GetExpirationInternal(keys, utcNow, timeSpan);
+    }
+    
+    private Dictionary<string, uint> GetExpirationInternal(
+        IEnumerable<string> keys, 
+        DateTimeOffset utcNow,
+        TimeSpan? expirationTime)
+    {
+        var result = new Dictionary<string, uint>();
 
         if (_expirationJitterSettings == null)
         {

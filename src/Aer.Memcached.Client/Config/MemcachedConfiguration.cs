@@ -9,6 +9,11 @@ public class MemcachedConfiguration
     /// The default port for memcached service.
     /// </summary>
     public const int DefaultMemcachedPort = 11211;
+
+    /// <summary>
+    /// The default sync endpoint
+    /// </summary>
+    public const string DefaultSyncEndpoint = "/memcached/multi-store";
     
     /// <summary>
     /// List of servers with hosted memcached
@@ -47,6 +52,11 @@ public class MemcachedConfiguration
     /// Enables additional jitter for key expiration if property is not null
     /// </summary>
     public ExpirationJitterSettings ExpirationJitter { get; set; }
+    
+    /// <summary>
+    /// Sync settings to store data in multiple clusters
+    /// </summary>
+    public SynchronizationSettings SyncSettings { get; set; }
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified
@@ -210,5 +220,76 @@ public class MemcachedConfiguration
         public double MultiplicationFactor { get; set; }
 
         public ulong SpreadFactor { get; set; } = 100;
+    }
+
+    public class SynchronizationSettings
+    {
+        /// <summary>
+        /// Endpoint that is created by current service to allow other services to sync data
+        /// </summary>
+        public string SyncEndpoint { get; set; } = DefaultSyncEndpoint;
+        
+        /// <summary>
+        /// Name of environment variable to get current cluster name
+        /// It is needed to filter out sync servers and don't try to send data
+        /// to a service itself
+        /// </summary>
+        public string ClusterNameEnvVariable { get; set; }
+
+        /// <summary>
+        /// Number of retries to send data to a sync server
+        /// </summary>
+        public int RetryCount { get; set; } = 3;
+
+        /// <summary>
+        /// Time to sync data before a task is cancelled
+        /// </summary>
+        public TimeSpan TimeToSync { get; set; } = TimeSpan.FromSeconds(1);
+        
+        /// <summary>
+        /// Sync Servers
+        /// </summary>
+        public SyncServer[] SyncServers { get; set; }
+        
+        /// <summary>
+        /// Settings of circuit breaker
+        /// </summary>
+        public CacheSyncCircuitBreakerSettings CacheSyncCircuitBreaker { get; set; }
+        
+        /// <summary>
+        /// Sync interval to avoid multiple rewritings
+        /// </summary>
+        public TimeSpan? CacheSyncInterval { get; set; }
+    }
+
+    public class SyncServer
+    {
+        /// <summary>
+        /// Http address of a server
+        /// </summary>
+        public string Address { get; set; }
+        
+        /// <summary>
+        /// Name of a cluster
+        /// </summary>
+        public string ClusterName { get; set; }
+    }
+
+    public class CacheSyncCircuitBreakerSettings
+    {
+        /// <summary>
+        /// Time window for counting errors
+        /// </summary>
+        public TimeSpan Interval { get; set; } = TimeSpan.FromSeconds(15);
+
+        /// <summary>
+        /// Max errors in the <see cref="Interval"/>
+        /// </summary>
+        public int MaxErrors { get; set; } = 50;
+
+        /// <summary>
+        /// When <see cref="MaxErrors"/> reached switch of sync to a server for <see cref="SwitchOffTime"/>
+        /// </summary>
+        public TimeSpan SwitchOffTime { get; set; } = TimeSpan.FromMinutes(5);
     }
 }

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks.Dataflow;
 using Aer.ConsistentHash.Abstractions;
 using Aer.ConsistentHash.Infrastructure;
+using Aer.Memcached.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Microsoft.Extensions.Hosting;

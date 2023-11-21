@@ -2,6 +2,7 @@
 using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
+using Aer.Memcached.Client.CacheSync;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Diagnostics.Listeners;
@@ -58,17 +59,20 @@ public abstract class MemcachedClientTestsBase
 		
 		var authProvider = new DefaultAuthenticationProvider(
 			new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
+
+		var configWrapper = new OptionsWrapper<MemcachedConfiguration>(config);
 		
-		var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
+		var expirationCalculator = new ExpirationCalculator(hashCalculator, configWrapper);
 
 		Client = new MemcachedClient<Pod>(
 			nodeLocator,
 			new CommandExecutor<Pod>(
-				new OptionsWrapper<MemcachedConfiguration>(config),
+				configWrapper,
 				authProvider,
 				commandExecutorLogger,
 				nodeLocator),
-			expirationCalculator
+			expirationCalculator,
+			null
 		);
 
 		Fixture = new Fixture();
