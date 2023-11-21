@@ -1,6 +1,7 @@
 using System.Net.Mime;
 using System.Text;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Extensions;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Microsoft.Extensions.Logging;
@@ -49,7 +50,7 @@ public class CacheSyncClient: ICacheSyncClient
                     MediaTypeNames.Application.Json);
 
                 var baseUri = new Uri(syncServer.Address);
-                var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + $"-{typeof(T).Name.ToLowerInvariant()}");
+                var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>());
 
                 var response = await httpClient.PostAsync(endpointUri, content, token);
 
@@ -58,7 +59,7 @@ public class CacheSyncClient: ICacheSyncClient
         }
         catch (Exception e)
         {
-            _logger.LogError(e, $"Unable to sync data to {syncServer.Address}");
+            _logger.LogError(e, "Unable to sync data to {SyncServerAddress}", syncServer.Address);
 
             throw;
         }

@@ -43,86 +43,91 @@ public class CacheSynchronizer : ICacheSynchronizer
 
     /// <inheritdoc />
     public async Task SyncCache<T>(
-        CacheSyncModel<T> model, 
-        CacheSyncOptions cacheSyncOptions, 
+        CacheSyncModel<T> model,
+        CacheSyncOptions cacheSyncOptions,
         CancellationToken token)
     {
         if (model.KeyValues == null)
         {
             return;
         }
-        
+
+        if (!_syncServersProvider.IsConfigured())
+        {
+            return;
+        }
+
         try
         {
-            if (_syncServersProvider.IsConfigured())
+            var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
+            var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
+            var utcNow = DateTimeOffset.UtcNow;
+
+            await UpdateSyncWindowAndInputKeyValues(model, cacheSyncOptions, utcNow);
+            if (model.KeyValues.Count == 0)
             {
-                var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
-                var syncCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
-                var utcNow = DateTimeOffset.UtcNow;
-                
-                await UpdateSyncWindowAndInputKeyValues(model, cacheSyncOptions, utcNow);
-                if (model.KeyValues.Count == 0)
-                {
-                    return;
-                }
-                
-                await Parallel.ForEachAsync(
-                    _syncServers,
-                    new ParallelOptions()
-                    {
-                        MaxDegreeOfParallelism = Environment.ProcessorCount
-                    },
-                    async (syncServer, _) =>
-                    {
-                        var serverKey = syncServer.Address;
-
-                        try
-                        {
-                            if (_serverBySwitchOffTime.TryGetValue(serverKey, out var switchOffTime) &&
-                                switchOffTime > utcNow)
-                            {
-                                return;
-                            }
-
-                            await _cacheSyncClient.SyncAsync(syncServer, model, syncCancellationToken.Token);
-                        }
-                        catch (Exception)
-                        {
-                            if (_config.SyncSettings.CacheSyncCircuitBreaker != null)
-                            {
-                                var errorStatistics = await _errorStatisticsStore.GetErrorStatisticsAsync(serverKey,
-                                    _config.SyncSettings.CacheSyncCircuitBreaker.MaxErrors,
-                                    _config.SyncSettings.CacheSyncCircuitBreaker.Interval);
-
-                                if (errorStatistics.IsTooManyErrors)
-                                {
-                                    _serverBySwitchOffTime.AddOrUpdate(serverKey,
-                                        utcNow.Add(_config.SyncSettings.CacheSyncCircuitBreaker.SwitchOffTime),
-                                        (_, oldValue) =>
-                                        {
-                                            if (oldValue < utcNow)
-                                            {
-                                                var newSwitchOffTime = utcNow.Add(_config.SyncSettings
-                                                    .CacheSyncCircuitBreaker
-                                                    .SwitchOffTime);
-
-                                                return newSwitchOffTime;
-                                            }
-
-                                            return oldValue;
-                                        });
-                                    
-                                    _logger.LogError(
-                                        $"Sync to {serverKey} is switched off until {_serverBySwitchOffTime[serverKey]}, reason: too many errors");
-                                }
-                            }
-
-                            throw;
-                        }
-                    });
-
-                UpdateKeyValuesInSyncWindow(model);
+                return;
             }
+
+            await Parallel.ForEachAsync(
+                _syncServers,
+                new ParallelOptions()
+                {
+                    MaxDegreeOfParallelism = Environment.ProcessorCount,
+                    CancellationToken = syncCancellationTokenSource.Token
+                }, async (syncServer, cancellationToken) =>
+                {
+                    var serverKey = syncServer.Address;
+
+                    try
+                    {
+                        if (_serverBySwitchOffTime.TryGetValue(serverKey, out var switchOffTime) &&
+                            switchOffTime > utcNow)
+                        {
+                            return;
+                        }
+
+                        await _cacheSyncClient.SyncAsync(syncServer, model, cancellationToken);
+                    }
+                    catch (Exception)
+                    {
+                        if (_config.SyncSettings.CacheSyncCircuitBreaker != null)
+                        {
+                            var errorStatistics = await _errorStatisticsStore.GetErrorStatisticsAsync(serverKey,
+                                _config.SyncSettings.CacheSyncCircuitBreaker.MaxErrors,
+                                _config.SyncSettings.CacheSyncCircuitBreaker.Interval);
+
+                            if (errorStatistics.IsTooManyErrors)
+                            {
+                                _serverBySwitchOffTime.AddOrUpdate(serverKey,
+                                    utcNow.Add(_config.SyncSettings.CacheSyncCircuitBreaker.SwitchOffTime),
+                                    (_, oldValue) =>
+                                    {
+                                        if (oldValue < utcNow)
+                                        {
+                                            var newSwitchOffTime = utcNow.Add(_config.SyncSettings
+                                                .CacheSyncCircuitBreaker
+                                                .SwitchOffTime);
+
+                                            return newSwitchOffTime;
+                                        }
+
+                                        return oldValue;
+                                    });
+
+                                _logger.LogError(
+                                    "Sync to {SererKey} is switched off until {SwitchOffThresholdTime}, reason: too many errors",
+                                    serverKey,
+                                    _serverBySwitchOffTime[serverKey]
+                                );
+                            }
+                        }
+
+                        throw;
+                    }
+                });
+
+            UpdateKeyValuesInSyncWindow(model);
         }
         catch (Exception)
         {
@@ -131,8 +136,8 @@ public class CacheSynchronizer : ICacheSynchronizer
     }
 
     private async Task UpdateSyncWindowAndInputKeyValues<T>(
-        CacheSyncModel<T> model, 
-        CacheSyncOptions cacheSyncOptions, 
+        CacheSyncModel<T> model,
+        CacheSyncOptions cacheSyncOptions,
         DateTimeOffset utcNow)
     {
         if (!_config.SyncSettings.CacheSyncInterval.HasValue)
@@ -145,13 +150,13 @@ public class CacheSynchronizer : ICacheSynchronizer
             if (utcNow > _syncWindow.OpenUntil)
             {
                 await _syncWindowLocker.WaitAsync();
-                
+
                 _syncWindow.OpenUntil = utcNow.Add(_config.SyncSettings.CacheSyncInterval.Value);
                 _syncWindow.SyncedKeyValues = new ConcurrentDictionary<string, DateTimeOffset>();
 
                 _syncWindowLocker.Release();
             }
-            else if(cacheSyncOptions == null || cacheSyncOptions.ForceUpdate == false) 
+            else if (cacheSyncOptions == null || cacheSyncOptions.ForceUpdate == false)
                 // if force update is not passed then filter out values
                 // skip it otherwise
             {
@@ -163,19 +168,19 @@ public class CacheSynchronizer : ICacheSynchronizer
                     {
                         model.KeyValues.Remove(syncedKeyValue.Key);
                     }
-                }   
+                }
             }
         }
         else
         {
             await _syncWindowLocker.WaitAsync();
-            
+
             _syncWindow = new CacheSyncWindow
             {
                 OpenUntil = utcNow.Add(_config.SyncSettings.CacheSyncInterval.Value),
                 SyncedKeyValues = new ConcurrentDictionary<string, DateTimeOffset>()
             };
-            
+
             _syncWindowLocker.Release();
         }
     }

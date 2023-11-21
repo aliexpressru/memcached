@@ -44,7 +44,7 @@ public class SlidingWindowStatisticsStoreTests
 
         await Task.WhenAll(tasks);
 
-        tasks.Count(t => t.Result.IsTooManyErrors == true).Should().Be(numberOfExceededErrors);
+        tasks.Count(t => t.Result.IsTooManyErrors).Should().Be(numberOfExceededErrors);
     }
 
     [TestMethod]

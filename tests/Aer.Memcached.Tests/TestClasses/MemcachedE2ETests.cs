@@ -5,7 +5,6 @@ using Aer.Memcached.Tests.Helpers;
 using Aer.Memcached.WebApi;
 using AutoFixture;
 using FluentAssertions;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -226,7 +225,6 @@ public class MemcachedE2ETests
         var keyValuesArray = new List<Dictionary<string, string>>();
         var maxErrors = 4;
         Dictionary<string, string> keyValues;
-        MultiGetResponse? result;
         // Store data while second cluster is off
         for (int i = 0; i < maxErrors; i++)
         {
@@ -269,7 +267,7 @@ public class MemcachedE2ETests
         keyValuesArray.Add(keyValues);
 
         // no data is stored is second cluster
-        MultiGetResponse? result2;
+        MultiGetResponse result2;
         foreach (var keyValuesFromArr in keyValuesArray)
         {
             result2 = await client2.MultiGet(new MultiGetRequest

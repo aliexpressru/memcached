@@ -9,6 +9,9 @@ public class DefaultSyncServersProvider: ISyncServersProvider
     private readonly MemcachedConfiguration _config;
 
     private readonly string _currentCluster;
+    private readonly bool _isConfigured;
+
+    private MemcachedConfiguration.SyncServer[] _syncServers;
     
     public DefaultSyncServersProvider(IOptions<MemcachedConfiguration> config)
     {
@@ -18,24 +21,38 @@ public class DefaultSyncServersProvider: ISyncServersProvider
         {
             _currentCluster = Environment.GetEnvironmentVariable(_config.SyncSettings.ClusterNameEnvVariable);    
         }
+
+        if (_config.SyncSettings != null && _config.SyncSettings.SyncServers?.Length != 0)
+        {
+            _isConfigured = true;
+        }
     }
     
     public MemcachedConfiguration.SyncServer[] GetSyncServers()
     {
-        if (IsConfigured())
+        if (_syncServers != null)
+        {
+            return _syncServers;
+        }
+        
+        if (_isConfigured)
         {
             var servers = _config.SyncSettings.SyncServers;
 
-            return servers
+            _syncServers = servers
                 .Where(s => s.ClusterName != _currentCluster)
                 .ToArray();
         }
-
-        return Array.Empty<MemcachedConfiguration.SyncServer>();
+        else
+        {
+            _syncServers = Array.Empty<MemcachedConfiguration.SyncServer>();    
+        }
+        
+        return _syncServers;
     }
 
     public bool IsConfigured()
     {
-        return _config.SyncSettings != null && _config.SyncSettings.SyncServers?.Length != 0;
+        return _isConfigured;
     }
 }

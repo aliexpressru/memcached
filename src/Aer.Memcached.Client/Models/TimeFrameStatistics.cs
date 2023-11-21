@@ -1,21 +1,20 @@
-namespace Aer.Memcached.Client.Models
+namespace Aer.Memcached.Client.Models;
+
+/// <summary>
+/// Class wrapper to calculate number of errors
+/// </summary>
+public class TimeFrameStatistics
 {
-    /// <summary>
-    /// Class wrapper to calculate number of errors
-    /// </summary>
-    public class TimeFrameStatistics
+    private long _numberOfErrors;
+
+    public long NumberOfErrors
     {
-        private long _numberOfErrors;
+        get => _numberOfErrors;
+        init => _numberOfErrors = value;
+    }
 
-        public long NumberOfErrors
-        {
-            get => _numberOfErrors;
-            init => _numberOfErrors = value;
-        }
-
-        public long IncrementRequests()
-        {
-            return Interlocked.Increment(ref _numberOfErrors);
-        }
+    public long IncrementRequests()
+    {
+        return Interlocked.Increment(ref _numberOfErrors);
     }
 }

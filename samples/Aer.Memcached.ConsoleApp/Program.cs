@@ -26,7 +26,7 @@ var client = new MemcachedClient<Pod>(
         commandExecutorLogger,
         nodeLocator),
     expirationCalculator,
-    null);
+    cacheSynchronizer: null);
 
 try
 {

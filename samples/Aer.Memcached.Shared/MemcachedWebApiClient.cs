@@ -14,32 +14,32 @@ public class MemcachedWebApiClient
         _httpClient = httpClient;
     }
 
-    public async Task<MultiStoreResponse?> MultiStore(MultiStoreRequest request)
+    public async Task<MultiStoreResponse> MultiStore(MultiStoreRequest request)
     {
         var msg = await PostAsync("Memcached/multi-store", request);
 
         return await GetResult<MultiStoreResponse?>(msg);
     }
 
-    public async Task<MultiGetResponse?> MultiGet(MultiGetRequest request)
+    public async Task<MultiGetResponse> MultiGet(MultiGetRequest request)
     {
         var msg = await PostAsync("Memcached/multi-get", request);
 
-        return await GetResult<MultiGetResponse?>(msg);
+        return await GetResult<MultiGetResponse>(msg);
     }
     
-    public async Task<MultiStoreComplexResponse?> MultiStoreComplex(MultiStoreComplexRequest request)
+    public async Task<MultiStoreComplexResponse> MultiStoreComplex(MultiStoreComplexRequest request)
     {
         var msg = await PostAsync("Memcached/multi-store-complex", request);
 
-        return await GetResult<MultiStoreComplexResponse?>(msg);
+        return await GetResult<MultiStoreComplexResponse>(msg);
     }
 
-    public async Task<MultiGetComplexResponse?> MultiGetComplex(MultiGetComplexRequest request)
+    public async Task<MultiGetComplexResponse> MultiGetComplex(MultiGetComplexRequest request)
     {
         var msg = await PostAsync("Memcached/multi-get-complex", request);
 
-        return await GetResult<MultiGetComplexResponse?>(msg);
+        return await GetResult<MultiGetComplexResponse>(msg);
     }
 
     private async Task<HttpResponseMessage> PostAsync<T>(string requestUri, T data)
@@ -52,7 +52,7 @@ public class MemcachedWebApiClient
         return await _httpClient.PostAsync(requestUri, content);
     }
 
-    private async Task<T?> GetResult<T>(HttpResponseMessage msg)
+    private async Task<T> GetResult<T>(HttpResponseMessage msg)
     {
         var stream = await msg.Content.ReadAsStreamAsync();
         var result = JsonSerializer.Deserialize<T>(stream, new JsonSerializerOptions

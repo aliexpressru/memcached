@@ -13,7 +13,7 @@ public sealed class HttpServerFixture<T> : WebApplicationFactory<T> where T : cl
     
     private bool _disposed;
     
-    private IHost? _host;
+    private IHost _host;
 
     public string ServerAddress
     {

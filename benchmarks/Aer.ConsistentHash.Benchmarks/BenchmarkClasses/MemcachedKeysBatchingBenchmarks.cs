@@ -59,7 +59,7 @@ public class MemcachedKeysBatchingBenchmarks
 			commandExecutorLogger,
 			_nodeLocator);
 		
-		_memcachedClient = new MemcachedClient<Node>(_nodeLocator, _commandExecutor, expirationCalculator, null);
+		_memcachedClient = new MemcachedClient<Node>(_nodeLocator, _commandExecutor, expirationCalculator, cacheSynchronizer: null);
 
 		foreach (var key in Enumerable.Range(0, TEST_KEYS_COUNT))
 		{ 

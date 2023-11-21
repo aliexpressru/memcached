@@ -1,23 +1,21 @@
-namespace Aer.Memcached.Client.Models
+namespace Aer.Memcached.Client.Models;
+
+/// <summary>
+/// Data structure for sliding window algorithm
+/// </summary>
+internal class WindowStatistic
 {
-    /// <summary>
-    /// Data structure for sliding window algorithm
-    /// </summary>
-    internal class WindowStatistic
+    public StatisticLog LastTimeFrameLog { get; private set; }
+
+    public StatisticLog PreviousTimeFrameLog { get; private set; }
+    
+    public void SetCurrentTimeFrameLog(StatisticLog log)
     {
-        public StatisticLog LastTimeFrameLog { get; private set; }
-
-        public StatisticLog PreviousTimeFrameLog { get; private set; }
-
-
-        public void SetCurrentTimeFrameLog(StatisticLog log)
+        if (LastTimeFrameLog != null)
         {
-            if (LastTimeFrameLog != null)
-            {
-                PreviousTimeFrameLog = StatisticLog.CopyFrom(LastTimeFrameLog);
-            }
-
-            LastTimeFrameLog = log;
+            PreviousTimeFrameLog = StatisticLog.CopyFrom(LastTimeFrameLog);
         }
+
+        LastTimeFrameLog = log;
     }
 }

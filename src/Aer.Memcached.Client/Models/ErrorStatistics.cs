@@ -1,20 +1,19 @@
 using Aer.Memcached.Client.Interfaces;
 
-namespace Aer.Memcached.Client.Models
+namespace Aer.Memcached.Client.Models;
+
+/// <summary>
+/// Represents object for <see cref="IErrorStatisticsStore"/> to operate with
+/// </summary>
+public class ErrorStatistics
 {
     /// <summary>
-    /// Represents object for <see cref="IErrorStatisticsStore"/> to operate with
+    /// Current time frame statistics
     /// </summary>
-    public class ErrorStatistics
-    {
-        /// <summary>
-        /// Current time frame statistics
-        /// </summary>
-        public TimeFrameStatistics TimeFrameStatistics { get; init; }
+    public TimeFrameStatistics TimeFrameStatistics { get; init; }
 
-        /// <summary>
-        /// Flag is set to true if the current number of errors within interval exceeds max number of errors
-        /// </summary>
-        public bool IsTooManyErrors { get; init; }
-    }
+    /// <summary>
+    /// Flag is set to true if the current number of errors within interval exceeds max number of errors
+    /// </summary>
+    public bool IsTooManyErrors { get; init; }
 }

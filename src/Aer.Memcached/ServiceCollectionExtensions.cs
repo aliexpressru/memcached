@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json;
 using Aer.ConsistentHash;
 using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Abstractions;
@@ -8,6 +7,7 @@ using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.CacheSync;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Diagnostics;
+using Aer.Memcached.Client.Extensions;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Diagnostics;
@@ -99,7 +99,7 @@ public static class ServiceCollectionExtensions
 
         if (config.SyncSettings != null)
         {
-            endpoints.MapPost(config.SyncSettings.SyncEndpoint + $"-{typeof(T).Name.ToLowerInvariant()}",
+            endpoints.MapPost(config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>(),
                 async ([FromBody] CacheSyncModel<T> model, IMemcachedClient memcachedClient,
                     CancellationToken token) =>
                 {
