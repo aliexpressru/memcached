@@ -6,14 +6,26 @@ using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Serialization;
 using Polly;
 using Polly.Retry;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Aer.Memcached.Client.CacheSync;
 
 public class CacheSyncClient: ICacheSyncClient
 {
+    private static readonly JsonSerializerSettings JsonSetting = new()
+    {
+        Converters = new List<JsonConverter>(new[] {new StringEnumConverter()}),
+        NullValueHandling = NullValueHandling.Ignore,
+        ContractResolver = new DefaultContractResolver
+        {
+            NamingStrategy = new CamelCaseNamingStrategy()
+        }
+    };
+    
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly MemcachedConfiguration _config;
     private readonly ILogger<CacheSyncClient> _logger;
@@ -45,7 +57,7 @@ public class CacheSyncClient: ICacheSyncClient
                 var httpClient = _httpClientFactory.CreateClient();
 
                 var content = new StringContent(
-                    JsonSerializer.Serialize(data),
+                    JsonConvert.SerializeObject(data, JsonSetting),
                     Encoding.UTF8,
                     MediaTypeNames.Application.Json);
 
