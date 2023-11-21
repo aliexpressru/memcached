@@ -44,17 +44,17 @@ public interface IMemcachedClient
 	/// <param name="keyValues">Values by keys</param>
 	/// <param name="expirationTime">Expiration time</param>
 	/// <param name="token">Cancellation token</param>
-	/// <param name="isManualSyncOn">For manual switching off of sync in registered endpoint</param>
 	/// <param name="storeMode">Store mode</param>
 	/// <param name="batchingOptions">The options that configure internal key-values batching</param>
+	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data</param>
 	Task MultiStoreAsync<T>(
 		Dictionary<string, T> keyValues,
 		DateTimeOffset? expirationTime,
 		CancellationToken token,
-		bool isManualSyncOn = true,
 		StoreMode storeMode = StoreMode.Set,
 		BatchingOptions batchingOptions = null,
+		CacheSyncOptions cacheSyncOptions = null,
 		uint replicationFactor = 0);
 
 	/// <summary>

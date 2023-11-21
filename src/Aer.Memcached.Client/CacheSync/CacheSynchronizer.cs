@@ -42,7 +42,10 @@ public class CacheSynchronizer : ICacheSynchronizer
     }
 
     /// <inheritdoc />
-    public async Task SyncCache<T>(CacheSyncModel<T> model, CancellationToken token)
+    public async Task SyncCache<T>(
+        CacheSyncModel<T> model, 
+        CacheSyncOptions cacheSyncOptions, 
+        CancellationToken token)
     {
         if (model.KeyValues == null)
         {
@@ -57,7 +60,7 @@ public class CacheSynchronizer : ICacheSynchronizer
                 var syncCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
                 var utcNow = DateTimeOffset.UtcNow;
                 
-                await UpdateSyncWindowAndInputKeyValues(model, utcNow);
+                await UpdateSyncWindowAndInputKeyValues(model, cacheSyncOptions, utcNow);
                 if (model.KeyValues.Count == 0)
                 {
                     return;
@@ -127,7 +130,10 @@ public class CacheSynchronizer : ICacheSynchronizer
         }
     }
 
-    private async Task UpdateSyncWindowAndInputKeyValues<T>(CacheSyncModel<T> model, DateTimeOffset utcNow)
+    private async Task UpdateSyncWindowAndInputKeyValues<T>(
+        CacheSyncModel<T> model, 
+        CacheSyncOptions cacheSyncOptions, 
+        DateTimeOffset utcNow)
     {
         if (!_config.SyncSettings.CacheSyncInterval.HasValue)
         {
@@ -145,7 +151,9 @@ public class CacheSynchronizer : ICacheSynchronizer
 
                 _syncWindowLocker.Release();
             }
-            else
+            else if(cacheSyncOptions == null || cacheSyncOptions.ForceUpdate == false) 
+                // if force update is not passed then filter out values
+                // skip it otherwise
             {
                 foreach (var syncedKeyValue in _syncWindow.SyncedKeyValues)
                 {

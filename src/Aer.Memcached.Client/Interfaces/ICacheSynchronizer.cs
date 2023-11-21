@@ -8,6 +8,7 @@ public interface ICacheSynchronizer
     /// Syncs data
     /// </summary>
     /// <param name="model">Data to sync</param>
+    /// <param name="cacheSyncOptions">The options that configure cache sync</param>
     /// <param name="token">Cancellation token</param>
-    Task SyncCache<T>(CacheSyncModel<T> model, CancellationToken token);
+    Task SyncCache<T>(CacheSyncModel<T> model, CacheSyncOptions cacheSyncOptions, CancellationToken token);
 }

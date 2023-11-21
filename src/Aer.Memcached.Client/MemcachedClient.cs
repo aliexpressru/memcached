@@ -85,10 +85,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     public async Task MultiStoreAsync<T>(
         Dictionary<string, T> keyValues, 
         DateTimeOffset? expirationTime, 
-        CancellationToken token, 
-        bool isManualSyncOn = true,
+        CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null,
+        CacheSyncOptions cacheSyncOptions = null,
         uint replicationFactor = 0)
     {
         var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
@@ -101,13 +101,13 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
-        if (isManualSyncOn)
+        if (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn)
         {
             await _cacheSynchronizer.SyncCache(new CacheSyncModel<T>
             {
                 KeyValues = keyValues,
                 ExpirationTime = expirationTime
-            }, token);
+            }, cacheSyncOptions, token);
         }
     }
     

@@ -107,7 +107,10 @@ public static class ServiceCollectionExtensions
                         model.KeyValues,
                         model.ExpirationTime,
                         token,
-                        isManualSyncOn: false);
+                        cacheSyncOptions: new CacheSyncOptions
+                        {
+                            IsManualSyncOn = false
+                        });
                 });
         }
     }
