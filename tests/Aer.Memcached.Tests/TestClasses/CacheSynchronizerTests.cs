@@ -208,6 +208,69 @@ public class CacheSynchronizerTests
         await SyncWindowTest(syncInterval, cacheSynchronizer, syncServers);
         await SyncWindowTest(syncInterval, cacheSynchronizer, syncServers);
     }
+    
+    [TestMethod]
+    public async Task Sync_SyncWindow_ForceUpdate()
+    {
+        var syncServers = GetSyncServers(2);
+
+        _syncServersProvider.IsConfigured().Returns(true);
+        _syncServersProvider.GetSyncServers().Returns(syncServers);
+
+        var syncInterval = TimeSpan.FromMilliseconds(200);
+
+        var cacheSynchronizer = GetCacheSynchronizer(new MemcachedConfiguration
+        {
+            SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+            {
+                CacheSyncInterval = syncInterval
+            }
+        });
+
+        var keyValuesToSync = _fixture.Create<Dictionary<string, string>>();
+        var utcNowPlusMinute = DateTimeOffset.UtcNow.AddMinutes(1);
+
+        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        {
+            ExpirationTime = utcNowPlusMinute,
+            KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
+        }, new CacheSyncOptions(), CancellationToken.None);
+
+        await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Is<CacheSyncModel<string>>(o => o.ExpirationTime == utcNowPlusMinute && DictAreEqual(o.KeyValues, keyValuesToSync)),
+            Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(0)
+            .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
+        
+        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        {
+            ExpirationTime = utcNowPlusMinute,
+            KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
+        }, new CacheSyncOptions(), CancellationToken.None);
+
+        // no more additional calls
+        await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Is<CacheSyncModel<string>>(o => o.ExpirationTime == utcNowPlusMinute && DictAreEqual(o.KeyValues, keyValuesToSync)),
+            Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(0)
+            .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
+        
+        // force update
+        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        {
+            ExpirationTime = utcNowPlusMinute,
+            KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
+        }, new CacheSyncOptions
+        {
+            ForceUpdate = true
+        }, CancellationToken.None);
+        
+        await _cacheSyncClient.Received(syncServers.Length * 2).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Is<CacheSyncModel<string>>(o => o.ExpirationTime == utcNowPlusMinute && DictAreEqual(o.KeyValues, keyValuesToSync)),
+            Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(0)
+            .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
+    }
 
     private async Task SyncWindowTest(
         TimeSpan syncInterval, 
