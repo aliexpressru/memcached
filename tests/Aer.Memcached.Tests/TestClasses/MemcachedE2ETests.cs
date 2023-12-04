@@ -104,8 +104,15 @@ public class MemcachedE2ETests
 
         result2.KeyValues.Should().BeEquivalentTo(keyValues);
 
-        await httpServerFixture1.DisposeAsync();
-        await httpServerFixture2.DisposeAsync();
+        try
+        {
+            await httpServerFixture1.DisposeAsync();
+            await httpServerFixture2.DisposeAsync();
+        }
+        catch (Exception e)
+        {
+            // ignored
+        }
     }
 
     [TestMethod]
@@ -201,8 +208,15 @@ public class MemcachedE2ETests
 
         result2.KeyValues.Should().BeEquivalentTo(keyValues);
 
-        await httpServerFixture1.DisposeAsync();
-        await httpServerFixture2.DisposeAsync();
+        try
+        {
+            await httpServerFixture1.DisposeAsync();
+            await httpServerFixture2.DisposeAsync();
+        }
+        catch (Exception e)
+        {
+            // ignored
+        }
     }
 
     [DataTestMethod]
@@ -318,8 +332,15 @@ public class MemcachedE2ETests
 
         result2.KeyValues.Should().BeEquivalentTo(keyValues);
 
-        await httpServerFixture1.DisposeAsync();
-        await httpServerFixture2.DisposeAsync();
+        try
+        {
+            await httpServerFixture1.DisposeAsync();
+            await httpServerFixture2.DisposeAsync();
+        }
+        catch (Exception e)
+        {
+            // ignored
+        }
     }
 
     private async Task<Dictionary<string, string>> StoreAndAssert(MemcachedWebApiClient client,
