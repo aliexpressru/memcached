@@ -29,6 +29,7 @@ public interface IMemcachedClient
 	/// <param name="token">Cancellation token</param>
 	/// <param name="storeMode">Store mode</param>
 	/// <param name="batchingOptions">The options that configure internal key-values batching</param>
+	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data</param>
 	Task MultiStoreAsync<T>(
 		Dictionary<string, T> keyValues, 
@@ -36,6 +37,7 @@ public interface IMemcachedClient
 		CancellationToken token, 
 		StoreMode storeMode = StoreMode.Set,
 		BatchingOptions batchingOptions = null,
+		CacheSyncOptions cacheSyncOptions = null,
 		uint replicationFactor = 0);
 
 	/// <summary>

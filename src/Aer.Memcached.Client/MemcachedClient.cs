@@ -12,7 +12,8 @@ using MoreLinq.Extensions;
 
 namespace Aer.Memcached.Client;
 
-[SuppressMessage("ReSharper", "ConvertToUsingDeclaration", Justification = "We need to explicitly control when the command gets disposed")]
+[SuppressMessage("ReSharper", "ConvertToUsingDeclaration",
+    Justification = "We need to explicitly control when the command gets disposed")]
 public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INode
 {
     private readonly INodeLocator<TNode> _nodeLocator;
@@ -34,10 +35,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
     /// <inheritdoc />
     public async Task<MemcachedClientResult> StoreAsync<T>(
-        string key, 
-        T value, 
+        string key,
+        T value,
         TimeSpan? expirationTime,
-        CancellationToken token, 
+        CancellationToken token,
         StoreMode storeMode = StoreMode.Set)
     {
         var node = _nodeLocator.GetNode(key);
@@ -63,13 +64,16 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
     /// <inheritdoc />
     public async Task MultiStoreAsync<T>(
-        Dictionary<string, T> keyValues, 
-        TimeSpan? expirationTime, 
-        CancellationToken token, 
+        Dictionary<string, T> keyValues,
+        TimeSpan? expirationTime,
+        CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null,
+        CacheSyncOptions cacheSyncOptions = null,
         uint replicationFactor = 0)
     {
+        var utcNow = DateTimeOffset.UtcNow;
+
         var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
         if (nodes.Keys.Count == 0)
         {
@@ -79,12 +83,21 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
 
         await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
+
+        if (_cacheSynchronizer != null)
+        {
+            await _cacheSynchronizer.SyncCache(new CacheSyncModel<T>
+            {
+                KeyValues = keyValues,
+                ExpirationTime = expirationTime.HasValue ? utcNow.Add(expirationTime.Value) : null
+            }, cacheSyncOptions, token);
+        }
     }
-    
+
     /// <inheritdoc />
     public async Task MultiStoreAsync<T>(
-        Dictionary<string, T> keyValues, 
-        DateTimeOffset? expirationTime, 
+        Dictionary<string, T> keyValues,
+        DateTimeOffset? expirationTime,
         CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null,
@@ -101,7 +114,8 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
-        if (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn)
+        // this method is used by cache synchronizer, these checks are needed only here
+        if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn) && _cacheSynchronizer != null)
         {
             await _cacheSynchronizer.SyncCache(new CacheSyncModel<T>
             {
@@ -110,7 +124,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             }, cacheSyncOptions, token);
         }
     }
-    
+
     /// <inheritdoc />
     public async Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token)
     {
@@ -123,13 +137,14 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         using (var command = new GetCommand(key))
         {
             using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
-            
+
             if (!commandExecutionResult.Success)
             {
                 return MemcachedClientValueResult<T>.Unsuccessful;
             }
 
-            var deserializationResult = BinaryConverter.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
+            var deserializationResult =
+                BinaryConverter.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
 
             return new MemcachedClientValueResult<T>
             {
@@ -148,7 +163,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         uint replicationFactor = 0)
     {
         var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
-        
+
         if (nodes.Keys.Count == 0)
         {
             // means no nodes for specified keys found
@@ -186,7 +201,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
             var command = taskResult.GetCommandAs<MultiGetCommand>();
 
-            if (command.Result is null or {Count: 0})
+            if (command.Result is null or { Count: 0 })
             {
                 // skip results that are empty  
                 continue;
@@ -205,7 +220,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         return result;
     }
-    
+
     /// <inheritdoc />
     public async Task<MemcachedClientResult> DeleteAsync(string key, CancellationToken token)
     {
@@ -218,14 +233,14 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         using (var command = new DeleteCommand(key))
         {
             var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
-            
+
             return new MemcachedClientResult
             {
                 Success = commandExecutionResult.Success
             };
         }
     }
-    
+
     /// <inheritdoc />
     public async Task MultiDeleteAsync(
         IEnumerable<string> keys,
@@ -245,7 +260,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }
 
         var deleteTasks = new List<Task>(nodes.Count);
-        
+
         foreach (var (replicatedNode, keysToDelete) in nodes)
         {
             foreach (var node in replicatedNode.EnumerateNodes())
@@ -264,8 +279,8 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
     /// <inheritdoc />
     public async Task<MemcachedClientValueResult<ulong>> IncrAsync(
-        string key, 
-        ulong amountToAdd, 
+        string key,
+        ulong amountToAdd,
         ulong initialValue,
         TimeSpan? expirationTime,
         CancellationToken token)
@@ -291,11 +306,11 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             };
         }
     }
-    
+
     /// <inheritdoc />
     public async Task<MemcachedClientValueResult<ulong>> DecrAsync(
-        string key, 
-        ulong amountToSubtract, 
+        string key,
+        ulong amountToSubtract,
         ulong initialValue,
         TimeSpan? expirationTime,
         CancellationToken token)
@@ -332,7 +347,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         var command = new FlushCommand();
         var setTasks = new List<Task>(nodes.Length);
         var commandsToDispose = new List<MemcachedCommandBase>(nodes.Length);
-        
+
         foreach (var node in nodes)
         {
             var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
@@ -341,18 +356,18 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }
 
         await Task.WhenAll(setTasks);
-        
+
         foreach (var commandBase in commandsToDispose)
         {
             commandBase.Dispose();
-        }        
+        }
     }
-    
+
     private async Task MultiStoreInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, uint> keyToExpirationMap,
-        Dictionary<string, T> keyValues, 
-        CancellationToken token, 
+        Dictionary<string, T> keyValues,
+        CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null)
     {
@@ -365,7 +380,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 keyToExpirationMap,
                 storeMode,
                 token);
-            
+
             return;
         }
 
@@ -375,11 +390,11 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         foreach (var replicatedNode in nodes)
         {
             var keys = replicatedNode.Value;
-            
+
             foreach (var node in replicatedNode.Key.EnumerateNodes())
             {
                 var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
-                
+
                 foreach (var key in keys)
                 {
                     keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
@@ -388,21 +403,21 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap);
 
                 var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
-                
+
                 setTasks.Add(executeTask);
                 commandsToDispose.Add(command);
             }
         }
 
         await Task.WhenAll(setTasks);
-        
+
         // dispose only after deserialization is done and allocated memory from array pool can be returned
         foreach (var commandBase in commandsToDispose)
         {
             commandBase.Dispose();
         }
     }
-    
+
     private async Task MultiStoreBatchedInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, T> keyValues,
@@ -456,9 +471,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         // means batching is enabled - use separate logic
         if (batchingOptions.BatchSize <= 0)
         {
-            throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0. Please check BatchingOptions documentation");
+            throw new InvalidOperationException(
+                $"{nameof(batchingOptions.BatchSize)} should be > 0. Please check BatchingOptions documentation");
         }
-        
+
         var result = new ConcurrentDictionary<string, T>();
 
         await Parallel.ForEachAsync(
@@ -478,7 +494,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                     // since internally in ExecuteCommandAsync the command gets cloned and
                     // original command gets disposed we don't need to wrap it in using statement
                     var command = new MultiGetCommand(keysBatch, batchingOptions.BatchSize);
-                    
+
                     using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(
                         node,
                         command,
