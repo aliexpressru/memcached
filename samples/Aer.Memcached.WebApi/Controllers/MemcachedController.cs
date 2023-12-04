@@ -19,7 +19,14 @@ public class MemcachedController : ControllerBase
     [HttpPost("multi-store")]
     public async Task<ActionResult<MultiStoreResponse>> Get(MultiStoreRequest request)
     {
-        await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
+        if (request.TimeSpan.HasValue)
+        {
+            await _memcachedClient.MultiStoreAsync(request.KeyValues, request.TimeSpan, CancellationToken.None);
+        }
+        else
+        {
+            await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
+        }
 
         return Ok(new MultiStoreResponse());
     }
