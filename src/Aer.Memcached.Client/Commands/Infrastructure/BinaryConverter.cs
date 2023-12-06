@@ -225,7 +225,8 @@ internal static class BinaryConverter
         using var ms = new MemoryStream(item.Data.ToArray());
         using var reader = new BsonDataReader(ms);
         
-        if (typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IEnumerable)))
+        if (typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IEnumerable))
+            && !typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IDictionary)))
         {
             reader.ReadRootValueAsArray = true;
         }

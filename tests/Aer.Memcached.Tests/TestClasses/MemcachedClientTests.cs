@@ -38,6 +38,8 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await StoreAndGet_CheckType<DateTime>();
         await StoreAndGet_CheckType<double>();
         await StoreAndGet_CheckType<float>();
+        await StoreAndGet_CheckType<SimpleObject>();
+        await StoreAndGet_CheckType<Dictionary<string, int>>();
     }
     
     [DataTestMethod]
@@ -59,6 +61,8 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await MultiStoreAndGet_CheckType<DateTime>(withReplicas);
         await MultiStoreAndGet_CheckType<double>(withReplicas);
         await MultiStoreAndGet_CheckType<float>(withReplicas);
+        await MultiStoreAndGet_CheckType<SimpleObject>(withReplicas);
+        await MultiStoreAndGet_CheckType<Dictionary<string, int>>(withReplicas);
     }
 
     [TestMethod]
