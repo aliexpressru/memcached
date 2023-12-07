@@ -60,4 +60,14 @@ public class MemcachedController : ControllerBase
             KeyValues = result
         });
     }
+    
+    [HttpPost("multi-delete-client")]
+    public async Task<ActionResult<MultiDeleteResponse>> Delete(MultiDeleteRequest request)
+    {
+        await _memcachedClient.MultiDeleteAsync(request.Keys, CancellationToken.None);
+
+        return Ok(new MultiDeleteResponse()
+        {
+        });
+    }
 }

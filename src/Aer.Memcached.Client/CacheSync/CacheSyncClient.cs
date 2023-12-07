@@ -52,22 +52,15 @@ public class CacheSyncClient: ICacheSyncClient
     {
         try
         {
-            await _retryPolicy.Execute(async () =>
-            {
-                var httpClient = _httpClientFactory.CreateClient();
+            var content = new StringContent(
+                JsonConvert.SerializeObject(data, JsonSetting),
+                Encoding.UTF8,
+                MediaTypeNames.Application.Json);
+            
+            var baseUri = new Uri(syncServer.Address);
+            var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>());
 
-                var content = new StringContent(
-                    JsonConvert.SerializeObject(data, JsonSetting),
-                    Encoding.UTF8,
-                    MediaTypeNames.Application.Json);
-
-                var baseUri = new Uri(syncServer.Address);
-                var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>());
-
-                var response = await httpClient.PostAsync(endpointUri, content, token);
-
-                response.EnsureSuccessStatusCode();
-            });
+            await RequestAsync(content, endpointUri, token);
         }
         catch (Exception e)
         {
@@ -75,5 +68,63 @@ public class CacheSyncClient: ICacheSyncClient
 
             throw;
         }
+    }
+    
+    /// <inheritdoc />
+    public async Task DeleteAsync(
+        MemcachedConfiguration.SyncServer syncServer,
+        IEnumerable<string> keys, 
+        CancellationToken token)
+    {
+        try
+        {
+            var content = new StringContent(
+                JsonConvert.SerializeObject(keys, JsonSetting),
+                Encoding.UTF8,
+                MediaTypeNames.Application.Json);
+            
+            var baseUri = new Uri(syncServer.Address);
+            var endpointUri = new Uri(baseUri, _config.SyncSettings.DeleteEndpoint);
+
+            await RequestAsync(content, endpointUri, token);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Unable to delete data on {SyncServerAddress}", syncServer.Address);
+
+            throw;
+        }
+    }
+    
+    /// <inheritdoc />
+    public async Task FlushAsync(
+        MemcachedConfiguration.SyncServer syncServer,
+        CancellationToken token)
+    {
+        try
+        {
+            var baseUri = new Uri(syncServer.Address);
+            var endpointUri = new Uri(baseUri, _config.SyncSettings.FlushEndpoint);
+
+            await RequestAsync(null, endpointUri, token);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Unable to flush data on {SyncServerAddress}", syncServer.Address);
+
+            throw;
+        }
+    }
+
+    private async Task RequestAsync(StringContent content, Uri endpointUri, CancellationToken token)
+    {
+        await _retryPolicy.Execute(async () =>
+        {
+            var httpClient = _httpClientFactory.CreateClient();
+
+            var response = await httpClient.PostAsync(endpointUri, content, token);
+
+            response.EnsureSuccessStatusCode();
+        });
     }
 }

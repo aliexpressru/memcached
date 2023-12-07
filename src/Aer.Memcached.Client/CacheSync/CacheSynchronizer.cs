@@ -42,7 +42,7 @@ public class CacheSynchronizer : ICacheSynchronizer
     }
 
     /// <inheritdoc />
-    public async Task SyncCache<T>(
+    public async Task SyncCacheAsync<T>(
         CacheSyncModel<T> model,
         CacheSyncOptions cacheSyncOptions,
         CancellationToken token)
@@ -91,43 +91,67 @@ public class CacheSynchronizer : ICacheSynchronizer
                     }
                     catch (Exception)
                     {
-                        if (_config.SyncSettings.CacheSyncCircuitBreaker != null)
-                        {
-                            var errorStatistics = await _errorStatisticsStore.GetErrorStatisticsAsync(serverKey,
-                                _config.SyncSettings.CacheSyncCircuitBreaker.MaxErrors,
-                                _config.SyncSettings.CacheSyncCircuitBreaker.Interval);
-
-                            if (errorStatistics.IsTooManyErrors)
-                            {
-                                _serverBySwitchOffTime.AddOrUpdate(serverKey,
-                                    utcNow.Add(_config.SyncSettings.CacheSyncCircuitBreaker.SwitchOffTime),
-                                    (_, oldValue) =>
-                                    {
-                                        if (oldValue < utcNow)
-                                        {
-                                            var newSwitchOffTime = utcNow.Add(_config.SyncSettings
-                                                .CacheSyncCircuitBreaker
-                                                .SwitchOffTime);
-
-                                            return newSwitchOffTime;
-                                        }
-
-                                        return oldValue;
-                                    });
-
-                                _logger.LogError(
-                                    "Sync to {SererKey} is switched off until {SwitchOffThresholdTime}, reason: too many errors",
-                                    serverKey,
-                                    _serverBySwitchOffTime[serverKey]
-                                );
-                            }
-                        }
+                        await CheckCircuitBreaker(serverKey, utcNow);
 
                         throw;
                     }
                 });
 
             UpdateKeyValuesInSyncWindow(model);
+        }
+        catch (Exception)
+        {
+            // no need to crash if something goes wrong with sync
+        }
+    }
+    
+    public async Task DeleteCacheAsync(
+        IEnumerable<string> keys,
+        CancellationToken token)
+    {
+        if (keys == null)
+        {
+            return;
+        }
+
+        if (!_syncServersProvider.IsConfigured())
+        {
+            return;
+        }
+
+        try
+        {
+            var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
+            var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
+            var utcNow = DateTimeOffset.UtcNow;
+
+            await Parallel.ForEachAsync(
+                _syncServers,
+                new ParallelOptions()
+                {
+                    MaxDegreeOfParallelism = Environment.ProcessorCount,
+                    CancellationToken = syncCancellationTokenSource.Token
+                }, async (syncServer, cancellationToken) =>
+                {
+                    var serverKey = syncServer.Address;
+
+                    try
+                    {
+                        if (_serverBySwitchOffTime.TryGetValue(serverKey, out var switchOffTime) &&
+                            switchOffTime > utcNow)
+                        {
+                            return;
+                        }
+
+                        await _cacheSyncClient.DeleteAsync(syncServer, keys, cancellationToken);
+                    }
+                    catch (Exception)
+                    {
+                        await CheckCircuitBreaker(serverKey, utcNow);
+
+                        throw;
+                    }
+                });
         }
         catch (Exception)
         {
@@ -195,6 +219,41 @@ public class CacheSynchronizer : ICacheSynchronizer
         foreach (var inputKeyValue in model.KeyValues)
         {
             _syncWindow.SyncedKeyValues.TryAdd(inputKeyValue.Key, model.ExpirationTime.Value);
+        }
+    }
+
+    private async Task CheckCircuitBreaker(string serverKey, DateTimeOffset utcNow)
+    {
+        if (_config.SyncSettings.CacheSyncCircuitBreaker != null)
+        {
+            var errorStatistics = await _errorStatisticsStore.GetErrorStatisticsAsync(serverKey,
+                _config.SyncSettings.CacheSyncCircuitBreaker.MaxErrors,
+                _config.SyncSettings.CacheSyncCircuitBreaker.Interval);
+
+            if (errorStatistics.IsTooManyErrors)
+            {
+                _serverBySwitchOffTime.AddOrUpdate(serverKey,
+                    utcNow.Add(_config.SyncSettings.CacheSyncCircuitBreaker.SwitchOffTime),
+                    (_, oldValue) =>
+                    {
+                        if (oldValue < utcNow)
+                        {
+                            var newSwitchOffTime = utcNow.Add(_config.SyncSettings
+                                .CacheSyncCircuitBreaker
+                                .SwitchOffTime);
+
+                            return newSwitchOffTime;
+                        }
+
+                        return oldValue;
+                    });
+
+                _logger.LogError(
+                    "Sync to {SererKey} is switched off until {SwitchOffThresholdTime}, reason: too many errors",
+                    serverKey,
+                    _serverBySwitchOffTime[serverKey]
+                );
+            }
         }
     }
 }
