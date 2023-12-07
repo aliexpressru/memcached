@@ -275,11 +275,6 @@ public class MemcachedConfiguration
         /// Settings of circuit breaker
         /// </summary>
         public CacheSyncCircuitBreakerSettings CacheSyncCircuitBreaker { get; set; }
-        
-        /// <summary>
-        /// Sync interval to avoid multiple rewritings
-        /// </summary>
-        public TimeSpan? CacheSyncInterval { get; set; }
     }
 
     public class SyncServer
@@ -311,10 +306,5 @@ public class MemcachedConfiguration
         /// When <see cref="MaxErrors"/> reached switch of sync to a server for <see cref="SwitchOffTime"/>
         /// </summary>
         public TimeSpan SwitchOffTime { get; set; } = TimeSpan.FromMinutes(5);
-        
-        /// <summary>
-        /// If data needs to be flushed after switch off is over
-        /// </summary>
-        public bool FlushDataAfterSwitchOff { get; set; }
     }
 }
