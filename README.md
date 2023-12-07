@@ -440,6 +440,20 @@ By default sync servers are got from `SyncServers` array and filtered by name of
 - `MaxErrors` maximum number of errors in `Interval` by instance
 - `SwitchOffTime` time of synchronization switch off
 
+Also you must add sync endpoints
+```c#
+app.UseEndpoints(endpoints =>
+        {
+            endpoints.AddMemcachedSyncEndpoint<string>(builder.Configuration);
+            endpoints.AddMemcachedSyncEndpoint<ComplexModel>(builder.Configuration);
+            endpoints.AddMemcachedEndpoints(builder.Configuration);
+            endpoints.MapControllers();
+        });
+```
+
+`AddMemcachedSyncEndpoint` - to store data
+`AddMemcachedEndpoints` - for delete and flush endpoints
+
 ## Monitoring
 
 Other than logs check Prometheus metrics.
