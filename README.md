@@ -433,7 +433,7 @@ In case you need consistent cache across clusters or data centers
 `DefaultSyncServersProvider` is used as default and can be replaced with your own implementation.
 By default sync servers are got from `SyncServers` array and filtered by name of a cluster that is specified in `ClusterNameEnvVariable`.
 - `RetryCount` equals `3` by default if it's not specified. Number of retries to sync data to servers.
-- `TimeToSync` equals `00:00:01` by default if it's not specifided. Time before sync is cancelled.
+- `TimeToSync` equals `00:00:01` by default if it's not specified. Time before sync is cancelled.
 
 `CacheSyncCircuitBreaker` allows to switch off synchronization if there are too many errors
 - `Interval` time interval to count errors
