@@ -15,4 +15,24 @@ public interface ICacheSyncClient
         MemcachedConfiguration.SyncServer syncServer,
         CacheSyncModel<T> data,
         CancellationToken token);
+
+    /// <summary>
+    /// Deletes cache data on the specified server
+    /// </summary>
+    /// <param name="syncServer">Server to sync data</param>
+    /// <param name="keys">Keys to delete</param>
+    /// <param name="token">Cancellation token</param>
+    Task DeleteAsync(
+        MemcachedConfiguration.SyncServer syncServer,
+        IEnumerable<string> keys,
+        CancellationToken token);
+
+    /// <summary>
+    /// Flush cache data on the specified server
+    /// </summary>
+    /// <param name="syncServer">Server to sync data</param>
+    /// <param name="token">Cancellation token</param>
+    Task FlushAsync(
+        MemcachedConfiguration.SyncServer syncServer,
+        CancellationToken token);
 }

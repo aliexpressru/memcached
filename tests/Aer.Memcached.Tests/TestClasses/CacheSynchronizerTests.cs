@@ -45,10 +45,23 @@ public class CacheSynchronizerTests
     {
         var cacheSynchronizer = GetCacheSynchronizer();
 
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>(), new CacheSyncOptions(), CancellationToken.None);
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>(), new CacheSyncOptions(), CancellationToken.None);
 
         await _cacheSyncClient.Received(0).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(0)
+            .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
+    }
+    
+    [TestMethod]
+    public async Task Delete_NotConfigured_NoCalls()
+    {
+        var cacheSynchronizer = GetCacheSynchronizer();
+
+        await cacheSynchronizer.DeleteCacheAsync(new List<string>(), CancellationToken.None);
+
+        await _cacheSyncClient.Received(0).DeleteAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(0)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
     }
@@ -63,13 +76,31 @@ public class CacheSynchronizerTests
 
         var cacheSynchronizer = GetCacheSynchronizer();
 
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>{
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>{
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, new CacheSyncOptions(), CancellationToken.None);
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(0)
+            .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
+    }
+    
+    [TestMethod]
+    public async Task Delete_Configured_NoErrors()
+    {
+        var syncServers = GetSyncServers(2);
+
+        _syncServersProvider.IsConfigured().Returns(true);
+        _syncServersProvider.GetSyncServers().Returns(syncServers);
+
+        var cacheSynchronizer = GetCacheSynchronizer();
+
+        await cacheSynchronizer.DeleteCacheAsync(_fixture.Create<List<string>>(), CancellationToken.None);
+
+        await _cacheSyncClient.Received(syncServers.Length).DeleteAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(0)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
     }
@@ -87,13 +118,34 @@ public class CacheSynchronizerTests
 
         var cacheSynchronizer = GetCacheSynchronizer();
 
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>{
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>{
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, new CacheSyncOptions(), CancellationToken.None);
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(0)
+            .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
+    }
+    
+    [TestMethod]
+    public async Task Delete_Configured_Error_NoCircuitBreakerConfigured_NoCalls()
+    {
+        var syncServers = GetSyncServers(2);
+
+        _syncServersProvider.IsConfigured().Returns(true);
+        _syncServersProvider.GetSyncServers().Returns(syncServers);
+        _cacheSyncClient
+            .DeleteAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<IEnumerable<string>>(),
+                Arg.Any<CancellationToken>()).Throws(new Exception());
+
+        var cacheSynchronizer = GetCacheSynchronizer();
+
+        await cacheSynchronizer.DeleteCacheAsync(_fixture.Create<List<string>>(),  CancellationToken.None);
+
+        await _cacheSyncClient.Received(syncServers.Length).DeleteAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(0)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
     }
@@ -117,7 +169,7 @@ public class CacheSynchronizerTests
             }
         });
 
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>
         {
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
@@ -125,6 +177,33 @@ public class CacheSynchronizerTests
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(syncServers.Length)
+            .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
+    }
+    
+    [TestMethod]
+    public async Task Delete_Configured_Error_CircuitBreakerConfigured_CallToErrorStatisticsStore()
+    {
+        var syncServers = GetSyncServers(2);
+
+        _syncServersProvider.IsConfigured().Returns(true);
+        _syncServersProvider.GetSyncServers().Returns(syncServers);
+        _cacheSyncClient
+            .DeleteAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<IEnumerable<string>>(),
+                Arg.Any<CancellationToken>()).Throws(new Exception());
+
+        var cacheSynchronizer = GetCacheSynchronizer(new MemcachedConfiguration
+        {
+            SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+            {
+                CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings()
+            }
+        });
+
+        await cacheSynchronizer.DeleteCacheAsync(_fixture.Create<List<string>>(), CancellationToken.None);
+
+        await _cacheSyncClient.Received(syncServers.Length).DeleteAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(syncServers.Length)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
     }
@@ -157,7 +236,7 @@ public class CacheSynchronizerTests
             }
         });
 
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>{
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>{
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, new CacheSyncOptions(), CancellationToken.None);
@@ -171,7 +250,7 @@ public class CacheSynchronizerTests
         await _errorStatisticsStore.Received(1)
             .GetErrorStatisticsAsync(syncServerNotTurnedOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
 
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>{
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>{
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, new CacheSyncOptions(), CancellationToken.None);
@@ -180,6 +259,57 @@ public class CacheSynchronizerTests
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
         await _cacheSyncClient.Received(1).SyncAsync(syncServerToTurnOff,
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(1)
+            .GetErrorStatisticsAsync(syncServerToTurnOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
+        await _errorStatisticsStore.Received(2)
+            .GetErrorStatisticsAsync(syncServerNotTurnedOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
+    }
+    
+    [TestMethod]
+    public async Task Delete_Configured_Error_CircuitBreakerConfigured_SwitchOffCheck()
+    {
+        var syncServers = GetSyncServers(2);
+
+        var syncServerToTurnOff = syncServers.First();
+        var syncServerNotTurnedOff = syncServers.Last();
+
+        _syncServersProvider.IsConfigured().Returns(true);
+        _syncServersProvider.GetSyncServers().Returns(syncServers);
+        _cacheSyncClient
+            .DeleteAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<IEnumerable<string>>(),
+                Arg.Any<CancellationToken>()).Throws(new Exception());
+        _errorStatisticsStore.GetErrorStatisticsAsync(syncServerToTurnOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>())
+            .Returns(
+                new ErrorStatistics
+                {
+                    IsTooManyErrors = true
+                });
+
+        var cacheSynchronizer = GetCacheSynchronizer(new MemcachedConfiguration
+        {
+            SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+            {
+                CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings()
+            }
+        });
+
+        await cacheSynchronizer.DeleteCacheAsync(_fixture.Create<List<string>>(), CancellationToken.None);
+
+        await _cacheSyncClient.Received(1).DeleteAsync(syncServerNotTurnedOff,
+            Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
+        await _cacheSyncClient.Received(1).DeleteAsync(syncServerToTurnOff,
+            Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
+        await _errorStatisticsStore.Received(1)
+            .GetErrorStatisticsAsync(syncServerToTurnOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
+        await _errorStatisticsStore.Received(1)
+            .GetErrorStatisticsAsync(syncServerNotTurnedOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
+
+        await cacheSynchronizer.DeleteCacheAsync(_fixture.Create<List<string>>(), CancellationToken.None);
+
+        await _cacheSyncClient.Received(2).DeleteAsync(syncServerNotTurnedOff,
+            Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
+        await _cacheSyncClient.Received(1).DeleteAsync(syncServerToTurnOff,
+            Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(1)
             .GetErrorStatisticsAsync(syncServerToTurnOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
         await _errorStatisticsStore.Received(2)
@@ -230,7 +360,7 @@ public class CacheSynchronizerTests
         var keyValuesToSync = _fixture.Create<Dictionary<string, string>>();
         var utcNowPlusMinute = DateTimeOffset.UtcNow.AddMinutes(1);
 
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>
         {
             ExpirationTime = utcNowPlusMinute,
             KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
@@ -242,7 +372,7 @@ public class CacheSynchronizerTests
         await _errorStatisticsStore.Received(0)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
         
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>
         {
             ExpirationTime = utcNowPlusMinute,
             KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
@@ -256,7 +386,7 @@ public class CacheSynchronizerTests
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
         
         // force update
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>
         {
             ExpirationTime = utcNowPlusMinute,
             KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
@@ -280,7 +410,7 @@ public class CacheSynchronizerTests
         var keyValuesToSync = _fixture.Create<Dictionary<string, string>>();
         var utcNowPlusMinute = DateTimeOffset.UtcNow.AddMinutes(1);
 
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>
         {
             ExpirationTime = utcNowPlusMinute,
             KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
@@ -292,7 +422,7 @@ public class CacheSynchronizerTests
         await _errorStatisticsStore.Received(0)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
         
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>
         {
             ExpirationTime = utcNowPlusMinute,
             KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
@@ -308,7 +438,7 @@ public class CacheSynchronizerTests
         var newKeyValue = _fixture.Create<KeyValuePair<string, string>>();
         keyValuesToSync.Add(newKeyValue.Key, newKeyValue.Value);
         
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>
         {
             ExpirationTime = utcNowPlusMinute,
             KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict
@@ -330,7 +460,7 @@ public class CacheSynchronizerTests
 
         await Task.Delay(syncInterval);
         
-        await cacheSynchronizer.SyncCache(new CacheSyncModel<string>
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>
         {
             ExpirationTime = utcNowPlusMinute,
             KeyValues = keyValuesToSync.ToDictionary(key => key.Key, value => value.Value) // copy dict

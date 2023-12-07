@@ -16,6 +16,16 @@ public class MemcachedConfiguration
     public const string DefaultSyncEndpoint = "/memcached/multi-store";
     
     /// <summary>
+    /// The default delete endpoint
+    /// </summary>
+    public const string DefaultDeleteEndpoint = "/memcached/multi-delete";
+    
+    /// <summary>
+    /// The default flush endpoint
+    /// </summary>
+    public const string DefaultFlushEndpoint = "/memcached/flush";
+    
+    /// <summary>
     /// List of servers with hosted memcached
     /// </summary>
     public Server[] Servers { get; set; }
@@ -230,6 +240,16 @@ public class MemcachedConfiguration
         public string SyncEndpoint { get; set; } = DefaultSyncEndpoint;
         
         /// <summary>
+        /// Endpoint that is created by current service to allow other services to delete data
+        /// </summary>
+        public string DeleteEndpoint { get; set; } = DefaultDeleteEndpoint;
+        
+        /// <summary>
+        /// Endpoint that is created by current service to allow other services to flush data
+        /// </summary>
+        public string FlushEndpoint { get; set; } = DefaultFlushEndpoint;
+        
+        /// <summary>
         /// Name of environment variable to get current cluster name
         /// It is needed to filter out sync servers and don't try to send data
         /// to a service itself
@@ -291,5 +311,10 @@ public class MemcachedConfiguration
         /// When <see cref="MaxErrors"/> reached switch of sync to a server for <see cref="SwitchOffTime"/>
         /// </summary>
         public TimeSpan SwitchOffTime { get; set; } = TimeSpan.FromMinutes(5);
+        
+        /// <summary>
+        /// If data needs to be flushed after switch off is over
+        /// </summary>
+        public bool FlushDataAfterSwitchOff { get; set; }
     }
 }

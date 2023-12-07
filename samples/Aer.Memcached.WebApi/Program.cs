@@ -45,6 +45,7 @@ public class Program
         {
             endpoints.AddMemcachedSyncEndpoint<string>(builder.Configuration);
             endpoints.AddMemcachedSyncEndpoint<ComplexModel>(builder.Configuration);
+            endpoints.AddMemcachedEndpoints(builder.Configuration);
             endpoints.MapControllers();
         });
 
