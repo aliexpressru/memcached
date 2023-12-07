@@ -397,7 +397,7 @@ Initial number of seconds is got by last digits of calculated hash. Number of di
 }
 ```
 
-### Jitter
+### Cache sync
 
 In case you need consistent cache across clusters or data centers
 
