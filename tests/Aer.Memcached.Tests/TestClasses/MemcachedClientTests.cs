@@ -36,12 +36,13 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await StoreAndGet_CheckType<ulong>();
         await StoreAndGet_CheckType<char>();
         await StoreAndGet_CheckType<DateTime>();
+        await StoreAndGet_CheckType<DateTimeOffset>();
         await StoreAndGet_CheckType<double>();
         await StoreAndGet_CheckType<float>();
         await StoreAndGet_CheckType<SimpleObject>();
         await StoreAndGet_CheckType<Dictionary<string, int>>();
     }
-    
+
     [DataTestMethod]
     [DataRow(true)]
     [DataRow(false)]
@@ -59,6 +60,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await MultiStoreAndGet_CheckType<ulong>(withReplicas);
         await MultiStoreAndGet_CheckType<char>(withReplicas);
         await MultiStoreAndGet_CheckType<DateTime>(withReplicas);
+        await MultiStoreAndGet_CheckType<DateTimeOffset>(withReplicas);
         await MultiStoreAndGet_CheckType<double>(withReplicas);
         await MultiStoreAndGet_CheckType<float>(withReplicas);
         await MultiStoreAndGet_CheckType<SimpleObject>(withReplicas);
@@ -80,9 +82,11 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await Get_CheckType<ulong>();
         await Get_CheckType<char>();
         await Get_CheckType<DateTime>();
+        await Get_CheckType<DateTimeOffset>();
         await Get_CheckType<double>();
         await Get_CheckType<float>();
         await Get_CheckType<SimpleObject>();
+        await Get_CheckType<Dictionary<string, int>>();
     }
     
     [DataTestMethod]
@@ -102,9 +106,11 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await MultiGet_CheckType<ulong>(withReplicas);
         await MultiGet_CheckType<char>(withReplicas);
         await MultiGet_CheckType<DateTime>(withReplicas);
+        await MultiGet_CheckType<DateTimeOffset>(withReplicas);
         await MultiGet_CheckType<double>(withReplicas);
         await MultiGet_CheckType<float>(withReplicas);
         await MultiGet_CheckType<SimpleObject>(withReplicas);
+        await MultiGet_CheckType<Dictionary<string, int>>(withReplicas);
     }
 
     [TestMethod]
@@ -240,8 +246,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
         var getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
 
-        getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
-        getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
+        getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
         getValue.IsEmptyResult.Should().BeFalse();
     }
@@ -262,8 +267,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     
         foreach (var keyValue in keyValues)
         {
-            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key], options => options.Excluding(info => info.DateTimeValue));
-            getValues[keyValue.Key].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].DateTimeValue, TimeSpan.FromMilliseconds(1));
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
         }
     }
 
@@ -319,14 +323,9 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
         var getValue = await Client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
 
-        getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.SimpleObjects));
+        getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
         getValue.IsEmptyResult.Should().BeFalse();
-        for (int i = 0; i < getValue.Result.SimpleObjects.Count; i++)
-        {
-            getValue.Result.SimpleObjects[i].Should().BeEquivalentTo(value.SimpleObjects[i], options => options.Excluding(info => info.DateTimeValue));
-            getValue.Result.SimpleObjects[i].DateTimeValue.Should().BeCloseTo(value.SimpleObjects[i].DateTimeValue, TimeSpan.FromMilliseconds(1));
-        }
     }
     
     [TestMethod]
@@ -345,12 +344,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     
         foreach (var keyValue in keyValues)
         {
-            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key], options => options.Excluding(info => info.SimpleObjects));
-            for (int i = 0; i < getValues[keyValue.Key].SimpleObjects.Count; i++)
-            {
-                getValues[keyValue.Key].SimpleObjects[i].Should().BeEquivalentTo(keyValues[keyValue.Key].SimpleObjects[i], options => options.Excluding(info => info.DateTimeValue));
-                getValues[keyValue.Key].SimpleObjects[i].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].SimpleObjects[i].DateTimeValue, TimeSpan.FromMilliseconds(1));
-            }
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
         }
     }
     
@@ -364,10 +358,9 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
         var getValue = await Client.GetAsync<ObjectWithEmbeddedObject>(key, CancellationToken.None);
 
-        getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.ComplexObject.SimpleObject.DateTimeValue));
+        getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
         getValue.IsEmptyResult.Should().BeFalse();
-        getValue.Result.ComplexObject.SimpleObject.DateTimeValue.Should().BeCloseTo(value.ComplexObject.SimpleObject.DateTimeValue, TimeSpan.FromMilliseconds(1));
     }
     
     [TestMethod]
@@ -386,8 +379,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     
         foreach (var keyValue in keyValues)
         {
-            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key], options => options.Excluding(info => info.ComplexObject.SimpleObject.DateTimeValue));
-            getValues[keyValue.Key].ComplexObject.SimpleObject.DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].ComplexObject.SimpleObject.DateTimeValue, TimeSpan.FromMilliseconds(1));
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
         }
     }
 
@@ -504,9 +496,10 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
     private async Task MultiStoreAndGet_CheckType<T>(bool withReplicas)
     {
+        var numberOfValues = 5;
         var keyValues = new Dictionary<string, T>();
     
-        foreach (var _ in Enumerable.Range(0, 5))
+        foreach (var _ in Enumerable.Range(0, numberOfValues))
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<T>();
         }
@@ -514,10 +507,12 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None, replicationFactor: (uint)(withReplicas ? 5 : 0));
     
         var getValues = await Client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
-    
+
+        getValues.Count.Should().Be(numberOfValues);
+        
         foreach (var keyValue in keyValues)
         {
-            getValues[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
         }
     }
     
@@ -543,8 +538,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
         var getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
 
-        getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
-        getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
+        getValue.Result.Should().BeEquivalentTo(value);
 
         await Client.DeleteAsync(key, CancellationToken.None);
         
@@ -563,8 +557,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
         var getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
 
-        getValue.Result.Should().BeEquivalentTo(value, options => options.Excluding(info => info.DateTimeValue));
-        getValue.Result.DateTimeValue.Should().BeCloseTo(value.DateTimeValue, TimeSpan.FromMilliseconds(1));
+        getValue.Result.Should().BeEquivalentTo(value);
 
         await Client.MultiDeleteAsync(new [] { key }, CancellationToken.None);
         
@@ -589,8 +582,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     
         foreach (var keyValue in keyValues)
         {
-            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key], options => options.Excluding(info => info.DateTimeValue));
-            getValues[keyValue.Key].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].DateTimeValue, TimeSpan.FromMilliseconds(1));
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
         }
         
         await Client.MultiDeleteAsync(keyValues.Keys, CancellationToken.None);
@@ -616,8 +608,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     
         foreach (var keyValue in keyValues)
         {
-            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key], options => options.Excluding(info => info.DateTimeValue));
-            getValues[keyValue.Key].DateTimeValue.Should().BeCloseTo(keyValues[keyValue.Key].DateTimeValue, TimeSpan.FromMilliseconds(1));
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
         }
         
         await Client.MultiDeleteAsync(keyValues.Keys, CancellationToken.None, new BatchingOptions());

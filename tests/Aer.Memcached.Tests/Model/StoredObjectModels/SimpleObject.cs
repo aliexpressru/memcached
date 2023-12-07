@@ -26,6 +26,8 @@ public class SimpleObject
     
     public DateTime DateTimeValue { get; set; }
     
+    public DateTimeOffset DateTimeOffsetValue { get; set; }
+    
     public double DoubleValue { get; set; }
     
     public float FloatValue { get; set; }

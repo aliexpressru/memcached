@@ -2,16 +2,12 @@
 using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
-using Aer.Memcached.Client.CacheSync;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Diagnostics.Listeners;
 using AutoFixture;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Serialization;
 
 namespace Aer.Memcached.Tests.Base;
 
@@ -76,18 +72,6 @@ public abstract class MemcachedClientTestsBase
 		);
 
 		Fixture = new Fixture();
-
-		Memcached.Client.Commands.Infrastructure.BinaryConverter.Serializer = JsonSerializer.Create(
-			new JsonSerializerSettings
-			{
-				Converters = new List<JsonConverter>(new[] {new StringEnumConverter()}),
-				NullValueHandling = NullValueHandling.Ignore,
-				ContractResolver = new DefaultContractResolver
-				{
-					NamingStrategy = new SnakeCaseNamingStrategy()
-				},
-				ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-			});
 
 		DiagnosticListener diagnosticSource = MemcachedDiagnosticSource.Instance;
 
