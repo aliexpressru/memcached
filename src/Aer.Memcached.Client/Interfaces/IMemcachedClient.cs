@@ -93,11 +93,13 @@ public interface IMemcachedClient
 	/// <param name="keys">Keys</param>
 	/// <param name="token">Cancellation token</param>
 	/// <param name="batchingOptions">The options that configure internal keys batching</param>
+	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes to try delete keys</param>
 	Task MultiDeleteAsync(
 		IEnumerable<string> keys,
 		CancellationToken token,
 		BatchingOptions batchingOptions = null,
+		CacheSyncOptions cacheSyncOptions = null,
 		uint replicationFactor = 0);
 
 	/// <summary>

@@ -114,6 +114,115 @@ public class MemcachedE2ETests
             // ignored
         }
     }
+    
+    [TestMethod]
+    public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSyncAndDelete_Success()
+    {
+        var port1 = GeneratePort();
+        var port2 = GeneratePort();
+
+        var httpServerFixture1 = new HttpServerFixture<Program>
+        {
+            Port = port1
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new[]
+                        {
+                            new MemcachedConfiguration.SyncServer
+                            {
+                                Address = $"http://localhost:{port2}",
+                                ClusterName = "test2"
+                            }
+                        },
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
+
+        var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
+        {
+            Port = port2
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new[]
+                        {
+                            new MemcachedConfiguration.SyncServer
+                            {
+                                Address = $"http://localhost:{port1}",
+                                ClusterName = "test1"
+                            }
+                        },
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
+        ;
+
+        var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
+        var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
+
+        var keyValues = await StoreAndAssert(client1);
+
+        var result2 = await client2.MultiGet(new MultiGetRequest
+        {
+            Keys = keyValues.Keys.ToArray()
+        });
+
+        result2.KeyValues.Should().BeEquivalentTo(keyValues);
+
+        await client1.MultiDelete(new MultiDeleteRequest
+        {
+            Keys = keyValues.Keys.ToArray()
+        });
+        
+        var result1AfterDelete = await client1.MultiGet(new MultiGetRequest
+        {
+            Keys = keyValues.Keys.ToArray()
+        });
+
+        result1AfterDelete.KeyValues.Count.Should().Be(0);
+        
+        var result2AfterDelete = await client2.MultiGet(new MultiGetRequest
+        {
+            Keys = keyValues.Keys.ToArray()
+        });
+
+        result2AfterDelete.KeyValues.Count.Should().Be(0);
+
+        try
+        {
+            await httpServerFixture1.DisposeAsync();
+            await httpServerFixture2.DisposeAsync();
+        }
+        catch (Exception e)
+        {
+            // ignored
+        }
+    }
 
     [TestMethod]
     public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_ComplexModel_Success()

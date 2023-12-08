@@ -86,7 +86,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
         if (_cacheSynchronizer != null)
         {
-            await _cacheSynchronizer.SyncCache(new CacheSyncModel<T>
+            await _cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<T>
             {
                 KeyValues = keyValues,
                 ExpirationTime = expirationTime.HasValue ? utcNow.Add(expirationTime.Value) : null
@@ -117,7 +117,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         // this method is used by cache synchronizer, these checks are needed only here
         if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn) && _cacheSynchronizer != null)
         {
-            await _cacheSynchronizer.SyncCache(new CacheSyncModel<T>
+            await _cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<T>
             {
                 KeyValues = keyValues,
                 ExpirationTime = expirationTime
@@ -246,6 +246,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         IEnumerable<string> keys,
         CancellationToken token,
         BatchingOptions batchingOptions = null,
+        CacheSyncOptions cacheSyncOptions = null,
         uint replicationFactor = 0)
     {
         var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
@@ -272,6 +273,12 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                     deleteTasks.Add(executeTask);
                 }
             }
+        }
+        
+        // this method is used by cache synchronizer, these checks are needed only here
+        if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn) && _cacheSynchronizer != null)
+        {
+            await _cacheSynchronizer.DeleteCacheAsync(keys, token);
         }
 
         await Task.WhenAll(deleteTasks);

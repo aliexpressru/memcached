@@ -41,6 +41,13 @@ public class MemcachedWebApiClient
 
         return await GetResult<MultiGetComplexResponse>(msg);
     }
+    
+    public async Task<MultiDeleteResponse> MultiDelete(MultiDeleteRequest request)
+    {
+        var msg = await PostAsync("Memcached/multi-delete-client", request);
+
+        return await GetResult<MultiDeleteResponse>(msg);
+    }
 
     private async Task<HttpResponseMessage> PostAsync<T>(string requestUri, T data)
     {

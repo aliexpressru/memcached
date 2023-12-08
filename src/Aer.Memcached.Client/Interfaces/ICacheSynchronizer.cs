@@ -11,5 +11,12 @@ public interface ICacheSynchronizer
     /// <param name="model">Data to sync</param>
     /// <param name="cacheSyncOptions">The options that configure cache sync</param>
     /// <param name="token">Cancellation token</param>
-    Task SyncCache<T>(CacheSyncModel<T> model, CacheSyncOptions cacheSyncOptions, CancellationToken token);
+    Task SyncCacheAsync<T>(CacheSyncModel<T> model, CacheSyncOptions cacheSyncOptions, CancellationToken token);
+
+    /// <summary>
+    /// Deletes data on the servers that are specified in <see cref="MemcachedConfiguration.SynchronizationSettings"/>
+    /// </summary>
+    /// <param name="keys">Keys to delete</param>
+    /// <param name="token">Cancellation token</param>
+    Task DeleteCacheAsync(IEnumerable<string> keys, CancellationToken token);
 }
