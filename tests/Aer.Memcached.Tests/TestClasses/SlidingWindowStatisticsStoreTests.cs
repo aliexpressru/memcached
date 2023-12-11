@@ -87,7 +87,7 @@ public class SlidingWindowStatisticsStoreTests
             await store.GetErrorStatisticsAsync(key, maxErrors, TimeSpan.FromMilliseconds(1000));
         }
 
-        await Task.Delay(TimeSpan.FromMilliseconds(850));
+        await Task.Delay(TimeSpan.FromMilliseconds(650));
 
         // making enough errors to have TooManyErrors.
         // is enough to get TooManyErrors in 10-15 percentage window

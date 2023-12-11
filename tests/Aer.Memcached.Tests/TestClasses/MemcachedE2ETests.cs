@@ -297,6 +297,8 @@ public class MemcachedE2ETests
         var keyValues = Enumerable.Range(0, 5)
             .ToDictionary(_ => Guid.NewGuid().ToString(), _ => _fixture.Create<ComplexModel>());
 
+        var keysToGet = keyValues.Keys.ToArray();
+        
         await client1.MultiStoreComplex(new MultiStoreComplexRequest
         {
             KeyValues = keyValues,
@@ -305,14 +307,14 @@ public class MemcachedE2ETests
 
         var result = await client1.MultiGetComplex(new MultiGetComplexRequest
         {
-            Keys = keyValues.Keys.ToArray()
+            Keys = keysToGet
         });
 
         result.KeyValues.Should().BeEquivalentTo(keyValues);
 
         var result2 = await client2.MultiGetComplex(new MultiGetComplexRequest
         {
-            Keys = keyValues.Keys.ToArray()
+            Keys = keysToGet
         });
 
         result2.KeyValues.Should().BeEquivalentTo(keyValues);
