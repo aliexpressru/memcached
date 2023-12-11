@@ -18,7 +18,7 @@ public class MemcachedWebApiClient
     {
         var msg = await PostAsync("Memcached/multi-store", request);
 
-        return await GetResult<MultiStoreResponse?>(msg);
+        return await GetResult<MultiStoreResponse>(msg);
     }
 
     public async Task<MultiGetResponse> MultiGet(MultiGetRequest request)

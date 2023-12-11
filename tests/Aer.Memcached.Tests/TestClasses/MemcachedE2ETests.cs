@@ -218,7 +218,7 @@ public class MemcachedE2ETests
             await httpServerFixture1.DisposeAsync();
             await httpServerFixture2.DisposeAsync();
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // ignored
         }
