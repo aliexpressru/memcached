@@ -94,7 +94,6 @@ public class MemcachedE2ETests
                 });
             });
         });
-        ;
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -231,7 +230,7 @@ public class MemcachedE2ETests
     [TestMethod]
     public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_ComplexModel_Success()
     {
-        var port1 = GeneratePort();
+        var port1 = "80";// GeneratePort();
         var port2 = GeneratePort();
 
         var httpServerFixture1 = new HttpServerFixture<Program>
@@ -293,7 +292,6 @@ public class MemcachedE2ETests
                 });
             });
         });
-        ;
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
