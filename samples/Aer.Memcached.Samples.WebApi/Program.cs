@@ -1,8 +1,8 @@
-using Aer.Memcached.Shared;
+using Aer.Memcached.Samples.Shared;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 
-namespace Aer.Memcached.WebApi;
+namespace Aer.Memcached.Samples.WebApi;
 
 public class Program
 {

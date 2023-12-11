@@ -1,9 +1,9 @@
 using Aer.Memcached.Client.Interfaces;
-using Aer.Memcached.Shared;
-using Aer.Memcached.Shared.Models;
+using Aer.Memcached.Samples.Shared;
+using Aer.Memcached.Samples.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Aer.Memcached.WebApi.Controllers;
+namespace Aer.Memcached.Samples.WebApi.Controllers;
 
 [ApiController]
 [Route("[controller]")]

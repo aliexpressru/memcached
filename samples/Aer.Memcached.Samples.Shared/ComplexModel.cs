@@ -1,4 +1,4 @@
-﻿namespace Aer.Memcached.Shared;
+﻿namespace Aer.Memcached.Samples.Shared;
 
 public class ComplexModel
 {

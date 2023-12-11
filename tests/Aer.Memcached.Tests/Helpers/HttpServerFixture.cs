@@ -7,14 +7,13 @@ using Microsoft.Extensions.Hosting;
 
 namespace Aer.Memcached.Tests.Helpers;
 
-public sealed class HttpServerFixture<T> : WebApplicationFactory<T> where T : class
+internal sealed class HttpServerFixture<T> : WebApplicationFactory<T> where T : class
 {
-    public string Port { get; set; }
-    
     private bool _disposed;
-    
     private IHost _host;
 
+    public string Port { get; set; }
+    
     public string ServerAddress
     {
         get
@@ -66,7 +65,7 @@ public sealed class HttpServerFixture<T> : WebApplicationFactory<T> where T : cl
         var server = _host.Services.GetRequiredService<IServer>();
         var addresses = server.Features.Get<IServerAddressesFeature>();
 
-        ClientOptions.BaseAddress = addresses!.Addresses
+        ClientOptions.BaseAddress = addresses.Addresses
             .Select((p) => new Uri(p))
             .Last();
 

@@ -1,9 +1,9 @@
 using System.Net.Mime;
 using System.Text;
 using System.Text.Json;
-using Aer.Memcached.Shared.Models;
+using Aer.Memcached.Samples.Shared.Models;
 
-namespace Aer.Memcached.Shared;
+namespace Aer.Memcached.Samples.Shared;
 
 public class MemcachedWebApiClient
 {
