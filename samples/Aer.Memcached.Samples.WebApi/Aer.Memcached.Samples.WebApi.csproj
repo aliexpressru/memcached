@@ -3,6 +3,7 @@
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Aer.Memcached.WebApi</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
@@ -11,7 +12,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Aer.Memcached\Aer.Memcached.csproj" />
-      <ProjectReference Include="..\Aer.Memcached.Shared\Aer.Memcached.Shared.csproj" />
+      <ProjectReference Include="..\Aer.Memcached.Samples.Shared\Aer.Memcached.Samples.Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup>

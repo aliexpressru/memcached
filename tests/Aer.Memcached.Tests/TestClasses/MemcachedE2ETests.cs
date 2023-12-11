@@ -20,6 +20,10 @@ public class MemcachedE2ETests
 
     public MemcachedE2ETests()
     {
+        Environment.SetEnvironmentVariable(
+            "ASPNETCORE_ENVIRONMENT",
+            "Development");
+        
         _fixture = new Fixture();
     }
 
