@@ -20,6 +20,7 @@ internal class DateTimeOffsetJsonConverter : JsonConverter<DateTimeOffset>
 			writer.WritePropertyName(DateTimeOffsetStringPropertyName);
 			writer.WriteValue(dateTimeOffsetString);
 		}
+		
 		writer.WriteEndObject();
 	}
 
