@@ -1,4 +1,4 @@
-namespace Aer.Memcached.Shared.Models;
+namespace Aer.Memcached.Samples.Shared.Models;
 
 public class MultiDeleteRequest
 {

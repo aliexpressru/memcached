@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using Aer.Memcached.Client.Config;
-using Aer.Memcached.Shared;
-using Aer.Memcached.Shared.Models;
+using Aer.Memcached.Samples.Shared;
+using Aer.Memcached.Samples.Shared.Models;
+using Aer.Memcached.Samples.WebApi;
 using Aer.Memcached.Tests.Helpers;
-using Aer.Memcached.WebApi;
+using Aer.Memcached.Tests.Infrastructure;
+using Aer.Memcached.Tests.Infrastructure.Attributes;
 using AutoFixture;
 using FluentAssertions;
 using Microsoft.AspNetCore.TestHost;
@@ -17,12 +20,25 @@ namespace Aer.Memcached.Tests.TestClasses;
 public class MemcachedE2ETests
 {
     private readonly Fixture _fixture;
-
+    
     public MemcachedE2ETests()
     {
+        Environment.SetEnvironmentVariable(
+            "ASPNETCORE_ENVIRONMENT",
+            "Development");
+        
         _fixture = new Fixture();
     }
 
+    private static bool IsWindows()
+    {
+        // On windows creating two separate servers on different ports does not work for some reason.
+        // Thus we are ignoring tests using custom attributes.
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+    }
+
+    [TestMethodWithIgnoreIfSupport]
+    [IgnoreIf(nameof(IsWindows))]
     [DataTestMethod]
     [DataRow(true)]
     [DataRow(false)]
@@ -61,7 +77,7 @@ public class MemcachedE2ETests
             });
         });
 
-        var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
+        var httpServerFixture2 = new HttpServerFixture<Samples.WepApiToSync.Program>
         {
             Port = port2
         }.WithWebHostBuilder(builder =>
@@ -90,7 +106,6 @@ public class MemcachedE2ETests
                 });
             });
         });
-        ;
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -109,13 +124,14 @@ public class MemcachedE2ETests
             await httpServerFixture1.DisposeAsync();
             await httpServerFixture2.DisposeAsync();
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // ignored
         }
     }
-    
-    [TestMethod]
+
+    [TestMethodWithIgnoreIfSupport]
+    [IgnoreIf(nameof(IsWindows))]
     public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSyncAndDelete_Success()
     {
         var port1 = GeneratePort();
@@ -151,7 +167,7 @@ public class MemcachedE2ETests
             });
         });
 
-        var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
+        var httpServerFixture2 = new HttpServerFixture<Samples.WepApiToSync.Program>
         {
             Port = port2
         }.WithWebHostBuilder(builder =>
@@ -218,13 +234,14 @@ public class MemcachedE2ETests
             await httpServerFixture1.DisposeAsync();
             await httpServerFixture2.DisposeAsync();
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // ignored
         }
     }
 
-    [TestMethod]
+    [TestMethodWithIgnoreIfSupport]
+    [IgnoreIf(nameof(IsWindows))]
     public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_ComplexModel_Success()
     {
         var port1 = GeneratePort();
@@ -260,7 +277,7 @@ public class MemcachedE2ETests
             });
         });
 
-        var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
+        var httpServerFixture2 = new HttpServerFixture<Samples.WepApiToSync.Program>
         {
             Port = port2
         }.WithWebHostBuilder(builder =>
@@ -289,7 +306,6 @@ public class MemcachedE2ETests
                 });
             });
         });
-        ;
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -297,6 +313,8 @@ public class MemcachedE2ETests
         var keyValues = Enumerable.Range(0, 5)
             .ToDictionary(_ => Guid.NewGuid().ToString(), _ => _fixture.Create<ComplexModel>());
 
+        var keysToGet = keyValues.Keys.ToArray();
+        
         await client1.MultiStoreComplex(new MultiStoreComplexRequest
         {
             KeyValues = keyValues,
@@ -305,14 +323,14 @@ public class MemcachedE2ETests
 
         var result = await client1.MultiGetComplex(new MultiGetComplexRequest
         {
-            Keys = keyValues.Keys.ToArray()
+            Keys = keysToGet
         });
 
         result.KeyValues.Should().BeEquivalentTo(keyValues);
 
         var result2 = await client2.MultiGetComplex(new MultiGetComplexRequest
         {
-            Keys = keyValues.Keys.ToArray()
+            Keys = keysToGet
         });
 
         result2.KeyValues.Should().BeEquivalentTo(keyValues);
@@ -322,12 +340,14 @@ public class MemcachedE2ETests
             await httpServerFixture1.DisposeAsync();
             await httpServerFixture2.DisposeAsync();
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // ignored
         }
     }
 
+    [TestMethodWithIgnoreIfSupport]
+    [IgnoreIf(nameof(IsWindows))]
     [DataTestMethod]
     [DataRow(true)]
     [DataRow(false)]
@@ -379,7 +399,7 @@ public class MemcachedE2ETests
         }
 
         // switch on second cluster
-        var httpServerFixture2 = new HttpServerFixture<WepApiToSync.Program>
+        var httpServerFixture2 = new HttpServerFixture<Samples.WepApiToSync.Program>
         {
             Port = port2
         }.WithWebHostBuilder(builder =>
@@ -446,7 +466,7 @@ public class MemcachedE2ETests
             await httpServerFixture1.DisposeAsync();
             await httpServerFixture2.DisposeAsync();
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // ignored
         }

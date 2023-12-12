@@ -1,9 +1,9 @@
 using System.Net.Mime;
 using System.Text;
 using System.Text.Json;
-using Aer.Memcached.Shared.Models;
+using Aer.Memcached.Samples.Shared.Models;
 
-namespace Aer.Memcached.Shared;
+namespace Aer.Memcached.Samples.Shared;
 
 public class MemcachedWebApiClient
 {
@@ -18,7 +18,7 @@ public class MemcachedWebApiClient
     {
         var msg = await PostAsync("Memcached/multi-store", request);
 
-        return await GetResult<MultiStoreResponse?>(msg);
+        return await GetResult<MultiStoreResponse>(msg);
     }
 
     public async Task<MultiGetResponse> MultiGet(MultiGetRequest request)

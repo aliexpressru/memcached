@@ -1,8 +1,8 @@
-using Aer.Memcached.Shared;
+using Aer.Memcached.Samples.Shared;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 
-namespace Aer.Memcached.WepApiToSync;
+namespace Aer.Memcached.Samples.WebApi;
 
 public class Program
 {
@@ -45,8 +45,6 @@ public class Program
         {
             endpoints.AddMemcachedSyncEndpoint<string>(builder.Configuration);
             endpoints.AddMemcachedSyncEndpoint<ComplexModel>(builder.Configuration);
-            endpoints.AddMemcachedSyncEndpoint<List<string>>(builder.Configuration);
-            endpoints.AddMemcachedSyncEndpoint<Dictionary<string, string>>(builder.Configuration);
             endpoints.AddMemcachedEndpoints(builder.Configuration);
             endpoints.MapControllers();
         });

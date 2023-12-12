@@ -176,16 +176,24 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                         numberOfDestroyedSocketsInAllSocketPools);
                 }
 
-                _logger.LogInformation(
-                    "Nodes in locator: [{NodesInLocator}]",
-                    nodesInLocator.Select(n => n.GetKey()));
+                if (nodesInLocator.Length == 0)
+                { 
+                    _logger.LogInformation("No nodes found in locator, no socket pool statistics to report. This might be due to all nodes considered dead or corresponding pools exhaustion");
+                    
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Nodes in locator: [{NodesInLocator}]",
+                        nodesInLocator.Select(n => n.GetKey()));
 
-                var socketPoolStats = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
+                    var socketPoolStats = _commandExecutor.GetSocketPoolsStatistics(nodesInLocator);
 
-                _logger.LogInformation(
-                    "Socket pool statistics: [{SocketStatisctics}]",
-                    socketPoolStats.Select(s => s.ToString())
-                );
+                    _logger.LogInformation(
+                        "Socket pool statistics: [{SocketStatisctics}]",
+                        socketPoolStats.Select(s => s.ToString())
+                    );
+                }
             }
         }
         catch (Exception e)

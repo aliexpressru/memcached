@@ -1,9 +1,9 @@
 using Aer.Memcached.Client.Interfaces;
-using Aer.Memcached.Shared;
-using Aer.Memcached.Shared.Models;
+using Aer.Memcached.Samples.Shared;
+using Aer.Memcached.Samples.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Aer.Memcached.WebApi.Controllers;
+namespace Aer.Memcached.Samples.WepApiToSync.Controllers;
 
 [ApiController]
 [Route("[controller]")]
@@ -19,14 +19,7 @@ public class MemcachedController : ControllerBase
     [HttpPost("multi-store")]
     public async Task<ActionResult<MultiStoreResponse>> Get(MultiStoreRequest request)
     {
-        if (request.TimeSpan.HasValue)
-        {
-            await _memcachedClient.MultiStoreAsync(request.KeyValues, request.TimeSpan, CancellationToken.None);
-        }
-        else
-        {
-            await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
-        }
+        await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
 
         return Ok(new MultiStoreResponse());
     }
@@ -61,8 +54,8 @@ public class MemcachedController : ControllerBase
         });
     }
     
-    [HttpPost("multi-delete-client")]
-    public async Task<ActionResult<MultiDeleteResponse>> Delete(MultiDeleteRequest request)
+    [HttpPost("multi-delete")]
+    public async Task<ActionResult<MultiDeleteResponse>> Get(MultiDeleteRequest request)
     {
         await _memcachedClient.MultiDeleteAsync(request.Keys, CancellationToken.None);
 

@@ -20,13 +20,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.Tests", "test
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{224BAB8B-C885-4CC8-884D-B6A53AEC2F05}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.ConsoleApp", "samples\Aer.Memcached.ConsoleApp\Aer.Memcached.ConsoleApp.csproj", "{6F365499-7D1E-4BA3-9624-3C9525543707}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.Samples.ConsoleApp", "samples\Aer.Memcached.Samples.ConsoleApp\Aer.Memcached.Samples.ConsoleApp.csproj", "{6F365499-7D1E-4BA3-9624-3C9525543707}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.WebApi", "samples\Aer.Memcached.WebApi\Aer.Memcached.WebApi.csproj", "{7690B0E6-D408-44C7-9A2D-54F680B24385}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.Samples.Shared", "samples\Aer.Memcached.Samples.Shared\Aer.Memcached.Samples.Shared.csproj", "{C26180D1-1212-4424-BDF9-6B251150FEA4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.Shared", "samples\Aer.Memcached.Shared\Aer.Memcached.Shared.csproj", "{C26180D1-1212-4424-BDF9-6B251150FEA4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.Samples.WepApiToSync", "samples\Aer.Memcached.Samples.WepApiToSync\Aer.Memcached.Samples.WepApiToSync.csproj", "{DC8D3913-4E38-4C09-AF63-B96EFFAC205D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.WepApiToSync", "samples\Aer.Memcached.WepApiToSync\Aer.Memcached.WepApiToSync.csproj", "{DC8D3913-4E38-4C09-AF63-B96EFFAC205D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aer.Memcached.Samples.WebApi", "samples\Aer.Memcached.Samples.WebApi\Aer.Memcached.Samples.WebApi.csproj", "{8679BC82-1A44-4319-B656-DD48A5819FFE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -62,10 +62,6 @@ Global
 		{6F365499-7D1E-4BA3-9624-3C9525543707}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6F365499-7D1E-4BA3-9624-3C9525543707}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6F365499-7D1E-4BA3-9624-3C9525543707}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7690B0E6-D408-44C7-9A2D-54F680B24385}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7690B0E6-D408-44C7-9A2D-54F680B24385}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7690B0E6-D408-44C7-9A2D-54F680B24385}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7690B0E6-D408-44C7-9A2D-54F680B24385}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C26180D1-1212-4424-BDF9-6B251150FEA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C26180D1-1212-4424-BDF9-6B251150FEA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C26180D1-1212-4424-BDF9-6B251150FEA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -74,6 +70,10 @@ Global
 		{DC8D3913-4E38-4C09-AF63-B96EFFAC205D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DC8D3913-4E38-4C09-AF63-B96EFFAC205D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DC8D3913-4E38-4C09-AF63-B96EFFAC205D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8679BC82-1A44-4319-B656-DD48A5819FFE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8679BC82-1A44-4319-B656-DD48A5819FFE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8679BC82-1A44-4319-B656-DD48A5819FFE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8679BC82-1A44-4319-B656-DD48A5819FFE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{4D60BFFC-A473-48BE-A1BA-F0178355D096} = {15000B73-4204-439D-8356-AA8FBEE3DDED}
@@ -83,8 +83,8 @@ Global
 		{2977B331-447E-4B6F-BE8D-E1567926BDC3} = {15000B73-4204-439D-8356-AA8FBEE3DDED}
 		{25494B21-E767-48E5-9DAD-C7AA634C97F1} = {576F9D16-C336-4741-ADB2-C11F2F19253F}
 		{6F365499-7D1E-4BA3-9624-3C9525543707} = {224BAB8B-C885-4CC8-884D-B6A53AEC2F05}
-		{7690B0E6-D408-44C7-9A2D-54F680B24385} = {224BAB8B-C885-4CC8-884D-B6A53AEC2F05}
 		{C26180D1-1212-4424-BDF9-6B251150FEA4} = {224BAB8B-C885-4CC8-884D-B6A53AEC2F05}
 		{DC8D3913-4E38-4C09-AF63-B96EFFAC205D} = {224BAB8B-C885-4CC8-884D-B6A53AEC2F05}
+		{8679BC82-1A44-4319-B656-DD48A5819FFE} = {224BAB8B-C885-4CC8-884D-B6A53AEC2F05}
 	EndGlobalSection
 EndGlobal
