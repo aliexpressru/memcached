@@ -66,29 +66,15 @@ public class PooledSocket : IDisposable
 
         try
         {
-            var connTask = _socket.ConnectAsync(_endpoint, token).AsTask();
-
-            try
-            {
-                await connTask.WaitAsync(_connectionTimeout, token);
-            }
-            catch (TimeoutException)
-            {
-                if (_socket != null)
-                {
-                    _socket.Dispose();
-                    _socket = null;
-                }
-
-                throw new TimeoutException($"Endpoint {EndPointAddressString} connection timeout.");
-            }
+            await ConnectSocketWithTimeout(() => _socket.ConnectAsync(_endpoint, token), token);
         }
         catch (PlatformNotSupportedException)
         {
             var ep = GetIPEndPoint(_endpoint);
+        
             if (_socket != null)
             {
-                await _socket.ConnectAsync(ep.Address, ep.Port, token);
+                await ConnectSocketWithTimeout(() => _socket.ConnectAsync(ep.Address, ep.Port, token), token);
             }
         }
 
@@ -114,7 +100,7 @@ public class PooledSocket : IDisposable
             throw new EndPointConnectionFailedException(EndPointAddressString);
         }
     }
-    
+
     public void Reset()
     {
         int available = _socket.Available;
@@ -292,6 +278,26 @@ public class PooledSocket : IDisposable
         if (_socket == null)
         {
             throw new ObjectDisposedException(nameof(PooledSocket));
+        }
+    }
+
+    private async Task ConnectSocketWithTimeout(Func<ValueTask> socketConnectionAction, CancellationToken token)
+    {
+        try
+        {
+            await socketConnectionAction()
+                .AsTask()
+                .WaitAsync(_connectionTimeout, token);
+        }
+        catch (TimeoutException)
+        {
+            if (_socket != null)
+            {
+                _socket.Dispose();
+                _socket = null;
+            }
+
+            throw new TimeoutException($"Endpoint {EndPointAddressString} connection timeout.");
         }
     }
 }
