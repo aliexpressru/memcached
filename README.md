@@ -1,5 +1,8 @@
 # Aer Memcached Client
 
+[![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Faliexpressru%2Fmemcached%2Fbadge%3Fref%3Dmain&style=flat)](https://actions-badge.atrox.dev/aliexpressru/memcached/goto?ref=main)
+[![NuGet Release][package-image]][package-nuget-url]
+
 This solution allows to easily add memcached to a service
 
 ---
@@ -512,3 +515,7 @@ Otherwise you can encounter the limit:
 STAT conn_yields 126672162
 Number of times any connection yielded to another due to hitting the -R limit
 ```
+
+[package-nuget-url]:https://www.nuget.org/packages/Aerx.Memcached.Client/
+[package-image]:
+https://img.shields.io/nuget/v/Aerx.Memcached.Client.svg
