@@ -68,6 +68,8 @@ public class MemcachedConfiguration
     /// </summary>
     public SynchronizationSettings SyncSettings { get; set; }
 
+    public ObjectBinarySerializerType BinarySerializerType { get; set; } = ObjectBinarySerializerType.Bson;
+
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.
     /// </summary>

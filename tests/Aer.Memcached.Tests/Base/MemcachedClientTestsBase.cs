@@ -4,6 +4,7 @@ using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Diagnostics;
+using Aer.Memcached.Client.Serializers;
 using Aer.Memcached.Diagnostics.Listeners;
 using AutoFixture;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,9 @@ public abstract class MemcachedClientTestsBase
 
 	protected const int CacheItemExpirationSeconds = 3;
 	
-	protected MemcachedClientTestsBase(bool isSingleNodeCluster)
+	protected MemcachedClientTestsBase(
+		bool isSingleNodeCluster, 
+		ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson)
 	{
 		var hashCalculator = new HashCalculator();
 		
@@ -59,7 +62,7 @@ public abstract class MemcachedClientTestsBase
 		var configWrapper = new OptionsWrapper<MemcachedConfiguration>(config);
 		
 		var expirationCalculator = new ExpirationCalculator(hashCalculator, configWrapper);
-
+		
 		Client = new MemcachedClient<Pod>(
 			nodeLocator,
 			new CommandExecutor<Pod>(
@@ -68,7 +71,11 @@ public abstract class MemcachedClientTestsBase
 				commandExecutorLogger,
 				nodeLocator),
 			expirationCalculator,
-			null
+			null,
+			new ObjectBinarySerializerFactory(
+				configWrapper,
+				// TODO: add service provider to support custom binary seriazliers
+				serviceProvider: null) 
 		);
 
 		Fixture = new Fixture();

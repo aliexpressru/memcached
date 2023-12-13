@@ -4,6 +4,7 @@ using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Models;
+using Aer.Memcached.Client.Serializers;
 using Aer.Memcached.Tests.Base;
 using Aer.Memcached.Tests.Model.StoredObjectModels;
 using AutoFixture;
@@ -541,7 +542,10 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         
         var loggerMock = Substitute.For<ILogger<CommandExecutor<Pod>>>();
 
-        var config = new MemcachedConfiguration();
+        var config = new MemcachedConfiguration(){
+            BinarySerializerType = ObjectBinarySerializerType.Bson
+        };
+        
         var authProvider = new DefaultAuthenticationProvider(
             new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
@@ -555,7 +559,11 @@ public class MemcachedClientTests : MemcachedClientTestsBase
                 loggerMock,
                 nodeLocator),
             expirationCalculator,
-            cacheSynchronizer: null
+            cacheSynchronizer: null,
+            new ObjectBinarySerializerFactory(
+                new OptionsWrapper<MemcachedConfiguration>(config),
+                // we don't test custom binary serializers here so pass null
+                serviceProvider: null) 
         );
 
         var key = new string('*', 251); // this key is too long to be stored

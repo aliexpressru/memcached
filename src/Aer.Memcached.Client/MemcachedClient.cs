@@ -20,17 +20,20 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     private readonly ICommandExecutor<TNode> _commandExecutor;
     private readonly IExpirationCalculator _expirationCalculator;
     private readonly ICacheSynchronizer _cacheSynchronizer;
+    private readonly IObjectBinarySerializer _objectBinarySerializer;
 
     public MemcachedClient(
         INodeLocator<TNode> nodeLocator,
         ICommandExecutor<TNode> commandExecutor,
         IExpirationCalculator expirationCalculator,
-        ICacheSynchronizer cacheSynchronizer)
+        ICacheSynchronizer cacheSynchronizer,
+        IObjectBinarySerializerFactory objectBinarySerializerFactory)
     {
         _nodeLocator = nodeLocator;
         _commandExecutor = commandExecutor;
         _expirationCalculator = expirationCalculator;
         _cacheSynchronizer = cacheSynchronizer;
+        _objectBinarySerializer = objectBinarySerializerFactory.Create();
     }
 
     /// <inheritdoc />
@@ -49,7 +52,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 return MemcachedClientResult.Unsuccessful($"Memcached node for key {key} is not found");
             }
 
-            var cacheItem = BinaryConverter.Serialize(value);
+            var cacheItem = BinaryConverter.Serialize(value, _objectBinarySerializer);
             var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
             using (var command = new StoreCommand(storeMode, key, cacheItem, expiration))
@@ -193,7 +196,8 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 }
 
                 var deserializationResult =
-                    BinaryConverter.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
+                    BinaryConverter.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result,
+                        _objectBinarySerializer);
 
                 return MemcachedClientValueResult<T>.Successful(
                     deserializationResult.Result,
@@ -285,7 +289,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 var key = readItem.Key;
                 var cacheItem = readItem.Value;
 
-                var cachedValue = BinaryConverter.Deserialize<T>(cacheItem).Result;
+                var cachedValue = BinaryConverter.Deserialize<T>(cacheItem, _objectBinarySerializer).Result;
 
                 result.TryAdd(key, cachedValue);
             }
@@ -526,7 +530,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
                 foreach (var key in keys)
                 {
-                    keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                    keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key], _objectBinarySerializer);
                 }
 
                 var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap);
@@ -547,7 +551,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }
     }
 
-    private async Task MultiStoreBatchedInternalAsync<T>(
+    private Task MultiStoreBatchedInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, T> keyValues,
         BatchingOptions batchingOptions,
@@ -560,7 +564,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
         }
 
-        await Parallel.ForEachAsync(
+        return Parallel.ForEachAsync(
             nodes,
             new ParallelOptions()
             {
@@ -580,7 +584,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
                         foreach (var key in keysBatch)
                         {
-                            keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                            keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key], _objectBinarySerializer);
                         }
 
                         using (var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap))
@@ -639,7 +643,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         var key = readItem.Key;
                         var cacheItem = readItem.Value;
 
-                        var cachedValue = BinaryConverter.Deserialize<T>(cacheItem).Result;
+                        var cachedValue = BinaryConverter.Deserialize<T>(cacheItem, _objectBinarySerializer).Result;
 
                         result.TryAdd(key, cachedValue);
                     }
@@ -649,7 +653,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         return result;
     }
 
-    private async Task MultiDeleteBatchedInternalAsync(
+    private Task MultiDeleteBatchedInternalAsync(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         BatchingOptions batchingOptions,
         CancellationToken token)
@@ -660,7 +664,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
         }
 
-        await Parallel.ForEachAsync(
+        return Parallel.ForEachAsync(
             nodes,
             new ParallelOptions()
             {

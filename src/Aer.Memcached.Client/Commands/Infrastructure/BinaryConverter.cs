@@ -1,12 +1,6 @@
-using System.Collections;
-using System.Reflection;
 using System.Text;
-using Aer.Memcached.Client.Commands.Infrastructure.JsonConverters;
+using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Bson;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Serialization;
 
 namespace Aer.Memcached.Client.Commands.Infrastructure;
 
@@ -15,26 +9,6 @@ internal static class BinaryConverter
     private const uint RawDataFlag = 0xfa52;
     private const uint TypeCodeSerializationMask = 0x0100;
     private const uint TypeCodeDeserializationMask = 0xff;
-
-    private static readonly JsonSerializerSettings _serializerSettings = new()
-    {
-        Converters = new List<JsonConverter>()
-        {
-            new StringEnumConverter(),
-            new DateTimeJsonConverter(),
-            new DateTimeOffsetJsonConverter()
-        },
-        NullValueHandling = NullValueHandling.Ignore,
-        ContractResolver = new DefaultContractResolver
-        {
-            NamingStrategy = new SnakeCaseNamingStrategy()
-        },
-        ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-    };
-    
-    private static readonly JsonSerializer _defaultSerializer = JsonSerializer.Create(_serializerSettings);
-
-    public static readonly JsonSerializer Serializer = _defaultSerializer;
 
     public static ushort DecodeUInt16(Span<byte> span, int offset)
     {
@@ -105,7 +79,7 @@ internal static class BinaryConverter
             : Encoding.UTF8.GetBytes(value);
     }
 
-    public static CacheItemForRequest Serialize(object value)
+    public static CacheItemForRequest Serialize(object value, IObjectBinarySerializer objectBinarySerializer)
     {
         if (value == null)
         {
@@ -179,11 +153,8 @@ internal static class BinaryConverter
                 typeCode = TypeCode.Object;
                 using (var ms = new MemoryStream())
                 {
-                    using (var writer = new BsonDataWriter(ms))
-                    {
-                        Serializer.Serialize(writer, value);
-                        data = new ArraySegment<byte>(ms.ToArray(), 0, (int) ms.Length);
-                    }
+                    objectBinarySerializer.Serialize(value, ms);
+                    data = new ArraySegment<byte>(ms.ToArray(), 0, (int) ms.Length);
                 }
 
                 break;
@@ -192,7 +163,10 @@ internal static class BinaryConverter
         return new CacheItemForRequest(TypeCodeToFlag(typeCode), data);
     }
 
-    public static DeserializationResult<T> Deserialize<T>(CacheItemResult item)
+    public static DeserializationResult<T> Deserialize<T>(
+        CacheItemResult item,
+
+        IObjectBinarySerializer objectBinarySerializer)
     {
         var data = item.Data;
         if (data.IsEmpty)
@@ -211,7 +185,7 @@ internal static class BinaryConverter
         }
 
         var type = typeof(T);
-        
+
         if (Type.GetTypeCode(type) != TypeCode.Object
             || type == typeof(byte[]))
         {
@@ -231,17 +205,20 @@ internal static class BinaryConverter
 
         // deserialization for complex object types
         using var ms = new MemoryStream(item.Data.ToArray());
-        using var reader = new BsonDataReader(ms);
-        
-        if (typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IEnumerable))
-            // Dictionary<TKey,TValue> implements IEnumerable but we should read it as an object, not an array
-            && !typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IDictionary)))
-        {
-            reader.ReadRootValueAsArray = true;
-        }
 
-        var deserializedValue = Serializer.Deserialize<T>(reader); 
+        var deserializedValue = objectBinarySerializer.Deserialize<T>(ms);
         
+        // using var reader = new BsonDataReader(ms);
+        //
+        // if (typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IEnumerable))
+        //     // Dictionary<TKey,TValue> implements IEnumerable but we should read it as an object, not an array
+        //     && !typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IDictionary)))
+        // {
+        //     reader.ReadRootValueAsArray = true;
+        // }
+        //
+        // var deserializedValue = NewtonsoftJsonSerializer.Default.Deserialize<T>(reader);
+
         return new DeserializationResult<T>
         {
             Result = deserializedValue,
