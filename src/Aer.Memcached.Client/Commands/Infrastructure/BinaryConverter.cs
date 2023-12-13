@@ -151,11 +151,9 @@ internal static class BinaryConverter
             case TypeCode.Decimal:
             default:
                 typeCode = TypeCode.Object;
-                using (var ms = new MemoryStream())
-                {
-                    objectBinarySerializer.Serialize(value, ms);
-                    data = new ArraySegment<byte>(ms.ToArray(), 0, (int) ms.Length);
-                }
+                
+                var binaryObject = objectBinarySerializer.Serialize(value);
+                data = new ArraySegment<byte>(binaryObject, 0, binaryObject.Length);
 
                 break;
         }
@@ -204,20 +202,7 @@ internal static class BinaryConverter
         }
 
         // deserialization for complex object types
-        using var ms = new MemoryStream(item.Data.ToArray());
-
-        var deserializedValue = objectBinarySerializer.Deserialize<T>(ms);
-        
-        // using var reader = new BsonDataReader(ms);
-        //
-        // if (typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IEnumerable))
-        //     // Dictionary<TKey,TValue> implements IEnumerable but we should read it as an object, not an array
-        //     && !typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IDictionary)))
-        // {
-        //     reader.ReadRootValueAsArray = true;
-        // }
-        //
-        // var deserializedValue = NewtonsoftJsonSerializer.Default.Deserialize<T>(reader);
+        var deserializedValue = objectBinarySerializer.Deserialize<T>(item.Data.ToArray());
 
         return new DeserializationResult<T>
         {

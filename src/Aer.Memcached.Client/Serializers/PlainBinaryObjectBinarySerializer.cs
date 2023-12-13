@@ -4,12 +4,12 @@ namespace Aer.Memcached.Client.Serializers;
 
 public class PlainBinaryObjectBinarySerializer : IObjectBinarySerializer
 {
-	public void Serialize<T>(T value, Stream stream)
+	public byte[] Serialize<T>(T value)
 	{
 		throw new NotImplementedException();
 	}
 
-	public T Deserialize<T>(Stream stream)
+	public T Deserialize<T>(byte[] serializedObject)
 	{
 		throw new NotImplementedException();
 	}

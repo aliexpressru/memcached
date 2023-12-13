@@ -7,18 +7,22 @@ namespace Aer.Memcached.Client.Serializers;
 
 internal class BsonObjectBinarySerializer : IObjectBinarySerializer
 {
-	public void Serialize<T>(T value, Stream stream)
+	public byte[] Serialize<T>(T value)
 	{
-		var writer = new BsonDataWriter(stream);
-		
-		NewtonsoftJsonSerializer.Default.Serialize(writer, value);
-		
-		writer.Flush();
+		using (var ms = new MemoryStream())
+		{
+			using var writer = new BsonDataWriter(ms);
+
+			NewtonsoftJsonSerializer.Default.Serialize(writer, value);
+
+			return ms.ToArray();
+		}
 	}
 
-	public T Deserialize<T>(Stream stream)
+	public T Deserialize<T>(byte[] serializedObject)
 	{
-		var reader = new BsonDataReader(stream);
+		using var ms = new MemoryStream(serializedObject);
+		using var reader = new BsonDataReader(ms);
 
 		if (typeof(T).GetTypeInfo().ImplementedInterfaces.Contains(typeof(IEnumerable))
 			// Dictionary<TKey,TValue> implements IEnumerable but we should read it as an object, not an array
