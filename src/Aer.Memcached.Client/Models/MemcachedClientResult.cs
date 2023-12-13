@@ -2,15 +2,28 @@ namespace Aer.Memcached.Client.Models;
 
 public class MemcachedClientResult
 {
-    public bool Success { get; set; }
+    /// <summary>
+    /// If set to <c>true</c>, then no errors occured on memcached side.
+    /// </summary>
+    public bool Success { get; }
+
+    /// <summary>
+    /// If any errors occured on memcached side, this property contains the error message.
+    /// </summary>
+    public string ErrorMessage { get; }
+
+    public static MemcachedClientResult Successful { get; } = new(success: true);
     
-    public static MemcachedClientResult Unsuccessful { get; } = new()
+    internal MemcachedClientResult(bool success, string errorMessage = null)
     {
-        Success = false
-    };
+        Success = success;
+        ErrorMessage = errorMessage;
+    }
+
+    public static MemcachedClientResult Unsuccessful(string errorMessage)
+    {
+        return new MemcachedClientResult(success: false, errorMessage);
+    }
     
-    public static MemcachedClientResult Successful { get; } = new()
-    {
-        Success = true
-    };
+    
 }

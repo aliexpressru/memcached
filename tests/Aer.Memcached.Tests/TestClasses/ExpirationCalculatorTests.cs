@@ -111,7 +111,6 @@ public class ExpirationCalculatorTests
 
             keysToExpectedExpirationMap[testKey] = expectedExpiration;
         }
-        
 
         var keysToExpirationMap = new Dictionary<string, uint>();
         foreach (var testKey in testKeys)
@@ -122,5 +121,80 @@ public class ExpirationCalculatorTests
         }
 
         keysToExpectedExpirationMap.Should().BeEquivalentTo(keysToExpirationMap);
+    }
+
+    [TestMethod]
+    public void ZeroExpiration_WithoutJitter_ResultsInInfiniteExpiration()
+    {
+        var hashCalculator = new HashCalculator();
+        var config = new MemcachedConfiguration();
+
+        var expirationCalculator = new ExpirationCalculator(
+            hashCalculator,
+            new OptionsWrapper<MemcachedConfiguration>(config));
+
+        var key = "test";
+
+        List<uint> singleKeyExpirations = new()
+        {
+            expirationCalculator.GetExpiration(key, null),
+            expirationCalculator.GetExpiration(key, TimeSpan.Zero),
+            expirationCalculator.GetExpiration(key, TimeSpan.MaxValue)
+        };
+
+        List<Dictionary<string, uint>> multiKeyExpirations = new()
+        {
+            expirationCalculator.GetExpiration(new[] {key}, (TimeSpan?) null),
+            expirationCalculator.GetExpiration(new[] {key}, TimeSpan.Zero),
+            expirationCalculator.GetExpiration(new[] {key}, TimeSpan.MaxValue),
+            expirationCalculator.GetExpiration(new[] {key}, (DateTimeOffset?) null),
+            expirationCalculator.GetExpiration(new[] {key}, DateTimeOffset.MaxValue)
+        };
+
+        singleKeyExpirations.Should().AllSatisfy(e => e.Should().Be(0));
+
+        multiKeyExpirations.Should()
+            .AllSatisfy(kv => kv.Values.Should().AllSatisfy(v=>v.Should().Be(0)));
+    }
+
+    [TestMethod]
+    public void ZeroExpiration_WithJitter_ResultsInInfiniteExpiration()
+    {
+        var hashCalculator = new HashCalculator();
+
+        var config = new MemcachedConfiguration
+        {
+            ExpirationJitter = new MemcachedConfiguration.ExpirationJitterSettings
+            {
+                MultiplicationFactor = 2
+            }
+        };
+
+        var expirationCalculator = new ExpirationCalculator(
+            hashCalculator,
+            new OptionsWrapper<MemcachedConfiguration>(config));
+
+        var key = "test";
+
+        List<uint> singleKeyExpirations = new()
+        {
+            expirationCalculator.GetExpiration(key, null),
+            expirationCalculator.GetExpiration(key, TimeSpan.Zero),
+            expirationCalculator.GetExpiration(key, TimeSpan.MaxValue)
+        };
+
+        List<Dictionary<string, uint>> multiKeyExpirations = new()
+        {
+            expirationCalculator.GetExpiration(new[] {key}, (TimeSpan?) null),
+            expirationCalculator.GetExpiration(new[] {key}, TimeSpan.Zero),
+            expirationCalculator.GetExpiration(new[] {key}, TimeSpan.MaxValue),
+            expirationCalculator.GetExpiration(new[] {key}, (DateTimeOffset?) null),
+            expirationCalculator.GetExpiration(new[] {key}, DateTimeOffset.MaxValue)
+        };
+
+        singleKeyExpirations.Should().AllSatisfy(e => e.Should().Be(0));
+
+        multiKeyExpirations.Should()
+            .AllSatisfy(kv => kv.Values.Should().AllSatisfy(v => v.Should().Be(0)));
     }
 }

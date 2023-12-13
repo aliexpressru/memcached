@@ -241,6 +241,26 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     }
 
     [TestMethod]
+    public async Task StoreAndGet_NullExpiration()
+    {
+        var key = Guid.NewGuid().ToString();
+        var value = Fixture.Create<SimpleObject>();
+
+        await Client.StoreAsync(
+            key, 
+            value, 
+            expirationTime: null, 
+            CancellationToken.None);
+
+        var getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
+
+        getValue.Success.Should().BeTrue();
+        
+        getValue.IsEmptyResult.Should().BeFalse();
+        getValue.Result.Should().BeEquivalentTo(value);
+    }
+
+    [TestMethod]
     public async Task StoreAndGet_SimpleObject()
     {
         var key = Guid.NewGuid().ToString();
@@ -273,6 +293,84 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         {
             getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
         }
+    }
+
+    [TestMethod]
+    public async Task MultiStoreAndGet_NullExpiration()
+    {
+        var keyValues = new Dictionary<string, SimpleObject>();
+
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
+        }
+
+        await Client.MultiStoreAsync(
+            keyValues,
+            expirationTime: (TimeSpan?) null,
+            CancellationToken.None);
+
+        var getValues = await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+
+        foreach (var keyValue in keyValues)
+        {
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
+        }
+    }
+
+    [TestMethod]
+    public async Task MultiStoreAndGet_NullExpirationDateTimeOffset()
+    {
+        var keyValues = new Dictionary<string, SimpleObject>();
+
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
+        }
+
+        await Client.MultiStoreAsync(
+            keyValues,
+            expirationTime: (DateTimeOffset?) null,
+            CancellationToken.None);
+
+        var getValues = await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+
+        foreach (var keyValue in keyValues)
+        {
+            getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
+        }
+    }
+
+    [TestMethod]
+    public async Task MultiStoreAndGet_ExpirationNowAndInThePast_NoKeysStored()
+    {
+        var keyValues = new Dictionary<string, SimpleObject>();
+
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
+        }
+
+        var storeResult = await Client.MultiStoreAsync(
+            keyValues,
+            expirationTime: DateTimeOffset.Now.Subtract(TimeSpan.FromSeconds(1)),
+            CancellationToken.None);
+
+        storeResult.Success.Should().BeFalse();
+        
+        storeResult = await Client.MultiStoreAsync(
+            keyValues,
+            expirationTime: DateTimeOffset.Now,
+            CancellationToken.None);
+
+        storeResult.Success.Should().BeFalse();
+
+        var getValues = 
+            await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
+
+        // no keys should be stored
+        
+        getValues.Count.Should().Be(0);
     }
 
     [TestMethod]

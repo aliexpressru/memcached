@@ -31,7 +31,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal key-values batching</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data</param>
-	Task MultiStoreAsync<T>(
+	Task<MemcachedClientResult> MultiStoreAsync<T>(
 		Dictionary<string, T> keyValues, 
 		TimeSpan? expirationTime, 
 		CancellationToken token, 
@@ -50,7 +50,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal key-values batching</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data</param>
-	Task MultiStoreAsync<T>(
+	Task<MemcachedClientResult> MultiStoreAsync<T>(
 		Dictionary<string, T> keyValues,
 		DateTimeOffset? expirationTime,
 		CancellationToken token,
@@ -81,6 +81,20 @@ public interface IMemcachedClient
 		uint replicationFactor = 0);
 
 	/// <summary>
+	/// Gets multiple values by keys. Does not throw exceptions.
+	/// </summary>
+	/// <param name="keys">Keys</param>
+	/// <param name="token">Cancellation token</param>
+	/// <param name="batchingOptions">The options that configure internal keys batching</param>
+	/// <param name="replicationFactor">Number of physical nodes which will be requested to obtain data</param>
+	/// <returns>Values by keys. Only found in memcached keys are returned</returns>
+	Task<MemcachedClientValueResult<IDictionary<string, T>>> MultiGetSafeAsync<T>(
+		IEnumerable<string> keys,
+		CancellationToken token,
+		BatchingOptions batchingOptions = null,
+		uint replicationFactor = 0);
+
+	/// <summary>
 	/// Deletes one value by key
 	/// </summary>
 	/// <param name="key">Key</param>
@@ -95,7 +109,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal keys batching</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes to try delete keys</param>
-	Task MultiDeleteAsync(
+	Task<MemcachedClientResult> MultiDeleteAsync(
 		IEnumerable<string> keys,
 		CancellationToken token,
 		BatchingOptions batchingOptions = null,
@@ -137,5 +151,5 @@ public interface IMemcachedClient
 	/// <summary>
 	/// Flush memcached data
 	/// </summary>
-	Task FlushAsync(CancellationToken token);
+	Task<MemcachedClientResult> FlushAsync(CancellationToken token);
 }

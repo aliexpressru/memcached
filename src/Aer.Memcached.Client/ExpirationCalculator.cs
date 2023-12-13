@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
@@ -21,11 +23,13 @@ public class ExpirationCalculator: IExpirationCalculator
     /// <inheritdoc />
     public uint GetExpiration(string key, TimeSpan? expirationTime)
     {
-        if (!expirationTime.HasValue)
+        if (IsInfiniteExpiration(expirationTime))
         {
             return 0;
         }
 
+        Debug.Assert(expirationTime != null, nameof(expirationTime) + " != null");
+        
         var utcNow = DateTimeOffset.UtcNow;
 
         if (_expirationJitterSettings == null)
@@ -33,7 +37,7 @@ public class ExpirationCalculator: IExpirationCalculator
             return GetExpirationTimeInUnixTimeSeconds(utcNow, expirationTime.Value);
         }
 
-        var expirationWithJitter = GetExpirationWithJitter(key, expirationTime);
+        var expirationWithJitter = GetExpirationWithJitter(key, expirationTime.Value);
 
         return GetExpirationTimeInUnixTimeSeconds(utcNow, expirationWithJitter);
     }
@@ -41,21 +45,37 @@ public class ExpirationCalculator: IExpirationCalculator
     /// <inheritdoc />
     public Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, TimeSpan? expirationTime)
     {
+        if (IsInfiniteExpiration(expirationTime))
+        {
+            return keys.ToDictionary(k => k, _ => 0U);
+        }
+
+        Debug.Assert(expirationTime != null, nameof(expirationTime) + " != null");
+        
         var utcNow = DateTimeOffset.UtcNow;
         
-        return GetExpirationInternal(keys, utcNow, expirationTime);
+        return GetExpirationInternal(keys, utcNow, expirationTime.Value);
     }
     
     /// <inheritdoc />
     public Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, DateTimeOffset? expirationTime)
     {
-        TimeSpan? timeSpan = null;
-        var utcNow = DateTimeOffset.UtcNow;
-        
-        if (expirationTime.HasValue && expirationTime.Value > utcNow)
+        if (IsInfiniteExpiration(expirationTime))
         {
-            timeSpan = expirationTime.Value.Subtract(utcNow);
+            return keys.ToDictionary(k => k, _ => 0U);
         }
+
+        Debug.Assert(expirationTime != null, nameof(expirationTime) + " != null");
+
+        var utcNow = DateTimeOffset.UtcNow;
+
+        if (expirationTime.Value <= utcNow)
+        {
+            // means expiration time is in the past - don't save anything
+            return null;
+        }
+
+        var timeSpan = expirationTime.Value.Subtract(utcNow);
 
         return GetExpirationInternal(keys, utcNow, timeSpan);
     }
@@ -63,7 +83,7 @@ public class ExpirationCalculator: IExpirationCalculator
     private Dictionary<string, uint> GetExpirationInternal(
         IEnumerable<string> keys, 
         DateTimeOffset utcNow,
-        TimeSpan? expirationTime)
+        TimeSpan expirationTime)
     {
         var result = new Dictionary<string, uint>();
 
@@ -71,42 +91,45 @@ public class ExpirationCalculator: IExpirationCalculator
         {
             foreach (var key in keys)
             {
-                result[key] = expirationTime.HasValue 
-                    ? GetExpirationTimeInUnixTimeSeconds(utcNow, expirationTime.Value) 
-                    : 0;
+                result[key] = GetExpirationTimeInUnixTimeSeconds(utcNow, expirationTime);
             }
         }
         else
         {
             foreach (var key in keys)
             {
-                var expirationWithJitter = GetExpirationWithJitter(key, expirationTime);
-
-                result[key] = GetExpirationTimeInUnixTimeSeconds(utcNow, expirationWithJitter);
+                result[key] = GetExpirationTimeInUnixTimeSeconds(
+                    utcNow,
+                    GetExpirationWithJitter(key, expirationTime));
             }
         }
 
         return result;
     }
 
-    private TimeSpan GetExpirationWithJitter(string key, TimeSpan? expirationTime)
+    private TimeSpan GetExpirationWithJitter(string key, TimeSpan expirationTime)
     {
-        if (!expirationTime.HasValue)
-        {
-            return TimeSpan.Zero;
-        }
-        
         var hash = _hashCalculator.ComputeHash(key);
         var lastDigit = hash % _expirationJitterSettings.SpreadFactor;
         var jitter = lastDigit * _expirationJitterSettings.MultiplicationFactor;
 
-        var expirationWithJitter = expirationTime.Value.Add(TimeSpan.FromSeconds(jitter));
+        var expirationWithJitter = expirationTime.Add(TimeSpan.FromSeconds(jitter));
 
         return expirationWithJitter;
     }
 
-    private uint GetExpirationTimeInUnixTimeSeconds(DateTimeOffset timeOffset, TimeSpan expirationTime)
-    {
-        return (uint)(timeOffset + expirationTime).ToUnixTimeSeconds();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint GetExpirationTimeInUnixTimeSeconds(DateTimeOffset timeOffset, TimeSpan expirationTime) 
+        => (uint)(timeOffset + expirationTime).ToUnixTimeSeconds();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsInfiniteExpiration(TimeSpan? expirationTime) 
+        => !expirationTime.HasValue
+        || expirationTime == TimeSpan.MaxValue
+        || expirationTime == TimeSpan.Zero;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsInfiniteExpiration(DateTimeOffset? expirationTime) 
+        => !expirationTime.HasValue
+        || expirationTime == DateTimeOffset.MaxValue;
 }
