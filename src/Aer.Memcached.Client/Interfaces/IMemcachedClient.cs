@@ -81,6 +81,20 @@ public interface IMemcachedClient
 		uint replicationFactor = 0);
 
 	/// <summary>
+	/// Gets multiple values by keys. Does not throw exceptions.
+	/// </summary>
+	/// <param name="keys">Keys</param>
+	/// <param name="token">Cancellation token</param>
+	/// <param name="batchingOptions">The options that configure internal keys batching</param>
+	/// <param name="replicationFactor">Number of physical nodes which will be requested to obtain data</param>
+	/// <returns>Values by keys. Only found in memcached keys are returned</returns>
+	Task<MemcachedClientValueResult<IDictionary<string, T>>> MultiGetSafeAsync<T>(
+		IEnumerable<string> keys,
+		CancellationToken token,
+		BatchingOptions batchingOptions = null,
+		uint replicationFactor = 0);
+
+	/// <summary>
 	/// Deletes one value by key
 	/// </summary>
 	/// <param name="key">Key</param>

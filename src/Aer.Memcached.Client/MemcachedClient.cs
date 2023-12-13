@@ -203,6 +203,28 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     }
 
     /// <inheritdoc />
+    public async Task<MemcachedClientValueResult<IDictionary<string, T>>> MultiGetSafeAsync<T>(
+        IEnumerable<string> keys,
+        CancellationToken token,
+        BatchingOptions batchingOptions = null,
+        uint replicationFactor = 0)
+    {
+        try
+        {
+            var getKeysResult = await MultiGetAsync<T>(keys, token, batchingOptions, replicationFactor);
+
+            return MemcachedClientValueResult<IDictionary<string, T>>.Successful(
+                getKeysResult,
+                isResultEmpty: getKeysResult.Count > 0);
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientValueResult<IDictionary<string, T>>.Unsuccessful(
+                $"An exception happened during {nameof(MultiGetSafeAsync)} execution.\nException details: {e}");
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<IDictionary<string, T>> MultiGetAsync<T>(
         IEnumerable<string> keys,
         CancellationToken token,
