@@ -2,22 +2,42 @@ namespace Aer.Memcached.Client.Models;
 
 public class MemcachedClientValueResult<T>
 {
-    public T Result { get; set; }
+    /// <summary>
+    /// The result of the memcached operation.
+    /// </summary>
+    public T Result { get; }
     
     /// <summary>
-    /// No errors occured on memcached side
+    /// If set to <c>true</c>, then no errors occured on memcached side.
     /// </summary>
-    public bool Success { get; set; }
+    public bool Success { get; }
 
     /// <summary>
-    /// true - if no value is stored
-    /// default value is true as command to memcached can be unsuccessful
+    /// If any errors occured on memcached side, this property contains the error message.
     /// </summary>
-    public bool IsEmptyResult { get; set; } = true;
+    public string ErrorMessage { get; }
 
-    public static MemcachedClientValueResult<T> Unsuccessful { get; } = new()
+    /// <summary>
+    /// <c>true</c> - if no value is stored
+    /// default value is <c>true</c> as command to memcached can be unsuccessful
+    /// </summary>
+    public bool IsEmptyResult { get; }
+
+    internal MemcachedClientValueResult(
+        bool success,
+        T result = default,
+        bool isEmptyResult = true,
+        string errorMessage = null)
     {
-        Success = false,
-        Result = default
-    };
+        Success = success;
+        Result = result;
+        ErrorMessage = errorMessage;
+        IsEmptyResult = isEmptyResult;
+    }
+
+    internal static MemcachedClientValueResult<T> Successful(T result, bool isResultEmpty)
+        => new(success: true, result: result, isEmptyResult: isResultEmpty);
+
+    internal static MemcachedClientValueResult<T> Unsuccessful(string errorMessage) 
+        => new(success: false, errorMessage: errorMessage);
 }

@@ -41,29 +41,32 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         CancellationToken token,
         StoreMode storeMode = StoreMode.Set)
     {
-        var node = _nodeLocator.GetNode(key);
-
-        if (node == null)
+        try
         {
-            return MemcachedClientResult.Unsuccessful;
-        }
-
-        var cacheItem = BinaryConverter.Serialize(value);
-        var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
-
-        using (var command = new StoreCommand(storeMode, key, cacheItem, expiration))
-        {
-            var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
-
-            return new MemcachedClientResult
+            var node = _nodeLocator.GetNode(key);
+            if (node == null)
             {
-                Success = result.Success
-            };
+                return MemcachedClientResult.Unsuccessful($"Memcached node for key {key} is not found");
+            }
+
+            var cacheItem = BinaryConverter.Serialize(value);
+            var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
+
+            using (var command = new StoreCommand(storeMode, key, cacheItem, expiration))
+            {
+                var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+                return new MemcachedClientResult(result.Success);
+            }
+        }
+        catch (Exception e)
+        { 
+            return MemcachedClientResult.Unsuccessful($"An exception happened during {nameof(StoreAsync)} execution.\nException details: {e}");
         }
     }
 
     /// <inheritdoc />
-    public async Task MultiStoreAsync<T>(
+    public async Task<MemcachedClientResult> MultiStoreAsync<T>(
         Dictionary<string, T> keyValues,
         TimeSpan? expirationTime,
         CancellationToken token,
@@ -72,30 +75,46 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         CacheSyncOptions cacheSyncOptions = null,
         uint replicationFactor = 0)
     {
-        var utcNow = DateTimeOffset.UtcNow;
-
-        var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
-        if (nodes.Keys.Count == 0)
+        try
         {
-            return;
-        }
-
-        var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
-
-        await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
-
-        if (_cacheSynchronizer != null)
-        {
-            await _cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<T>
+            var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
+            if (nodes.Keys.Count == 0)
             {
-                KeyValues = keyValues,
-                ExpirationTime = expirationTime.HasValue ? utcNow.Add(expirationTime.Value) : null
-            }, cacheSyncOptions, token);
+                return MemcachedClientResult.Unsuccessful(
+                    $"Memcached nodes for keys {string.Join(",", keyValues.Keys)} not found");
+            }
+
+            var utcNow = DateTimeOffset.UtcNow;
+
+            var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
+
+            await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
+
+            if (_cacheSynchronizer != null)
+            {
+                await _cacheSynchronizer.SyncCacheAsync(
+                    new CacheSyncModel<T>
+                    {
+                        KeyValues = keyValues,
+                        ExpirationTime = expirationTime.HasValue
+                            ? utcNow.Add(expirationTime.Value)
+                            : null
+                    },
+                    cacheSyncOptions,
+                    token);
+            }
+            
+            return MemcachedClientResult.Successful;
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientResult.Unsuccessful(
+                $"An exception happened during {nameof(MultiStoreAsync)} execution.\nException details: {e}");
         }
     }
 
     /// <inheritdoc />
-    public async Task MultiStoreAsync<T>(
+    public async Task<MemcachedClientResult> MultiStoreAsync<T>(
         Dictionary<string, T> keyValues,
         DateTimeOffset? expirationTime,
         CancellationToken token,
@@ -104,54 +123,75 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         CacheSyncOptions cacheSyncOptions = null,
         uint replicationFactor = 0)
     {
-        var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
-        if (nodes.Keys.Count == 0)
+        try
         {
-            return;
-        }
-
-        var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
-
-        await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
-
-        // this method is used by cache synchronizer, these checks are needed only here
-        if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn) && _cacheSynchronizer != null)
-        {
-            await _cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<T>
+            var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
+            if (nodes.Keys.Count == 0)
             {
-                KeyValues = keyValues,
-                ExpirationTime = expirationTime
-            }, cacheSyncOptions, token);
+                return MemcachedClientResult.Unsuccessful(
+                    $"Memcached nodes for keys {string.Join(",", keyValues.Keys)} not found");
+            }
+
+            var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
+
+            await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
+
+            // this method is used by cache synchronizer, these checks are needed only here
+            if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn)
+                && _cacheSynchronizer != null)
+            {
+                await _cacheSynchronizer.SyncCacheAsync(
+                    new CacheSyncModel<T>
+                    {
+                        KeyValues = keyValues,
+                        ExpirationTime = expirationTime
+                    },
+                    cacheSyncOptions,
+                    token);
+            }
+            
+            return MemcachedClientResult.Successful;
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientResult.Unsuccessful(
+                $"An exception happened during {nameof(MultiStoreAsync)} execution.\nException details: {e}");
         }
     }
 
     /// <inheritdoc />
     public async Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token)
     {
-        var node = _nodeLocator.GetNode(key);
-        if (node == null)
+        try
         {
-            return MemcachedClientValueResult<T>.Unsuccessful;
-        }
-
-        using (var command = new GetCommand(key))
-        {
-            using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
-
-            if (!commandExecutionResult.Success)
+            var node = _nodeLocator.GetNode(key);
+            if (node == null)
             {
-                return MemcachedClientValueResult<T>.Unsuccessful;
+                return MemcachedClientValueResult<T>.Unsuccessful($"Memcached node for key {key} is not found");
             }
 
-            var deserializationResult =
-                BinaryConverter.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
-
-            return new MemcachedClientValueResult<T>
+            using (var command = new GetCommand(key))
             {
-                Success = true,
-                Result = deserializationResult.Result,
-                IsEmptyResult = deserializationResult.IsEmpty
-            };
+                using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+                if (!commandExecutionResult.Success)
+                {
+                    return MemcachedClientValueResult<T>.Unsuccessful(
+                        $"Error occured during {nameof(GetAsync)} exucution");
+                }
+
+                var deserializationResult =
+                    BinaryConverter.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
+
+                return MemcachedClientValueResult<T>.Successful(
+                    deserializationResult.Result,
+                    deserializationResult.IsEmpty);
+            }
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientValueResult<T>.Unsuccessful(
+                $"An exception happened during {nameof(GetAsync)} execution.\nException details: {e}");
         }
     }
 
@@ -163,7 +203,6 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         uint replicationFactor = 0)
     {
         var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
-
         if (nodes.Keys.Count == 0)
         {
             // means no nodes for specified keys found
@@ -201,7 +240,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
             var command = taskResult.GetCommandAs<MultiGetCommand>();
 
-            if (command.Result is null or { Count: 0 })
+            if (command.Result is null or {Count: 0})
             {
                 // skip results that are empty  
                 continue;
@@ -224,64 +263,84 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     /// <inheritdoc />
     public async Task<MemcachedClientResult> DeleteAsync(string key, CancellationToken token)
     {
-        var node = _nodeLocator.GetNode(key);
-        if (node == null)
+        try
         {
-            return MemcachedClientResult.Unsuccessful;
-        }
-
-        using (var command = new DeleteCommand(key))
-        {
-            var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
-
-            return new MemcachedClientResult
+            var node = _nodeLocator.GetNode(key);
+            if (node == null)
             {
-                Success = commandExecutionResult.Success
-            };
+                return MemcachedClientResult.Unsuccessful($"Memcached node for key {key} is not found");
+            }
+
+            using (var command = new DeleteCommand(key))
+            {
+                var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+                return new MemcachedClientResult(commandExecutionResult.Success);
+            }
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientResult.Unsuccessful(
+                $"An exception happened during {nameof(DeleteAsync)} execution.\nException details: {e}");
         }
     }
 
     /// <inheritdoc />
-    public async Task MultiDeleteAsync(
+    public async Task<MemcachedClientResult> MultiDeleteAsync(
         IEnumerable<string> keys,
         CancellationToken token,
         BatchingOptions batchingOptions = null,
         CacheSyncOptions cacheSyncOptions = null,
         uint replicationFactor = 0)
     {
-        var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
-        if (nodes.Keys.Count == 0)
+        try
         {
-            return;
-        }
+            // to avoid mutiple enumeration
+            var keysList = keys.ToList();
 
-        if (batchingOptions is not null)
-        {
-            await MultiDeleteBatchedInternalAsync(nodes, batchingOptions, token);
-        }
-
-        var deleteTasks = new List<Task>(nodes.Count);
-
-        foreach (var (replicatedNode, keysToDelete) in nodes)
-        {
-            foreach (var node in replicatedNode.EnumerateNodes())
+            var nodes = _nodeLocator.GetNodes(keysList, replicationFactor);
+            if (nodes.Keys.Count == 0)
             {
-                using (var command = new MultiDeleteCommand(keysToDelete, keysToDelete.Count))
-                {
-                    var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+                return MemcachedClientResult.Unsuccessful(
+                    $"Memcached nodes for keys {string.Join(",", keysList)} not found");
+            }
 
-                    deleteTasks.Add(executeTask);
+            if (batchingOptions is not null)
+            {
+                await MultiDeleteBatchedInternalAsync(nodes, batchingOptions, token);
+            }
+
+            var deleteTasks = new List<Task>(nodes.Count);
+
+            foreach (var (replicatedNode, keysToDelete) in nodes)
+            {
+                foreach (var node in replicatedNode.EnumerateNodes())
+                {
+                    using (var command = new MultiDeleteCommand(keysToDelete, keysToDelete.Count))
+                    {
+                        var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+                        deleteTasks.Add(executeTask);
+                    }
                 }
             }
-        }
-        
-        // this method is used by cache synchronizer, these checks are needed only here
-        if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn) && _cacheSynchronizer != null)
-        {
-            await _cacheSynchronizer.DeleteCacheAsync(keys, token);
-        }
 
-        await Task.WhenAll(deleteTasks);
+            // this method is used by cache synchronizer, these checks are needed only here
+            if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn)
+                && _cacheSynchronizer != null)
+            {
+                await _cacheSynchronizer.DeleteCacheAsync(keysList, token);
+            }
+
+            await Task.WhenAll(deleteTasks);
+            
+            return MemcachedClientResult.Successful;
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientResult.Unsuccessful(
+                $"An exception happened during {nameof(MultiDeleteAsync)} execution.\nException details: {e}");
+        }
     }
 
     /// <inheritdoc />
@@ -292,25 +351,34 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         TimeSpan? expirationTime,
         CancellationToken token)
     {
-        var node = _nodeLocator.GetNode(key);
-
-        if (node == null)
+        try
         {
-            return MemcachedClientValueResult<ulong>.Unsuccessful;
-        }
-
-        var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
-
-        // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
-        using (var command = new IncrCommand(key, amountToAdd, initialValue, expiration))
-        {
-            using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
-
-            return new MemcachedClientValueResult<ulong>
+            var node = _nodeLocator.GetNode(key);
+            if (node == null)
             {
-                Success = result.Success,
-                Result = result.GetCommandAs<IncrCommand>().Result
-            };
+                return MemcachedClientValueResult<ulong>.Unsuccessful($"Memcached node for key {key} is not found");
+            }
+
+            var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
+
+            // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
+            using (var command = new IncrCommand(key, amountToAdd, initialValue, expiration))
+            {
+                using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+                return new MemcachedClientValueResult<ulong>(
+                    result.Success,
+                    result.GetCommandAs<IncrCommand>().Result,
+                    // successfull incr command result can't be empty,
+                    // while unsuccessfull command result is always empty
+                    isEmptyResult: !result.Success
+                );
+            }
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientValueResult<ulong>.Unsuccessful(
+                $"An exception happened during {nameof(IncrAsync)} execution.\nException details: {e}");
         }
     }
 
@@ -322,51 +390,71 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         TimeSpan? expirationTime,
         CancellationToken token)
     {
-        var node = _nodeLocator.GetNode(key);
-
-        if (node == null)
+        try
         {
-            return MemcachedClientValueResult<ulong>.Unsuccessful;
-        }
-
-        var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
-
-        using (var command = new DecrCommand(key, amountToSubtract, initialValue, expiration))
-        {
-            using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
-
-            return new MemcachedClientValueResult<ulong>
+            var node = _nodeLocator.GetNode(key);
+            if (node == null)
             {
-                Success = result.Success,
-                Result = result.GetCommandAs<DecrCommand>().Result
-            };
+                return MemcachedClientValueResult<ulong>.Unsuccessful($"Memcached node for key {key} is not found");
+            }
+
+            var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
+
+            using (var command = new DecrCommand(key, amountToSubtract, initialValue, expiration))
+            {
+                using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+                return new MemcachedClientValueResult<ulong>(
+                    result.Success,
+                    result.GetCommandAs<DecrCommand>().Result,
+                    // successfull incr command result can't be empty,
+                    // while unsuccessfull command result is always empty
+                    isEmptyResult: !result.Success
+                );
+            }
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientValueResult<ulong>.Unsuccessful(
+                $"An exception happened during {nameof(DecrAsync)} execution.\nException details: {e}");
         }
     }
 
-    public async Task FlushAsync(CancellationToken token)
+    public async Task<MemcachedClientResult> FlushAsync(CancellationToken token)
     {
-        var nodes = _nodeLocator.GetAllNodes();
-        if (nodes == null || nodes.Length == 0)
+        try
         {
-            return;
+            var nodes = _nodeLocator.GetAllNodes();
+            if (nodes == null
+                || nodes.Length == 0)
+            {
+                return MemcachedClientResult.Unsuccessful("No memcached nodes found");
+            }
+
+            var command = new FlushCommand();
+            var setTasks = new List<Task>(nodes.Length);
+            var commandsToDispose = new List<MemcachedCommandBase>(nodes.Length);
+
+            foreach (var node in nodes)
+            {
+                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+                setTasks.Add(executeTask);
+                commandsToDispose.Add(command);
+            }
+
+            await Task.WhenAll(setTasks);
+
+            foreach (var commandBase in commandsToDispose)
+            {
+                commandBase.Dispose();
+            }
+            
+            return MemcachedClientResult.Successful;
         }
-
-        var command = new FlushCommand();
-        var setTasks = new List<Task>(nodes.Length);
-        var commandsToDispose = new List<MemcachedCommandBase>(nodes.Length);
-
-        foreach (var node in nodes)
+        catch (Exception e)
         {
-            var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
-            setTasks.Add(executeTask);
-            commandsToDispose.Add(command);
-        }
-
-        await Task.WhenAll(setTasks);
-
-        foreach (var commandBase in commandsToDispose)
-        {
-            commandBase.Dispose();
+            return MemcachedClientResult.Unsuccessful(
+                $"An exception happened during {nameof(FlushAsync)} execution.\nException details: {e}");
         }
     }
 

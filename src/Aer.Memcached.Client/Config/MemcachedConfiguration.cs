@@ -11,22 +11,22 @@ public class MemcachedConfiguration
     public const int DefaultMemcachedPort = 11211;
 
     /// <summary>
-    /// The default sync endpoint
+    /// The default sync endpoint.
     /// </summary>
     public const string DefaultSyncEndpoint = "/memcached/multi-store";
     
     /// <summary>
-    /// The default delete endpoint
+    /// The default delete endpoint.
     /// </summary>
     public const string DefaultDeleteEndpoint = "/memcached/multi-delete";
     
     /// <summary>
-    /// The default flush endpoint
+    /// The default flush endpoint.
     /// </summary>
     public const string DefaultFlushEndpoint = "/memcached/flush";
     
     /// <summary>
-    /// List of servers with hosted memcached
+    /// List of servers with hosted memcached.
     /// </summary>
     public Server[] Servers { get; set; }
     
@@ -42,12 +42,12 @@ public class MemcachedConfiguration
     public int MemcachedPort { get; set; } = DefaultMemcachedPort;
 
     /// <summary>
-    /// Configuration of <see cref="ConnectionPool.SocketPool"/>
+    /// Configuration of <see cref="ConnectionPool.SocketPool"/>.
     /// </summary>
     public SocketPoolConfiguration SocketPool { get; set; } = SocketPoolConfiguration.DefaultConfiguration();
 
     /// <summary>
-    /// Configuration of maintainer
+    /// Configuration of maintainer.
     /// </summary>
     public MaintainerConfiguration MemcachedMaintainer { get; set; } = MaintainerConfiguration.DefaultConfiguration();
     
@@ -59,17 +59,17 @@ public class MemcachedConfiguration
     public MemcachedDiagnosticsSettings Diagnostics { get; set; } = new();
     
     /// <summary>
-    /// Enables additional jitter for key expiration if property is not null
+    /// Enables additional jitter for key expiration if property is not null.
     /// </summary>
     public ExpirationJitterSettings ExpirationJitter { get; set; }
     
     /// <summary>
-    /// Sync settings to store data in multiple clusters
+    /// Sync settings to store data in multiple clusters.
     /// </summary>
     public SynchronizationSettings SyncSettings { get; set; }
 
     /// <summary>
-    /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified
+    /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.
     /// </summary>
     public bool IsConfigured()
     {
@@ -112,17 +112,17 @@ public class MemcachedConfiguration
     public class SocketPoolConfiguration
     {
         /// <summary>
-        /// Amount of time after which the connection attempt will fail
+        /// Amount of time after which the connection attempt will fail.
         /// </summary>
         public TimeSpan ConnectionTimeout { get; set; } = TimeSpan.FromSeconds(1);
 
         /// <summary>
-        /// Amount of time after which receiving data from the socket will fail
+        /// Amount of time after which receiving data from the socket will fail.
         /// </summary>
         public TimeSpan ReceiveTimeout { get; set; } = TimeSpan.FromSeconds(1);
 
         /// <summary>
-        /// Amount of time to acquire socket from pool
+        /// Amount of time to acquire socket from pool.
         /// </summary>
         public TimeSpan SocketPoolingTimeout { get; set; } = TimeSpan.FromMilliseconds(150);
 
@@ -133,7 +133,7 @@ public class MemcachedConfiguration
         public int MaximumSocketCreationAttempts { get; set; } = 50;
 
         /// <summary>
-        /// Maximum amount of sockets per memcached instance in the socket pool
+        /// Maximum amount of sockets per memcached instance in the socket pool.
         /// </summary>
         public int MaxPoolSize { get; set; } = 100;
 
@@ -176,19 +176,19 @@ public class MemcachedConfiguration
     public class MaintainerConfiguration
     {
         /// <summary>
-        /// Period to rebuild nodes in <see cref="INodeLocator{TNode}"/>
+        /// Period to rebuild nodes in <see cref="INodeLocator{TNode}"/>.
         /// </summary>
         public TimeSpan? NodesRebuildingPeriod { get; set; } = TimeSpan.FromSeconds(15);
 
         /// <summary>
-        /// Period to check if nodes are responsive
+        /// Period to check if nodes are responsive.
         /// If node is not responded during <see cref="SocketPoolConfiguration.ConnectionTimeout"/> it is marked as dead
-        /// and will be deleted from node locator until it is responsive again
+        /// and will be deleted from node locator until it is responsive again.
         /// </summary>
         public TimeSpan? NodesHealthCheckPeriod { get; set; } = TimeSpan.FromSeconds(15);
 
         /// <summary>
-        /// Enables health check of nodes to remove dead nodes
+        /// Enables health check of nodes to remove dead nodes.
         /// </summary>
         public bool NodeHealthCheckEnabled { get; set; } = true;
         
@@ -220,7 +220,7 @@ public class MemcachedConfiguration
     public class ExpirationJitterSettings
     {
         /// <summary>
-        /// Initial number of seconds is got by last digits of calculated hash
+        /// Initial number of seconds is got by last digits of calculated hash.
         /// Number of digits depends on <see cref="SpreadFactor"/>,
         /// be default it is the remainder of the division by <see cref="SpreadFactor"/> = 2 digits
         /// Then it is multiplied by this factor to get final expiration time
@@ -235,44 +235,44 @@ public class MemcachedConfiguration
     public class SynchronizationSettings
     {
         /// <summary>
-        /// Endpoint that is created by current service to allow other services to sync data
+        /// Endpoint that is created by current service to allow other services to sync data.
         /// </summary>
         public string SyncEndpoint { get; set; } = DefaultSyncEndpoint;
         
         /// <summary>
-        /// Endpoint that is created by current service to allow other services to delete data
+        /// Endpoint that is created by current service to allow other services to delete data.
         /// </summary>
         public string DeleteEndpoint { get; set; } = DefaultDeleteEndpoint;
         
         /// <summary>
-        /// Endpoint that is created by current service to allow other services to flush data
+        /// Endpoint that is created by current service to allow other services to flush data.
         /// </summary>
         public string FlushEndpoint { get; set; } = DefaultFlushEndpoint;
         
         /// <summary>
-        /// Name of environment variable to get current cluster name
+        /// Name of environment variable to get current cluster name.
         /// It is needed to filter out sync servers and don't try to send data
-        /// to a service itself
+        /// to a service itself.
         /// </summary>
         public string ClusterNameEnvVariable { get; set; }
 
         /// <summary>
-        /// Number of retries to send data to a sync server
+        /// Number of retries to send data to a sync server.
         /// </summary>
         public int RetryCount { get; set; } = 3;
 
         /// <summary>
-        /// Time to sync data before a task is cancelled
+        /// Time to sync data before a task is cancelled.
         /// </summary>
         public TimeSpan TimeToSync { get; set; } = TimeSpan.FromSeconds(1);
         
         /// <summary>
-        /// Sync Servers
+        /// Sync Servers.
         /// </summary>
         public SyncServer[] SyncServers { get; set; }
         
         /// <summary>
-        /// Settings of circuit breaker
+        /// Settings of circuit breaker.
         /// </summary>
         public CacheSyncCircuitBreakerSettings CacheSyncCircuitBreaker { get; set; }
     }
@@ -280,12 +280,12 @@ public class MemcachedConfiguration
     public class SyncServer
     {
         /// <summary>
-        /// Http address of a server
+        /// Http address of a server.
         /// </summary>
         public string Address { get; set; }
         
         /// <summary>
-        /// Name of a cluster
+        /// Name of a cluster.
         /// </summary>
         public string ClusterName { get; set; }
     }
@@ -293,17 +293,17 @@ public class MemcachedConfiguration
     public class CacheSyncCircuitBreakerSettings
     {
         /// <summary>
-        /// Time window for counting errors
+        /// Time window for counting errors.
         /// </summary>
         public TimeSpan Interval { get; set; } = TimeSpan.FromSeconds(15);
 
         /// <summary>
-        /// Max errors in the <see cref="Interval"/>
+        /// Max errors in the <see cref="Interval"/>.
         /// </summary>
         public int MaxErrors { get; set; } = 50;
 
         /// <summary>
-        /// When <see cref="MaxErrors"/> reached switch of sync to a server for <see cref="SwitchOffTime"/>
+        /// When <see cref="MaxErrors"/> reached switch of sync to a server for <see cref="SwitchOffTime"/>.
         /// </summary>
         public TimeSpan SwitchOffTime { get; set; } = TimeSpan.FromMinutes(5);
     }

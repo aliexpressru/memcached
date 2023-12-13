@@ -31,7 +31,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal key-values batching</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data</param>
-	Task MultiStoreAsync<T>(
+	Task<MemcachedClientResult> MultiStoreAsync<T>(
 		Dictionary<string, T> keyValues, 
 		TimeSpan? expirationTime, 
 		CancellationToken token, 
@@ -50,7 +50,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal key-values batching</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data</param>
-	Task MultiStoreAsync<T>(
+	Task<MemcachedClientResult> MultiStoreAsync<T>(
 		Dictionary<string, T> keyValues,
 		DateTimeOffset? expirationTime,
 		CancellationToken token,
@@ -95,7 +95,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal keys batching</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <param name="replicationFactor">Number of physical nodes to try delete keys</param>
-	Task MultiDeleteAsync(
+	Task<MemcachedClientResult> MultiDeleteAsync(
 		IEnumerable<string> keys,
 		CancellationToken token,
 		BatchingOptions batchingOptions = null,
@@ -137,5 +137,5 @@ public interface IMemcachedClient
 	/// <summary>
 	/// Flush memcached data
 	/// </summary>
-	Task FlushAsync(CancellationToken token);
+	Task<MemcachedClientResult> FlushAsync(CancellationToken token);
 }
