@@ -23,7 +23,7 @@ public class ExpirationCalculator: IExpirationCalculator
     /// <inheritdoc />
     public uint GetExpiration(string key, TimeSpan? expirationTime)
     {
-        if (IsInifiniteExpiration(expirationTime))
+        if (IsInfiniteExpiration(expirationTime))
         {
             return 0;
         }
@@ -45,7 +45,7 @@ public class ExpirationCalculator: IExpirationCalculator
     /// <inheritdoc />
     public Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, TimeSpan? expirationTime)
     {
-        if (IsInifiniteExpiration(expirationTime))
+        if (IsInfiniteExpiration(expirationTime))
         {
             return keys.ToDictionary(k => k, _ => 0U);
         }
@@ -60,7 +60,7 @@ public class ExpirationCalculator: IExpirationCalculator
     /// <inheritdoc />
     public Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, DateTimeOffset? expirationTime)
     {
-        if (IsInifiniteExpiration(expirationTime))
+        if (IsInfiniteExpiration(expirationTime))
         {
             return keys.ToDictionary(k => k, _ => 0U);
         }
@@ -123,13 +123,13 @@ public class ExpirationCalculator: IExpirationCalculator
         => (uint)(timeOffset + expirationTime).ToUnixTimeSeconds();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsInifiniteExpiration(TimeSpan? expirationTime) 
+    private static bool IsInfiniteExpiration(TimeSpan? expirationTime) 
         => !expirationTime.HasValue
         || expirationTime == TimeSpan.MaxValue
         || expirationTime == TimeSpan.Zero;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsInifiniteExpiration(DateTimeOffset? expirationTime) 
+    private static bool IsInfiniteExpiration(DateTimeOffset? expirationTime) 
         => !expirationTime.HasValue
         || expirationTime == DateTimeOffset.MaxValue;
 }
