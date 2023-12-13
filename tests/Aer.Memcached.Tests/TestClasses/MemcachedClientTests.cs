@@ -351,15 +351,19 @@ public class MemcachedClientTests : MemcachedClientTestsBase
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
 
-        await Client.MultiStoreAsync(
+        var storeResult = await Client.MultiStoreAsync(
             keyValues,
             expirationTime: DateTimeOffset.Now.Subtract(TimeSpan.FromSeconds(1)),
             CancellationToken.None);
 
-        await Client.MultiStoreAsync(
+        storeResult.Success.Should().BeFalse();
+        
+        storeResult = await Client.MultiStoreAsync(
             keyValues,
             expirationTime: DateTimeOffset.Now,
             CancellationToken.None);
+
+        storeResult.Success.Should().BeFalse();
 
         var getValues = 
             await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);

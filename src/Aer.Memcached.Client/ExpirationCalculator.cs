@@ -72,7 +72,7 @@ public class ExpirationCalculator: IExpirationCalculator
         if (expirationTime.Value <= utcNow)
         {
             // means expiration time is in the past - don't save anything
-            return new Dictionary<string, uint>();
+            return null;
         }
 
         var timeSpan = expirationTime.Value.Subtract(utcNow);

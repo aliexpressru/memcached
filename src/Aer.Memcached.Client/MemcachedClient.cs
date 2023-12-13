@@ -125,10 +125,15 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     {
         try
         {
+            if (keyValues is null or {Count: 0})
+            {
+                return MemcachedClientResult.Successful;
+            }
+
             var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
 
             // this check is first since it shortcuts all of the following logic
-            if (keyToExpirationMap.Count == 0)
+            if (keyToExpirationMap is null)
             {
                 return MemcachedClientResult.Unsuccessful(
                     $"Expiration date time offset {expirationTime} lies in the past. No keys stored");
