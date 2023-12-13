@@ -125,14 +125,21 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     {
         try
         {
+            var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
+
+            // this check is first since it shortcuts all of the following logic
+            if (keyToExpirationMap.Count == 0)
+            {
+                return MemcachedClientResult.Unsuccessful(
+                    $"Expiration date time offset {expirationTime} lies in the past. No keys stored");
+            }
+            
             var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
             if (nodes.Keys.Count == 0)
             {
                 return MemcachedClientResult.Unsuccessful(
                     $"Memcached nodes for keys {string.Join(",", keyValues.Keys)} not found");
             }
-
-            var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
 
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
