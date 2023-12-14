@@ -3,6 +3,7 @@ using Aer.Memcached;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Serializers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -13,7 +14,9 @@ nodeLocator.AddNodes(new Pod("localhost"));
 using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
 
-var config = new MemcachedConfiguration();
+var config = new MemcachedConfiguration(){
+    BinarySerializerType = ObjectBinarySerializerType.Bson
+};
 var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
 var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
@@ -26,7 +29,8 @@ var client = new MemcachedClient<Pod>(
         commandExecutorLogger,
         nodeLocator),
     expirationCalculator,
-    cacheSynchronizer: null);
+    cacheSynchronizer: null,
+    new ObjectBinarySerializerFactory(new OptionsWrapper<MemcachedConfiguration>(config), null));
 
 try
 {
