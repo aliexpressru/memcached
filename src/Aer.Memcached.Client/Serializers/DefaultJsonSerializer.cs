@@ -5,7 +5,7 @@ using Newtonsoft.Json.Serialization;
 
 namespace Aer.Memcached.Client.Serializers;
 
-internal static class NewtonsoftJsonSerializer
+internal static class DefaultJsonSerializer
 {
 	private static readonly JsonSerializerSettings _serializerSettings = new()
 	{
@@ -23,7 +23,15 @@ internal static class NewtonsoftJsonSerializer
 		ReferenceLoopHandling = ReferenceLoopHandling.Ignore
 	};
 
-	private static readonly JsonSerializer _defaultSerializer = JsonSerializer.Create(_serializerSettings);
+	private static JsonSerializer _serializerInstance = JsonSerializer.Create(_serializerSettings);
 
-	public static readonly JsonSerializer Default = _defaultSerializer;
+	public static JsonSerializer Instance => _serializerInstance;
+
+	public static void AddJsonConverter(JsonConverter converterToAdd)
+	{ 
+		_serializerSettings.Converters.Add(converterToAdd);
+		
+		// recreate serializer instance after adding the converter
+		_serializerInstance = JsonSerializer.Create(_serializerSettings);
+	}
 }

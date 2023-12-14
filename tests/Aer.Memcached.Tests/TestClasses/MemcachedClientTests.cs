@@ -6,7 +6,7 @@ using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Client.Serializers;
 using Aer.Memcached.Tests.Base;
-using Aer.Memcached.Tests.Model.StoredObjectModels;
+using Aer.Memcached.Tests.Model.StoredObjects;
 using AutoFixture;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -19,7 +19,10 @@ namespace Aer.Memcached.Tests.TestClasses;
 [TestClass]
 public class MemcachedClientTests : MemcachedClientTestsBase
 {
-    public MemcachedClientTests():base(isSingleNodeCluster: true)
+    public MemcachedClientTests(
+        ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson) : base(
+        isSingleNodeCluster: true,
+        binarySerializerType: binarySerializerType)
     { }
 
     [TestMethod]
@@ -42,7 +45,12 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await StoreAndGet_CheckType<float>();
         await StoreAndGet_CheckType<SimpleObject>();
         await StoreAndGet_CheckType<Dictionary<string, int>>();
-        //await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
+
+        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        {
+            // BSON serializer can't serialize dictionaries with non-primitive objects as keys
+            await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
+        }
     }
 
     [DataTestMethod]
@@ -67,7 +75,12 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await MultiStoreAndGet_CheckType<float>(withReplicas);
         await MultiStoreAndGet_CheckType<SimpleObject>(withReplicas);
         await MultiStoreAndGet_CheckType<Dictionary<string, int>>(withReplicas);
-        //await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
+
+        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        {
+            // BSON serializer can't serialize dictionaries with non-primitive objects as keys
+            await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
+        }
     }
 
     [TestMethod]
@@ -90,7 +103,12 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await Get_CheckType<float>();
         await Get_CheckType<SimpleObject>();
         await Get_CheckType<Dictionary<string, int>>();
-        //await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
+
+        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        {
+            // BSON serializer can't serialize dictionaries with non-primitive objects as keys
+            await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
+        }
     }
     
     [DataTestMethod]
@@ -115,7 +133,12 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         await MultiGet_CheckType<float>(withReplicas);
         await MultiGet_CheckType<SimpleObject>(withReplicas);
         await MultiGet_CheckType<Dictionary<string, int>>(withReplicas);
-        // await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
+
+        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        {
+            // BSON serializer can't serialize dictionaries with non-primitive objects as keys
+            await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
+        }
     }
 
     [TestMethod]
@@ -517,11 +540,21 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     [TestMethod]
     public async Task StoreAndGet_ObjectWithNested_IgnoreReferenceLoopHandling()
     {
+        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        { 
+            // only BSON serializer can ignore reference loops
+            return;
+        }
+
         var key = Guid.NewGuid().ToString();
         var value = new ObjectWithNested { X = 1, Y = 2 };
         value.Nested = value;
 
-        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+        await Client.StoreAsync(
+            key,
+            value,
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
+            CancellationToken.None);
 
         var getValue = await Client.GetAsync<RecursiveModel>(key, CancellationToken.None);
 

@@ -1,4 +1,4 @@
-﻿namespace Aer.Memcached.Tests.Model.StoredObjectModels;
+﻿namespace Aer.Memcached.Tests.Model.StoredObjects;
 
 /// <summary>
 /// Represents a shard heap table name and version pair.

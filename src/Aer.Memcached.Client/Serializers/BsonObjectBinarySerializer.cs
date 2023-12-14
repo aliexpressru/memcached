@@ -9,14 +9,12 @@ internal class BsonObjectBinarySerializer : IObjectBinarySerializer
 {
 	public byte[] Serialize<T>(T value)
 	{
-		using (var ms = new MemoryStream())
-		{
-			using var writer = new BsonDataWriter(ms);
+		using var ms = new MemoryStream();
+		using var writer = new BsonDataWriter(ms);
 
-			NewtonsoftJsonSerializer.Default.Serialize(writer, value);
+		DefaultJsonSerializer.Instance.Serialize(writer, value);
 
-			return ms.ToArray();
-		}
+		return ms.ToArray();
 	}
 
 	public T Deserialize<T>(byte[] serializedObject)
@@ -31,7 +29,7 @@ internal class BsonObjectBinarySerializer : IObjectBinarySerializer
 			reader.ReadRootValueAsArray = true;
 		}
 
-		var deserializedValue = NewtonsoftJsonSerializer.Default.Deserialize<T>(reader);
+		var deserializedValue = DefaultJsonSerializer.Instance.Deserialize<T>(reader);
 
 		return deserializedValue;
 	}

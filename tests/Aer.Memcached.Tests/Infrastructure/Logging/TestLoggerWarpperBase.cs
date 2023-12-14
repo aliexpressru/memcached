@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace Aer.Memcached.Tests.Model.Logging;
+namespace Aer.Memcached.Tests.Infrastructure.Logging;
 
 internal class TestLoggerWarpperBase
 {
-	private ILogger _logger;
+	private readonly ILogger _logger;
 
 	public int WarningCount { get; set; }
 

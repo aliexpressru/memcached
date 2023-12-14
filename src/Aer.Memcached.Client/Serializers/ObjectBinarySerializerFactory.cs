@@ -20,7 +20,7 @@ public class ObjectBinarySerializerFactory : IObjectBinarySerializerFactory
 		_memcachedConfiguration.BinarySerializerType switch
 		{
 			ObjectBinarySerializerType.Bson => new BsonObjectBinarySerializer(),
-			ObjectBinarySerializerType.PlainBinary => new PlainBinaryObjectBinarySerializer(),
+			ObjectBinarySerializerType.MessagePack => new MessagePackObjectBinarySerializer(),
 			ObjectBinarySerializerType.Custom => _serviceProvider.GetRequiredService<IObjectBinarySerializer>(),
 			_ => throw new ArgumentOutOfRangeException($"Can't create serializer of type {_memcachedConfiguration.BinarySerializerType}")
 		};
