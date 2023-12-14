@@ -163,7 +163,6 @@ internal static class BinaryConverter
 
     public static DeserializationResult<T> Deserialize<T>(
         CacheItemResult item,
-
         IObjectBinarySerializer objectBinarySerializer)
     {
         var data = item.Data;
