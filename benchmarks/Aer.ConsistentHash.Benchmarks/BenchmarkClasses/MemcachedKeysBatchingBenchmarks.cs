@@ -23,9 +23,10 @@ public class MemcachedKeysBatchingBenchmarks
 	private IMemcachedClient _memcachedClient;
 	private HashRing<Node> _nodeLocator;
 	private CommandExecutor<Node> _commandExecutor;
+private IObjectBinarySerializer _binaryObjectSerializer;
 	
 	private readonly Dictionary<string, string> _keyValues = new();
-	private IObjectBinarySerializer _binaryObjectSerializer;
+	
 	private const int TEST_KEYS_COUNT = 20_000;
 	private const int ONE_COMMAND_KEYS_COUNT = 1000;
 	private const int ONE_COMMAND_AUTO_BATCH_SIZE = 20;
