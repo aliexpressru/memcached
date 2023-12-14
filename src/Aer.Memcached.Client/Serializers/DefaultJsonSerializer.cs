@@ -27,11 +27,4 @@ internal static class DefaultJsonSerializer
 
 	public static JsonSerializer Instance => _serializerInstance;
 
-	public static void AddJsonConverter(JsonConverter converterToAdd)
-	{ 
-		_serializerSettings.Converters.Add(converterToAdd);
-		
-		// recreate serializer instance after adding the converter
-		_serializerInstance = JsonSerializer.Create(_serializerSettings);
-	}
 }
