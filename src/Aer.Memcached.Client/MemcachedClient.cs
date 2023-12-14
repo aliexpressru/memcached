@@ -551,7 +551,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         }
     }
 
-    private Task MultiStoreBatchedInternalAsync<T>(
+    private async Task MultiStoreBatchedInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, T> keyValues,
         BatchingOptions batchingOptions,
@@ -564,7 +564,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
         }
 
-        return Parallel.ForEachAsync(
+        await Parallel.ForEachAsync(
             nodes,
             new ParallelOptions()
             {
@@ -653,7 +653,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         return result;
     }
 
-    private Task MultiDeleteBatchedInternalAsync(
+    private async Task MultiDeleteBatchedInternalAsync(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         BatchingOptions batchingOptions,
         CancellationToken token)
@@ -664,7 +664,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             throw new InvalidOperationException($"{nameof(batchingOptions.BatchSize)} should be > 0");
         }
 
-        return Parallel.ForEachAsync(
+        await Parallel.ForEachAsync(
             nodes,
             new ParallelOptions()
             {
