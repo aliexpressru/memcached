@@ -255,21 +255,21 @@ Be careful using this parameter as it increases workload by `x replicationFactor
 
 ### Serialization
 
-Since Memcached requeres data tio be binary serialized to store it, we utilize various bunary serializers to perform the serialization.
+Since Memcached requires data to be binary serialized before storing it, we utilize various binary serializers to perform the serialization.
 
-We use hand-written plain binary serializer to serialize primitive types, but with complex user-defind types the matters are a bit more complex.
+We use hand-written plain binary serializer to serialize primitive types, but with complex user-defined types the matters are a bit more complex.
 
-Currently there is no universal binary serializer that can handle all possible type heirarchies while not requiring annotating stored types with some kind of attributes (contractless).
+Currently there is no universal binary serializer that can handle all the possible type heirarchies while not requiring annotating stored types with some kind of attributes (contractless).
 
 Some examples.
 
-The BSON serializer is contractless but can't handle `DateTimeOffset` values or Dictionaries with non-primitive keys without writnig custom converters.
+The BSON serializer is contractless but can't handle `DateTimeOffset` values or dictionaries with non-primitive keys without writnig custom converters.
 
-The MessagePack serizlizer can be contractless, can handle all kinds of types but can't handle reference loops (when object has a property that is either direct or indirect reference to the object itself).
+The MessagePack serizlizer can be contractless, can handle all kinds of types but can't handle reference loops (when object has a property that is either a direct or an indirect reference to the object itself).
 
-Protobuf serializer can handle reference loops, all types of objects but can't be contractless and creating contracts at the run time using reflection is slow.
+Protobuf serializer can handle reference loops, all types of objects but can't be contractless and creating contracts at run time using reflection is slow.
 
-So we've decided to give the end user the ability to choose the serializer and if she does not like neither of options - add a custom one.
+So we've decided to give the end user the ability to choose the serializer and if she does not like neither of the provided options - add a custom one.
 
 The type of the serializer is configured as follows.
 
