@@ -3,7 +3,6 @@ using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
-using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
@@ -23,7 +22,7 @@ public class MemcachedKeysBatchingBenchmarks
 	private IMemcachedClient _memcachedClient;
 	private HashRing<Node> _nodeLocator;
 	private CommandExecutor<Node> _commandExecutor;
-	private IObjectBinarySerializer _binaryObjectSerializer;
+	private BinarySerializer _binarySerializer;
 	
 	private readonly Dictionary<string, string> _keyValues = new();
 	
@@ -64,17 +63,21 @@ public class MemcachedKeysBatchingBenchmarks
 			commandExecutorLogger,
 			_nodeLocator);
 
-		_binaryObjectSerializer = new BsonObjectBinarySerializer();
+		_binarySerializer = new BinarySerializer(
+			new ObjectBinarySerializerFactory(
+				new OptionsWrapper<MemcachedConfiguration>(config),
+				// TODO: add custom serializer support
+				serviceProvider: null
+			)
+		);
 
 		_memcachedClient = new MemcachedClient<Node>(
 			_nodeLocator,
 			_commandExecutor,
 			expirationCalculator,
 			cacheSynchronizer: null,
-			new ObjectBinarySerializerFactory(
-				new OptionsWrapper<MemcachedConfiguration>(config),
-				// TODO: add custom serializer support
-				serviceProvider: null));
+			_binarySerializer	
+		);
 
 		foreach (var key in Enumerable.Range(0, TEST_KEYS_COUNT))
 		{ 
@@ -191,7 +194,7 @@ public class MemcachedKeysBatchingBenchmarks
 				var key = item.Key;
 				var cacheItem = item.Value;
 
-				result[key] = BinaryConverter.Deserialize<T>(cacheItem, _binaryObjectSerializer).Result;
+				result[key] = _binarySerializer.Deserialize<T>(cacheItem).Result;
 			}
 		}
 

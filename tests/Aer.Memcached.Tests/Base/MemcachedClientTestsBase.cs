@@ -91,9 +91,12 @@ public abstract class MemcachedClientTestsBase
 				nodeLocator),
 			expirationCalculator,
 			null,
-			new ObjectBinarySerializerFactory(
-				configWrapper,
-				ServiceProvider) 
+			new BinarySerializer(
+				new ObjectBinarySerializerFactory(
+					configWrapper,
+					ServiceProvider
+				)
+			)
 		);
 
 		Fixture = new Fixture();

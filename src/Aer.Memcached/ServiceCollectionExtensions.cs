@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IExpirationCalculator, ExpirationCalculator>();
         
         services.AddSingleton<IObjectBinarySerializerFactory, ObjectBinarySerializerFactory>();
+        services.AddSingleton<BinarySerializer>();
         
         services.AddHttpClient();
         services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();

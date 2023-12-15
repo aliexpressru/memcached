@@ -30,7 +30,10 @@ var client = new MemcachedClient<Pod>(
         nodeLocator),
     expirationCalculator,
     cacheSynchronizer: null,
-    new ObjectBinarySerializerFactory(new OptionsWrapper<MemcachedConfiguration>(config), null));
+    new BinarySerializer(
+        new ObjectBinarySerializerFactory(new OptionsWrapper<MemcachedConfiguration>(config), null)
+    )
+);
 
 try
 {

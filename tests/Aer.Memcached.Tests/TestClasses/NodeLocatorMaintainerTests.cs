@@ -6,7 +6,6 @@ using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Infrastructure;
 using Aer.Memcached.Tests.Infrastructure;
-using Aer.Memcached.Tests.Model;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

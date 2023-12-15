@@ -593,10 +593,12 @@ public class MemcachedClientTests : MemcachedClientTestsBase
                 nodeLocator),
             expirationCalculator,
             cacheSynchronizer: null,
-            new ObjectBinarySerializerFactory(
-                new OptionsWrapper<MemcachedConfiguration>(config),
-                // we don't test custom binary serializers here so pass null
-                serviceProvider: null) 
+            new BinarySerializer(
+                new ObjectBinarySerializerFactory(
+                    new OptionsWrapper<MemcachedConfiguration>(config),
+                    // we don't test custom binary serializers here so pass null
+                    serviceProvider: null)
+            )
         );
 
         var key = new string('*', 251); // this key is too long to be stored
