@@ -23,8 +23,5 @@ internal static class DefaultJsonSerializer
 		ReferenceLoopHandling = ReferenceLoopHandling.Ignore
 	};
 
-	private static JsonSerializer _serializerInstance = JsonSerializer.Create(_serializerSettings);
-
-	public static JsonSerializer Instance => _serializerInstance;
-
+	public static JsonSerializer Instance { get; } = JsonSerializer.Create(_serializerSettings);
 }
