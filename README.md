@@ -114,7 +114,7 @@ Task<MemcachedClientResult> StoreAsync<T>(
 
 - `key` : the entry key to store value for
 - `value` : the value to store under specified key
-- `expirationTime` : the absolute expiration time for the key-value entry
+- `expirationTime` : the absolute expiration time for the key-value entry. If not set or set to `TimeSpan.Zero` or `TimeSpan.MaxValue`, cached value never expires
 - `token` : the cancellation token
 - `storeMode` : the mode under which the store operation is performed
 
@@ -128,7 +128,7 @@ Task MultiStoreAsync<T>(
 ```
 
 - `keyValues` : the entry key-value pairs to store
-- `expirationTime` : the absolute expiration time for the key-value entry
+- `expirationTime` : the absolute expiration time for the key-value entry. If not set or set to `TimeSpan.Zero` or `TimeSpan.MaxValue`, cached value never expires
 - `token` : the cancellation token
 - `storeMode` : the mode under which the store operation is performed
 - `batchingOptions` : optional batching options. The batching will be covered in the later part of this documentation
