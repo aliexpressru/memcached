@@ -1,6 +1,6 @@
 ﻿using Aer.Memcached.Abstractions;
 
-namespace Aer.Memcached.Tests.Model;
+namespace Aer.Memcached.Tests.Infrastructure;
 
 internal class TestNodeProvider : INodeProvider<Pod>
 {

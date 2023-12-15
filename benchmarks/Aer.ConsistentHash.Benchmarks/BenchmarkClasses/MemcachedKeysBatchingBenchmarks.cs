@@ -3,10 +3,10 @@ using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
-using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
+using Aer.Memcached.Client.Serializers;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 using Microsoft.Extensions.Logging;
@@ -22,8 +22,10 @@ public class MemcachedKeysBatchingBenchmarks
 	private IMemcachedClient _memcachedClient;
 	private HashRing<Node> _nodeLocator;
 	private CommandExecutor<Node> _commandExecutor;
+	private BinarySerializer _binarySerializer;
 	
 	private readonly Dictionary<string, string> _keyValues = new();
+	
 	private const int TEST_KEYS_COUNT = 20_000;
 	private const int ONE_COMMAND_KEYS_COUNT = 1000;
 	private const int ONE_COMMAND_AUTO_BATCH_SIZE = 20;
@@ -46,7 +48,9 @@ public class MemcachedKeysBatchingBenchmarks
 		using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 		var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Node>>();
 
-		var config = new MemcachedConfiguration();
+		var config = new MemcachedConfiguration(){
+			BinarySerializerType = ObjectBinarySerializerType.Bson
+		};
 		
 		var authProvider = new DefaultAuthenticationProvider(
 			new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
@@ -58,8 +62,22 @@ public class MemcachedKeysBatchingBenchmarks
 			authProvider,
 			commandExecutorLogger,
 			_nodeLocator);
-		
-		_memcachedClient = new MemcachedClient<Node>(_nodeLocator, _commandExecutor, expirationCalculator, cacheSynchronizer: null);
+
+		_binarySerializer = new BinarySerializer(
+			new ObjectBinarySerializerFactory(
+				new OptionsWrapper<MemcachedConfiguration>(config),
+				// TODO: add custom serializer support
+				serviceProvider: null
+			)
+		);
+
+		_memcachedClient = new MemcachedClient<Node>(
+			_nodeLocator,
+			_commandExecutor,
+			expirationCalculator,
+			cacheSynchronizer: null,
+			_binarySerializer	
+		);
 
 		foreach (var key in Enumerable.Range(0, TEST_KEYS_COUNT))
 		{ 
@@ -176,7 +194,7 @@ public class MemcachedKeysBatchingBenchmarks
 				var key = item.Key;
 				var cacheItem = item.Value;
 
-				result[key] = BinaryConverter.Deserialize<T>(cacheItem).Result;
+				result[key] = _binarySerializer.Deserialize<T>(cacheItem).Result;
 			}
 		}
 

@@ -10,6 +10,7 @@ using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Extensions;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
+using Aer.Memcached.Client.Serializers;
 using Aer.Memcached.Diagnostics;
 using Aer.Memcached.Diagnostics.Listeners;
 using Aer.Memcached.Infrastructure;
@@ -39,6 +40,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeHealthChecker<Pod>, NodeHealthChecker<Pod>>();
         services.AddSingleton<ICommandExecutor<Pod>, CommandExecutor<Pod>>();
         services.AddSingleton<IExpirationCalculator, ExpirationCalculator>();
+        
+        services.AddSingleton<IObjectBinarySerializerFactory, ObjectBinarySerializerFactory>();
+        services.AddSingleton<BinarySerializer>();
         
         services.AddHttpClient();
         services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();

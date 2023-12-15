@@ -1,7 +1,7 @@
 using System.Net;
 using Aer.ConsistentHash.Abstractions;
 
-namespace Aer.Memcached.Tests.Model;
+namespace Aer.Memcached.Tests.Infrastructure;
 
 internal class TestHashRingNode: INode
 {

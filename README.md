@@ -253,6 +253,89 @@ For `MultiStoreAsync`, `MultiGetAsync` and `MultiDeleteAsync` methods there is a
 
 Be careful using this parameter as it increases workload by `x replicationFactor`. You also should consider some tunings for memcached - see [Memcached tuning](#memcached-tuning) part of the README.
 
+### Serialization
+
+Since Memcached requires data to be binary serialized before storing it, we utilize various binary serializers to perform the serialization.
+
+We use hand-written plain binary serializer to serialize primitive types, but with complex user-defined types the matters are a bit more complex.
+
+Currently there is no universal binary serializer that can handle all the possible type heirarchies while not requiring annotating stored types with some kind of attributes (contractless).
+
+Some examples.
+
+The BSON serializer is contractless but can't handle `DateTimeOffset` values or dictionaries with non-primitive keys without writnig custom converters.
+
+The MessagePack serizlizer can be contractless, can handle all kinds of types but can't handle reference loops (when object has a property that is either a direct or an indirect reference to the object itself).
+
+Protobuf serializer can handle reference loops, all types of objects but can't be contractless and creating contracts at run time using reflection is slow.
+
+So we've decided to give the end user the ability to choose the serializer and if she does not like neither of the provided options - add a custom one.
+
+The type of the serializer is configured as follows.
+
+```json
+{
+  "MemcachedConfiguration": {
+    "BinarySerializerType" : "Bson"
+  }
+}
+```
+
+The `ObjectBinarySerializerType` can have the following values.
+
+- `Bson` - The default binary object serializer, it was used since v1 and is pretty good default, unless you need to store dictionaries with non-primitive keys.
+- `MessagePack` - Fast, can handle any type, but can't handle reference loops.
+- `Custom` - this option indicates that the serializer will be provided by the end user.
+
+If the `Custom` serializer type is selected then the library will search the DI container for a type that implements `IObjectBinarySerializer` and use it as a serializer implementation.
+
+Here is the example of custom serializer that uses MessagePack as an underlying serializer.
+
+```csharp
+internal class MyObjectBinarySerializer : IObjectBinarySerializer
+{
+    private int _serializationCount;
+    private int _deserializationCount;
+
+    public int SerializationsCount => _serializationCount;
+    public int DeserializationsCount => _deserializationCount;
+
+    public byte[] Serialize<T>(T value)
+    {
+        var data = MessagePackSerializer.Typeless.Serialize(value);
+
+        Interlocked.Increment(ref _serializationCount);
+
+        return data;
+    }
+
+    public T Deserialize<T>(byte[] serializedObject)
+    {
+        var deserializedObject = (T) MessagePackSerializer.Typeless.Deserialize(serializedObject);
+
+        Interlocked.Increment(ref _deserializationCount);
+
+        return deserializedObject;
+    }
+}
+```
+
+We register this serializer in DI as singleton.
+
+```csharp
+sc.AddSingleton<IObjectBinarySerializer, MyObjectBinarySerializer>();
+```
+
+And set the `BinarySerializerType` to `Custom`.
+
+```json
+{
+  "MemcachedConfiguration": {
+    "BinarySerializerType" : "Custom"
+  }
+}
+````
+
 ## Restrictions
 
 Key must be less than 250 characters and value must be less than 1MB of data.

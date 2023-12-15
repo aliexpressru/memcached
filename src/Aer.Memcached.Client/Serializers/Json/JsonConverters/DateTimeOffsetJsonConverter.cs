@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using Newtonsoft.Json;
 
-namespace Aer.Memcached.Client.Commands.Infrastructure.JsonConverters;
+namespace Aer.Memcached.Client.Serializers.JsonConverters;
 
 /// <summary>
 /// The <see cref="DateTimeOffset"/> converter for cases when we want to store this object either by itself or as part of more complex object.

@@ -5,9 +5,9 @@ using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
-using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
+using Aer.Memcached.Client.Serializers;
 using MoreLinq.Extensions;
 
 namespace Aer.Memcached.Client;
@@ -20,17 +20,20 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     private readonly ICommandExecutor<TNode> _commandExecutor;
     private readonly IExpirationCalculator _expirationCalculator;
     private readonly ICacheSynchronizer _cacheSynchronizer;
+    private readonly BinarySerializer _binarySerializer;
 
     public MemcachedClient(
         INodeLocator<TNode> nodeLocator,
         ICommandExecutor<TNode> commandExecutor,
         IExpirationCalculator expirationCalculator,
-        ICacheSynchronizer cacheSynchronizer)
+        ICacheSynchronizer cacheSynchronizer,
+        BinarySerializer binarySerializer)
     {
         _nodeLocator = nodeLocator;
         _commandExecutor = commandExecutor;
         _expirationCalculator = expirationCalculator;
         _cacheSynchronizer = cacheSynchronizer;
+        _binarySerializer = binarySerializer;
     }
 
     /// <inheritdoc />
@@ -49,7 +52,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 return MemcachedClientResult.Unsuccessful($"Memcached node for key {key} is not found");
             }
 
-            var cacheItem = BinaryConverter.Serialize(value);
+            var cacheItem = _binarySerializer.Serialize(value);
             var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
             using (var command = new StoreCommand(storeMode, key, cacheItem, expiration))
@@ -193,7 +196,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 }
 
                 var deserializationResult =
-                    BinaryConverter.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
+                    _binarySerializer.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
 
                 return MemcachedClientValueResult<T>.Successful(
                     deserializationResult.Result,
@@ -285,7 +288,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 var key = readItem.Key;
                 var cacheItem = readItem.Value;
 
-                var cachedValue = BinaryConverter.Deserialize<T>(cacheItem).Result;
+                var cachedValue = _binarySerializer.Deserialize<T>(cacheItem).Result;
 
                 result.TryAdd(key, cachedValue);
             }
@@ -526,7 +529,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
                 foreach (var key in keys)
                 {
-                    keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                    keyValuesToStore[key] = _binarySerializer.Serialize(keyValues[key]);
                 }
 
                 var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap);
@@ -580,7 +583,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
                         foreach (var key in keysBatch)
                         {
-                            keyValuesToStore[key] = BinaryConverter.Serialize(keyValues[key]);
+                            keyValuesToStore[key] = _binarySerializer.Serialize(keyValues[key]);
                         }
 
                         using (var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap))
@@ -639,7 +642,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         var key = readItem.Key;
                         var cacheItem = readItem.Value;
 
-                        var cachedValue = BinaryConverter.Deserialize<T>(cacheItem).Result;
+                        var cachedValue = _binarySerializer.Deserialize<T>(cacheItem).Result;
 
                         result.TryAdd(key, cachedValue);
                     }

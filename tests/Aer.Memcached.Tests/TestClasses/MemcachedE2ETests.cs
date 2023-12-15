@@ -6,7 +6,6 @@ using Aer.Memcached.Samples.Shared;
 using Aer.Memcached.Samples.Shared.Models;
 using Aer.Memcached.Samples.WebApi;
 using Aer.Memcached.Tests.Helpers;
-using Aer.Memcached.Tests.Infrastructure;
 using Aer.Memcached.Tests.Infrastructure.Attributes;
 using AutoFixture;
 using FluentAssertions;
