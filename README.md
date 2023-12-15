@@ -289,6 +289,53 @@ The `ObjectBinarySerializerType` can have the following values.
 
 If the `Custom` serializer type is selected then the library will search the DI container for a type that implements `IObjectBinarySerializer` and use it as a serializer implementation.
 
+Here is the example of custom serializer that uses MessagePack as an underlying serializer.
+
+```csharp
+internal class MyObjectBinarySerializer : IObjectBinarySerializer
+{
+    private int _serializationCount;
+    private int _deserializationCount;
+
+    public int SerializationsCount => _serializationCount;
+    public int DeserializationsCount => _deserializationCount;
+
+    public byte[] Serialize<T>(T value)
+    {
+        var data = MessagePackSerializer.Typeless.Serialize(value);
+
+        Interlocked.Increment(ref _serializationCount);
+
+        return data;
+    }
+
+    public T Deserialize<T>(byte[] serializedObject)
+    {
+        var deserializedObject = (T) MessagePackSerializer.Typeless.Deserialize(serializedObject);
+
+        Interlocked.Increment(ref _deserializationCount);
+
+        return deserializedObject;
+    }
+}
+```
+
+We register this serializer in DI as singleton.
+
+```csharp
+sc.AddSingleton<IObjectBinarySerializer, MyObjectBinarySerializer>();
+```
+
+And set the `BinarySerializerType` to `Custom`.
+
+```json
+{
+  "MemcachedConfiguration": {
+    "BinarySerializerType" : "Custom"
+  }
+}
+````
+
 ## Restrictions
 
 Key must be less than 250 characters and value must be less than 1MB of data.
