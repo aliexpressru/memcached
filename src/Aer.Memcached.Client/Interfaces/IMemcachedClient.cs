@@ -13,13 +13,15 @@ public interface IMemcachedClient
 	/// <param name="expirationTime">Expiration time</param>
 	/// <param name="token">Cancellation token</param>
 	/// <param name="storeMode">Store mode</param>
+	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
 	/// <returns>Result that shows if operation was successful or not</returns>
 	Task<MemcachedClientResult> StoreAsync<T>(
 		string key,
 		T value,
 		TimeSpan? expirationTime,
 		CancellationToken token,
-		StoreMode storeMode = StoreMode.Set);
+		StoreMode storeMode = StoreMode.Set,
+		CacheSyncOptions cacheSyncOptions = null);
 
 	/// <summary>
 	/// Stores multiple values
@@ -99,7 +101,11 @@ public interface IMemcachedClient
 	/// </summary>
 	/// <param name="key">Key</param>
 	/// <param name="token">Cancellation token</param>
-	Task<MemcachedClientResult> DeleteAsync(string key, CancellationToken token);
+	/// <param name="cacheSyncOptions">The options that configure cache sync</param>
+	Task<MemcachedClientResult> DeleteAsync(
+		string key, 
+		CancellationToken token, 
+		CacheSyncOptions cacheSyncOptions = null);
 
 	/// <summary>
 	/// Deletes multiple values by keys

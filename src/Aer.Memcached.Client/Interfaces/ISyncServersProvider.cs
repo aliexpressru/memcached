@@ -5,14 +5,14 @@ namespace Aer.Memcached.Client.Interfaces;
 public interface ISyncServersProvider
 {
     /// <summary>
-    /// Gets sync servers
+    /// Gets sync servers.
     /// </summary>
     /// <returns>Sync servers</returns>
     MemcachedConfiguration.SyncServer[] GetSyncServers();
 
     /// <summary>
-    /// Provider is configured or not
+    /// Returns <c>true</c> if sync servers provider is configured, <c>false</c> otherwise.
+    /// Used to determine whether the cache sync is enabled or not. 
     /// </summary>
-    /// <returns>Flag</returns>
     bool IsConfigured();
 }

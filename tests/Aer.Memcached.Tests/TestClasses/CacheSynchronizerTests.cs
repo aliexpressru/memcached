@@ -45,7 +45,7 @@ public class CacheSynchronizerTests
     {
         var cacheSynchronizer = GetCacheSynchronizer();
 
-        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>(), new CacheSyncOptions(), CancellationToken.None);
+        await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>(), CancellationToken.None);
 
         await _cacheSyncClient.Received(0).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
@@ -79,7 +79,7 @@ public class CacheSynchronizerTests
         await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>{
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
-        }, new CacheSyncOptions(), CancellationToken.None);
+        }, CancellationToken.None);
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
@@ -121,7 +121,7 @@ public class CacheSynchronizerTests
         await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>{
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
-        }, new CacheSyncOptions(), CancellationToken.None);
+        }, CancellationToken.None);
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
@@ -173,7 +173,7 @@ public class CacheSynchronizerTests
         {
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
-        }, new CacheSyncOptions(), CancellationToken.None);
+        }, CancellationToken.None);
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
@@ -239,7 +239,7 @@ public class CacheSynchronizerTests
         await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>{
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
-        }, new CacheSyncOptions(), CancellationToken.None);
+        }, CancellationToken.None);
 
         await _cacheSyncClient.Received(1).SyncAsync(syncServerNotTurnedOff,
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
@@ -253,7 +253,7 @@ public class CacheSynchronizerTests
         await cacheSynchronizer.SyncCacheAsync(new CacheSyncModel<string>{
             KeyValues = _fixture.Create<Dictionary<string, string>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
-        }, new CacheSyncOptions(), CancellationToken.None);
+        }, CancellationToken.None);
 
         await _cacheSyncClient.Received(2).SyncAsync(syncServerNotTurnedOff,
             Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());

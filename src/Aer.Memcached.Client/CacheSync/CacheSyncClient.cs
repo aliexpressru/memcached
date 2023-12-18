@@ -14,9 +14,9 @@ using Polly.Retry;
 
 namespace Aer.Memcached.Client.CacheSync;
 
-public class CacheSyncClient: ICacheSyncClient
+internal class CacheSyncClient: ICacheSyncClient
 {
-    private static readonly JsonSerializerSettings JsonSetting = new()
+    private static readonly JsonSerializerSettings _jsonSettings = new()
     {
         Converters = new List<JsonConverter>(new[] {new StringEnumConverter()}),
         NullValueHandling = NullValueHandling.Ignore,
@@ -53,7 +53,7 @@ public class CacheSyncClient: ICacheSyncClient
         try
         {
             var content = new StringContent(
-                JsonConvert.SerializeObject(data, JsonSetting),
+                JsonConvert.SerializeObject(data, _jsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
             
@@ -79,7 +79,7 @@ public class CacheSyncClient: ICacheSyncClient
         try
         {
             var content = new StringContent(
-                JsonConvert.SerializeObject(keys, JsonSetting),
+                JsonConvert.SerializeObject(keys, _jsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
             

@@ -42,7 +42,8 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         T value,
         TimeSpan? expirationTime,
         CancellationToken token,
-        StoreMode storeMode = StoreMode.Set)
+        StoreMode storeMode = StoreMode.Set,
+        CacheSyncOptions cacheSyncOptions = null)
     {
         try
         {
@@ -52,6 +53,8 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 return MemcachedClientResult.Unsuccessful($"Memcached node for key {key} is not found");
             }
 
+            var utcNow = DateTimeOffset.UtcNow;
+
             var cacheItem = _binarySerializer.Serialize(value);
             var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
@@ -59,6 +62,21 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             {
                 var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
+                if (IsCacheSyncEnabled(cacheSyncOptions))
+                {
+                    await _cacheSynchronizer.SyncCacheAsync(
+                        new CacheSyncModel<T>
+                        {
+                            KeyValues = new Dictionary<string, T>(){
+                                [key] = value
+                            },
+                            ExpirationTime = expirationTime.HasValue
+                                ? utcNow.Add(expirationTime.Value)
+                                : null
+                        },
+                        token);
+                }
+                
                 return new MemcachedClientResult(result.Success);
             }
         }
@@ -93,7 +111,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
-            if (_cacheSynchronizer != null)
+            if (IsCacheSyncEnabled(cacheSyncOptions))
             {
                 await _cacheSynchronizer.SyncCacheAsync(
                     new CacheSyncModel<T>
@@ -103,7 +121,6 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                             ? utcNow.Add(expirationTime.Value)
                             : null
                     },
-                    cacheSyncOptions,
                     token);
             }
             
@@ -151,9 +168,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
-            // this method is used by cache synchronizer, these checks are needed only here
-            if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn)
-                && _cacheSynchronizer != null)
+            if (IsCacheSyncEnabled(cacheSyncOptions))
             {
                 await _cacheSynchronizer.SyncCacheAsync(
                     new CacheSyncModel<T>
@@ -161,7 +176,6 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         KeyValues = keyValues,
                         ExpirationTime = expirationTime
                     },
-                    cacheSyncOptions,
                     token);
             }
             
@@ -298,7 +312,10 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     }
 
     /// <inheritdoc />
-    public async Task<MemcachedClientResult> DeleteAsync(string key, CancellationToken token)
+    public async Task<MemcachedClientResult> DeleteAsync(
+        string key, 
+        CancellationToken token,
+        CacheSyncOptions cacheSyncOptions = null)
     {
         try
         {
@@ -312,6 +329,11 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             {
                 var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
+                if (IsCacheSyncEnabled(cacheSyncOptions))
+                {
+                    await _cacheSynchronizer.DeleteCacheAsync(new[] {key}, token);
+                }
+                
                 return new MemcachedClientResult(commandExecutionResult.Success);
             }
         }
@@ -362,9 +384,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 }
             }
 
-            // this method is used by cache synchronizer, these checks are needed only here
-            if ((cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn)
-                && _cacheSynchronizer != null)
+            if (IsCacheSyncEnabled(cacheSyncOptions))
             {
                 await _cacheSynchronizer.DeleteCacheAsync(keysList, token);
             }
@@ -690,4 +710,9 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 }
             });
     }
+
+    private bool IsCacheSyncEnabled(CacheSyncOptions cacheSyncOptions) 
+        => _cacheSynchronizer != null
+        && _cacheSynchronizer.IsCacheSyncEnabled()
+        && (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn);
 }

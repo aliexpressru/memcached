@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Aer.Memcached.Client.CacheSync;
 
-public class DefaultSyncServersProvider: ISyncServersProvider
+internal class DefaultSyncServersProvider: ISyncServersProvider
 {
     private readonly MemcachedConfiguration _config;
 

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Aer.Memcached.Client.CacheSync;
 
-public class CacheSynchronizer : ICacheSynchronizer
+internal class CacheSynchronizer : ICacheSynchronizer
 {
     private readonly ISyncServersProvider _syncServersProvider;
     private readonly ICacheSyncClient _cacheSyncClient;
@@ -36,10 +36,13 @@ public class CacheSynchronizer : ICacheSynchronizer
         _serverBySwitchOffTime = new ConcurrentDictionary<string, DateTimeOffset>();
     }
 
+
+    /// <inheritdoc />
+    public bool IsCacheSyncEnabled() => _syncServersProvider.IsConfigured();
+
     /// <inheritdoc />
     public async Task SyncCacheAsync<T>(
         CacheSyncModel<T> model,
-        CacheSyncOptions cacheSyncOptions,
         CancellationToken token)
     {
         if (model.KeyValues == null)
@@ -47,7 +50,7 @@ public class CacheSynchronizer : ICacheSynchronizer
             return;
         }
 
-        if (!_syncServersProvider.IsConfigured())
+        if (!IsCacheSyncEnabled())
         {
             return;
         }
@@ -106,7 +109,7 @@ public class CacheSynchronizer : ICacheSynchronizer
             return;
         }
 
-        if (!_syncServersProvider.IsConfigured())
+        if (!IsCacheSyncEnabled())
         {
             return;
         }
