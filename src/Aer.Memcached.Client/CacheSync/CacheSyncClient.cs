@@ -14,9 +14,9 @@ using Polly.Retry;
 
 namespace Aer.Memcached.Client.CacheSync;
 
-public class CacheSyncClient: ICacheSyncClient
+internal class CacheSyncClient: ICacheSyncClient
 {
-    private static readonly JsonSerializerSettings JsonSetting = new()
+    private static readonly JsonSerializerSettings JsonSettings = new()
     {
         Converters = new List<JsonConverter>(new[] {new StringEnumConverter()}),
         NullValueHandling = NullValueHandling.Ignore,
@@ -53,7 +53,7 @@ public class CacheSyncClient: ICacheSyncClient
         try
         {
             var content = new StringContent(
-                JsonConvert.SerializeObject(data, JsonSetting),
+                JsonConvert.SerializeObject(data, JsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
             
@@ -79,7 +79,7 @@ public class CacheSyncClient: ICacheSyncClient
         try
         {
             var content = new StringContent(
-                JsonConvert.SerializeObject(keys, JsonSetting),
+                JsonConvert.SerializeObject(keys, JsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
             
@@ -96,26 +96,6 @@ public class CacheSyncClient: ICacheSyncClient
         }
     }
     
-    /// <inheritdoc />
-    public async Task FlushAsync(
-        MemcachedConfiguration.SyncServer syncServer,
-        CancellationToken token)
-    {
-        try
-        {
-            var baseUri = new Uri(syncServer.Address);
-            var endpointUri = new Uri(baseUri, _config.SyncSettings.FlushEndpoint);
-
-            await RequestAsync(null, endpointUri, token);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "Unable to flush data on {SyncServerAddress}", syncServer.Address);
-
-            throw;
-        }
-    }
-
     private async Task RequestAsync(StringContent content, Uri endpointUri, CancellationToken token)
     {
         await _retryPolicy.Execute(async () =>
