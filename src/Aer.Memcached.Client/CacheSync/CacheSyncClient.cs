@@ -16,7 +16,7 @@ namespace Aer.Memcached.Client.CacheSync;
 
 internal class CacheSyncClient: ICacheSyncClient
 {
-    private static readonly JsonSerializerSettings _jsonSettings = new()
+    private static readonly JsonSerializerSettings JsonSettings = new()
     {
         Converters = new List<JsonConverter>(new[] {new StringEnumConverter()}),
         NullValueHandling = NullValueHandling.Ignore,
@@ -53,7 +53,7 @@ internal class CacheSyncClient: ICacheSyncClient
         try
         {
             var content = new StringContent(
-                JsonConvert.SerializeObject(data, _jsonSettings),
+                JsonConvert.SerializeObject(data, JsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
             
@@ -79,7 +79,7 @@ internal class CacheSyncClient: ICacheSyncClient
         try
         {
             var content = new StringContent(
-                JsonConvert.SerializeObject(keys, _jsonSettings),
+                JsonConvert.SerializeObject(keys, JsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
             
