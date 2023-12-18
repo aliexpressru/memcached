@@ -96,26 +96,6 @@ internal class CacheSyncClient: ICacheSyncClient
         }
     }
     
-    /// <inheritdoc />
-    public async Task FlushAsync(
-        MemcachedConfiguration.SyncServer syncServer,
-        CancellationToken token)
-    {
-        try
-        {
-            var baseUri = new Uri(syncServer.Address);
-            var endpointUri = new Uri(baseUri, _config.SyncSettings.FlushEndpoint);
-
-            await RequestAsync(null, endpointUri, token);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "Unable to flush data on {SyncServerAddress}", syncServer.Address);
-
-            throw;
-        }
-    }
-
     private async Task RequestAsync(StringContent content, Uri endpointUri, CancellationToken token)
     {
         await _retryPolicy.Execute(async () =>

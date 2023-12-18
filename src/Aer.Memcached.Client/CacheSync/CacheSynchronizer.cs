@@ -94,9 +94,13 @@ internal class CacheSynchronizer : ICacheSynchronizer
                     }
                 });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // no need to crash if something goes wrong with sync
+            // no need to crash if something goes wrong with sync - just log and ignore
+            _logger.LogError(
+                ex,
+                "Exception happened durin cache sync {OperationName} operation",
+                nameof(SyncCacheAsync));
         }
     }
     
@@ -148,9 +152,13 @@ internal class CacheSynchronizer : ICacheSynchronizer
                     }
                 });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // no need to crash if something goes wrong with sync
+            // no need to crash if something goes wrong with sync - just log and ignore
+            _logger.LogError(
+                ex,
+                "Exception happened durin cache sync {OperationName} operation",
+                nameof(DeleteCacheAsync));
         }
     }
 
