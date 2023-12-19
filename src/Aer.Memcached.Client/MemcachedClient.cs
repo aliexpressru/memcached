@@ -8,6 +8,7 @@ using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Client.Serializers;
+using Microsoft.Extensions.Logging;
 using MoreLinq.Extensions;
 
 namespace Aer.Memcached.Client;
@@ -21,19 +22,22 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
     private readonly IExpirationCalculator _expirationCalculator;
     private readonly ICacheSynchronizer _cacheSynchronizer;
     private readonly BinarySerializer _binarySerializer;
+    private readonly ILogger _logger;
 
     public MemcachedClient(
         INodeLocator<TNode> nodeLocator,
         ICommandExecutor<TNode> commandExecutor,
         IExpirationCalculator expirationCalculator,
         ICacheSynchronizer cacheSynchronizer,
-        BinarySerializer binarySerializer)
+        BinarySerializer binarySerializer,
+        ILogger<MemcachedClient<TNode>> logger)
     {
         _nodeLocator = nodeLocator;
         _commandExecutor = commandExecutor;
         _expirationCalculator = expirationCalculator;
         _cacheSynchronizer = cacheSynchronizer;
         _binarySerializer = binarySerializer;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -209,12 +213,24 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         $"Error occured during {nameof(GetAsync)} exucution");
                 }
 
-                var deserializationResult =
-                    _binarySerializer.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
+                try
+                {
+                    var deserializationResult =
+                        _binarySerializer.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
 
-                return MemcachedClientValueResult<T>.Successful(
-                    deserializationResult.Result,
-                    deserializationResult.IsEmpty);
+                    return MemcachedClientValueResult<T>.Successful(
+                        deserializationResult.Result,
+                        deserializationResult.IsEmpty);
+                }
+                catch (Exception)
+                { 
+                    // means exception on deserialization happened
+                    // assuming serializer change - remove this key from memcached to refresh data
+                    
+                    await DeleteUndeserializableKey(key, token);
+
+                    return MemcachedClientValueResult<T>.Unsuccessful($"Undeserializable key {key} found. Assuming binary serializer change. Key deleted from memcached.");
+                }
             }
         }
         catch (Exception e)
@@ -302,9 +318,19 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 var key = readItem.Key;
                 var cacheItem = readItem.Value;
 
-                var cachedValue = _binarySerializer.Deserialize<T>(cacheItem).Result;
+                try
+                {
+                    var cachedValue = _binarySerializer.Deserialize<T>(cacheItem).Result;
 
-                result.TryAdd(key, cachedValue);
+                    result.TryAdd(key, cachedValue);
+                }
+                catch (Exception)
+                {
+                    // means exception on deserialization happened
+                    // assuming serializer change - remove this key from memcached to refresh data
+
+                    await DeleteUndeserializableKey(key, token);
+                }
             }
         }
 
@@ -715,4 +741,21 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
         => _cacheSynchronizer != null
         && _cacheSynchronizer.IsCacheSyncEnabled()
         && (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn);
+
+    private async Task DeleteUndeserializableKey(string key, CancellationToken token)
+    {
+        _logger.LogWarning(
+            "Failed to deserialize value for key {Key}. Assuming binary serializer change. Going to remove key from memcached",
+            key);
+
+        var deleteResult = await DeleteAsync(key, token);
+
+        if (!deleteResult.Success)
+        {
+            _logger.LogError(
+                "Failed to delete unserializable key {Key} from memcached. Error detalis : {ErrorDetails}",
+                key,
+                deleteResult.ErrorMessage);
+        }
+    }
 }

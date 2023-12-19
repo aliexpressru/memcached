@@ -574,6 +574,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         );
         
         var loggerMock = Substitute.For<ILogger<CommandExecutor<Pod>>>();
+        var clientLoggerMock = Substitute.For<ILogger<MemcachedClient<Pod>>>();
 
         var config = new MemcachedConfiguration(){
             BinarySerializerType = ObjectBinarySerializerType.Bson
@@ -598,7 +599,8 @@ public class MemcachedClientTests : MemcachedClientTestsBase
                     new OptionsWrapper<MemcachedConfiguration>(config),
                     // we don't test custom binary serializers here so pass null
                     serviceProvider: null)
-            )
+            ),
+            clientLoggerMock
         );
 
         var key = new string('*', 251); // this key is too long to be stored
