@@ -585,10 +585,12 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
         var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
 
+        var optionsWrapper = new OptionsWrapper<MemcachedConfiguration>(config);
+        
         var client = new MemcachedClient<Pod>(
             nodeLocator,
             new CommandExecutor<Pod>(
-                new OptionsWrapper<MemcachedConfiguration>(config),
+                optionsWrapper,
                 authProvider,
                 loggerMock,
                 nodeLocator),
@@ -600,7 +602,8 @@ public class MemcachedClientTests : MemcachedClientTestsBase
                     // we don't test custom binary serializers here so pass null
                     serviceProvider: null)
             ),
-            clientLoggerMock
+            clientLoggerMock,
+            optionsWrapper
         );
 
         var key = new string('*', 251); // this key is too long to be stored

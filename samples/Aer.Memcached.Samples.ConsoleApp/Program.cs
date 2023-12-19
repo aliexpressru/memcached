@@ -13,6 +13,7 @@ nodeLocator.AddNodes(new Pod("localhost"));
 
 using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
+var clientLogger = loggerFactory.CreateLogger<MemcachedClient<Pod>>();
 
 var config = new MemcachedConfiguration(){
     BinarySerializerType = ObjectBinarySerializerType.Bson
@@ -21,10 +22,12 @@ var authProvider = new DefaultAuthenticationProvider(new OptionsWrapper<Memcache
 
 var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
 
+var optionsWrapper = new OptionsWrapper<MemcachedConfiguration>(config);
+
 var client = new MemcachedClient<Pod>(
     nodeLocator,
     new CommandExecutor<Pod>(
-        new OptionsWrapper<MemcachedConfiguration>(config),
+        optionsWrapper,
         authProvider,
         commandExecutorLogger,
         nodeLocator),
@@ -32,7 +35,9 @@ var client = new MemcachedClient<Pod>(
     cacheSynchronizer: null,
     new BinarySerializer(
         new ObjectBinarySerializerFactory(new OptionsWrapper<MemcachedConfiguration>(config), null)
-    )
+    ),
+    clientLogger,
+    optionsWrapper
 );
 
 try

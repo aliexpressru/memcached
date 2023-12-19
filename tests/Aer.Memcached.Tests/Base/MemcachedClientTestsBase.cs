@@ -98,7 +98,8 @@ public abstract class MemcachedClientTestsBase
 					ServiceProvider
 				)
 			),
-			memcachedClientLogger
+			memcachedClientLogger,
+			configWrapper
 		);
 
 		Fixture = new Fixture();
