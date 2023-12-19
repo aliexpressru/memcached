@@ -5,35 +5,47 @@ using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
+using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Client.Serializers;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MoreLinq.Extensions;
 
 namespace Aer.Memcached.Client;
 
-[SuppressMessage("ReSharper", "ConvertToUsingDeclaration",
+[SuppressMessage(
+    "ReSharper",
+    "ConvertToUsingDeclaration",
     Justification = "We need to explicitly control when the command gets disposed")]
-public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INode
+public class MemcachedClient<TNode> : IMemcachedClient
+    where TNode : class, INode
 {
     private readonly INodeLocator<TNode> _nodeLocator;
     private readonly ICommandExecutor<TNode> _commandExecutor;
     private readonly IExpirationCalculator _expirationCalculator;
     private readonly ICacheSynchronizer _cacheSynchronizer;
     private readonly BinarySerializer _binarySerializer;
+    private readonly ILogger _logger;
+    private readonly MemcachedConfiguration _memcachedConfiguration;
 
     public MemcachedClient(
         INodeLocator<TNode> nodeLocator,
         ICommandExecutor<TNode> commandExecutor,
         IExpirationCalculator expirationCalculator,
         ICacheSynchronizer cacheSynchronizer,
-        BinarySerializer binarySerializer)
+        BinarySerializer binarySerializer,
+        ILogger<MemcachedClient<TNode>> logger,
+        IOptions<MemcachedConfiguration> memcachedConfiguration)
     {
         _nodeLocator = nodeLocator;
         _commandExecutor = commandExecutor;
         _expirationCalculator = expirationCalculator;
         _cacheSynchronizer = cacheSynchronizer;
         _binarySerializer = binarySerializer;
+        _logger = logger;
+        _memcachedConfiguration = memcachedConfiguration.Value;
     }
 
     /// <inheritdoc />
@@ -67,7 +79,8 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                     await _cacheSynchronizer.SyncCacheAsync(
                         new CacheSyncModel<T>
                         {
-                            KeyValues = new Dictionary<string, T>(){
+                            KeyValues = new Dictionary<string, T>()
+                            {
                                 [key] = value
                             },
                             ExpirationTime = expirationTime.HasValue
@@ -76,13 +89,14 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         },
                         token);
                 }
-                
+
                 return new MemcachedClientResult(result.Success);
             }
         }
         catch (Exception e)
-        { 
-            return MemcachedClientResult.Unsuccessful($"An exception happened during {nameof(StoreAsync)} execution.\nException details: {e}");
+        {
+            return MemcachedClientResult.Unsuccessful(
+                $"An exception happened during {nameof(StoreAsync)} execution.\nException details: {e}");
         }
     }
 
@@ -123,7 +137,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                     },
                     token);
             }
-            
+
             return MemcachedClientResult.Successful;
         }
         catch (Exception e)
@@ -158,7 +172,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 return MemcachedClientResult.Unsuccessful(
                     $"Expiration date time offset {expirationTime} lies in the past. No keys stored");
             }
-            
+
             var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
             if (nodes.Keys.Count == 0)
             {
@@ -178,7 +192,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                     },
                     token);
             }
-            
+
             return MemcachedClientResult.Successful;
         }
         catch (Exception e)
@@ -209,12 +223,25 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                         $"Error occured during {nameof(GetAsync)} exucution");
                 }
 
-                var deserializationResult =
-                    _binarySerializer.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
+                try
+                {
+                    var deserializationResult =
+                        _binarySerializer.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
 
-                return MemcachedClientValueResult<T>.Successful(
-                    deserializationResult.Result,
-                    deserializationResult.IsEmpty);
+                    return MemcachedClientValueResult<T>.Successful(
+                        deserializationResult.Result,
+                        deserializationResult.IsEmpty);
+                }
+                catch (Exception) when (_memcachedConfiguration.IsDeleteMemcachedKeyOnDeserializationFail)
+                {
+                    // means exception on deserialization happened
+                    // assuming serializer change - remove this key from memcached to refresh data
+
+                    await DeleteUndeserializableKey(key, token);
+
+                    return MemcachedClientValueResult<T>.Unsuccessful(
+                        $"Undeserializable key {key} found. Assuming binary serializer change. Key deleted from memcached.");
+                }
             }
         }
         catch (Exception e)
@@ -302,9 +329,19 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 var key = readItem.Key;
                 var cacheItem = readItem.Value;
 
-                var cachedValue = _binarySerializer.Deserialize<T>(cacheItem).Result;
+                try
+                {
+                    var cachedValue = _binarySerializer.Deserialize<T>(cacheItem).Result;
 
-                result.TryAdd(key, cachedValue);
+                    result.TryAdd(key, cachedValue);
+                }
+                catch (Exception)when (_memcachedConfiguration.IsDeleteMemcachedKeyOnDeserializationFail)
+                {
+                    // means exception on deserialization happened
+                    // assuming serializer change - remove this key from memcached to refresh data
+
+                    await DeleteUndeserializableKey(key, token);
+                }
             }
         }
 
@@ -313,7 +350,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
 
     /// <inheritdoc />
     public async Task<MemcachedClientResult> DeleteAsync(
-        string key, 
+        string key,
         CancellationToken token,
         CacheSyncOptions cacheSyncOptions = null)
     {
@@ -333,7 +370,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
                 {
                     await _cacheSynchronizer.DeleteCacheAsync(new[] {key}, token);
                 }
-                
+
                 return new MemcachedClientResult(commandExecutionResult.Success);
             }
         }
@@ -390,7 +427,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             }
 
             await Task.WhenAll(deleteTasks);
-            
+
             return MemcachedClientResult.Successful;
         }
         catch (Exception e)
@@ -505,7 +542,7 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             {
                 commandBase.Dispose();
             }
-            
+
             return MemcachedClientResult.Successful;
         }
         catch (Exception e)
@@ -711,8 +748,25 @@ public class MemcachedClient<TNode> : IMemcachedClient where TNode : class, INod
             });
     }
 
-    private bool IsCacheSyncEnabled(CacheSyncOptions cacheSyncOptions) 
+    private bool IsCacheSyncEnabled(CacheSyncOptions cacheSyncOptions)
         => _cacheSynchronizer != null
-        && _cacheSynchronizer.IsCacheSyncEnabled()
-        && (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn);
+            && _cacheSynchronizer.IsCacheSyncEnabled()
+            && (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn);
+
+    private async Task DeleteUndeserializableKey(string key, CancellationToken token)
+    {
+        _logger.LogWarning(
+            "Failed to deserialize value for key {Key}. Assuming binary serializer change. Going to remove key from memcached",
+            key);
+
+        var deleteResult = await DeleteAsync(key, token);
+
+        if (!deleteResult.Success)
+        {
+            _logger.LogError(
+                "Failed to delete unserializable key {Key} from memcached. Error detalis : {ErrorDetails}",
+                key,
+                deleteResult.ErrorMessage);
+        }
+    }
 }

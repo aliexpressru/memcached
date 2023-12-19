@@ -47,6 +47,7 @@ public class MemcachedKeysBatchingBenchmarks
 
 		using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 		var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Node>>();
+		var clientLogger = loggerFactory.CreateLogger<MemcachedClient<Node>>();
 
 		var config = new MemcachedConfiguration(){
 			BinarySerializerType = ObjectBinarySerializerType.Bson
@@ -57,8 +58,10 @@ public class MemcachedKeysBatchingBenchmarks
 		
 		var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
 
+		var optionsWrapper = new OptionsWrapper<MemcachedConfiguration>(config); 
+		
 		_commandExecutor = new CommandExecutor<Node>(
-			new OptionsWrapper<MemcachedConfiguration>(config),
+			optionsWrapper,
 			authProvider,
 			commandExecutorLogger,
 			_nodeLocator);
@@ -76,7 +79,9 @@ public class MemcachedKeysBatchingBenchmarks
 			_commandExecutor,
 			expirationCalculator,
 			cacheSynchronizer: null,
-			_binarySerializer	
+			_binarySerializer,
+			clientLogger,
+			optionsWrapper
 		);
 
 		foreach (var key in Enumerable.Range(0, TEST_KEYS_COUNT))

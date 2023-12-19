@@ -55,6 +55,7 @@ public abstract class MemcachedClientTestsBase
 		using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 		
 		var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
+		var memcachedClientLogger = loggerFactory.CreateLogger<MemcachedClient<Pod>>();
 		
 		var config = new MemcachedConfiguration()
 		{
@@ -96,7 +97,9 @@ public abstract class MemcachedClientTestsBase
 					configWrapper,
 					ServiceProvider
 				)
-			)
+			),
+			memcachedClientLogger,
+			configWrapper
 		);
 
 		Fixture = new Fixture();

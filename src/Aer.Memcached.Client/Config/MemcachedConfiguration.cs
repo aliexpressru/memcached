@@ -1,6 +1,8 @@
 using Aer.ConsistentHash.Abstractions;
 using Microsoft.Extensions.Logging;
 
+// ReSharper disable MemberCanBeInternal
+
 namespace Aer.Memcached.Client.Config;
 
 public class MemcachedConfiguration
@@ -68,7 +70,15 @@ public class MemcachedConfiguration
     /// </summary>
     public SynchronizationSettings SyncSettings { get; set; }
 
+    /// <summary>
+    /// The type of complex object binary serializer to use.
+    /// </summary>
     public ObjectBinarySerializerType BinarySerializerType { get; set; } = ObjectBinarySerializerType.Bson;
+
+    /// <summary>
+    /// Set to <c>true</c> to delete memcached keys that produced deserializtion exceptions.
+    /// </summary>
+    public bool IsDeleteMemcachedKeyOnDeserializationFail { get; set; } = false;
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.

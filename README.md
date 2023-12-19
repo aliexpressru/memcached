@@ -336,6 +336,22 @@ And set the `BinarySerializerType` to `Custom`.
 }
 ````
 
+#### Binary serializer change
+
+When changing binary serializer type, previously serialized values might fail to deserialize. There is a transition period solution : delete undeserializable keys from memcached to refresh data. This option is not enabled by default to not conseal errorneous deployment consequnces.
+
+To enable this option set the following configuration key.
+
+```json
+{
+  "MemcachedConfiguration": {
+    "IsDeleteMemcachedKeyOnDeserializationFail" : true
+  }
+}
+```
+
+Do not forget to set this option back to `false` or to delte it after the transition period is over.
+
 ## Restrictions
 
 Key must be less than 250 characters and value must be less than 1MB of data.
