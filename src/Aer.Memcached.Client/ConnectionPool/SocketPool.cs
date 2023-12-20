@@ -237,7 +237,7 @@ internal class SocketPool : IDisposable
         {
             var endPointAddressString = _endPoint.GetEndPointString();
             
-            _logger.LogError(
+            _logger.LogWarning(
                 ex,
                 "Failed to create socket for endpoint {EndPoint}. Attempt {AttemptNumber}",
                 endPointAddressString,
