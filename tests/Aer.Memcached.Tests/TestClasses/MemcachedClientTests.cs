@@ -19,6 +19,9 @@ namespace Aer.Memcached.Tests.TestClasses;
 [TestClass]
 public class MemcachedClientTests : MemcachedClientTestsBase
 {
+    // NOTE: FOR SOME REASON MS TEST DISCOVERY FAILES TO DISCOVER TESTS IN THIS CLASS
+    // CHECK THIS OUT!
+    
     public MemcachedClientTests(
         ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson) : base(
         isSingleNodeCluster: true,
