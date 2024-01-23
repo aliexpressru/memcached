@@ -7,7 +7,7 @@ using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Commands;
 
-internal class GetCommand: SingleItemCommandBase
+internal class GetCommand: SingleKeyMemcachedCommandBase
 {
     public CacheItemResult Result { get; private set; }
 

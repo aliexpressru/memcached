@@ -10,6 +10,7 @@ namespace Aer.Memcached.Client.Commands;
 internal class MultiGetCommand: MemcachedCommandBase
 {
     private readonly IEnumerable<string> _keys;
+    private readonly Dictionary<string, string> _safeKeyToKey;
     
     // this field exists as an optimization for subsequent lists creation
     // this is here due to allocation optimization for batch split case. Batches are IEnumerable<string>.
@@ -25,7 +26,15 @@ internal class MultiGetCommand: MemcachedCommandBase
     
     public MultiGetCommand(IEnumerable<string> keys, int keysCount): base(OpCode.GetQ)
     {
-        _keys = keys;
+        _safeKeyToKey = new Dictionary<string, string>(keysCount);
+
+        foreach (var key in keys)
+        {
+            var safeLengthKey = GetSafeLengthKey(key);
+            _safeKeyToKey[safeLengthKey] = key;
+        }
+
+        _keys = _safeKeyToKey.Keys;
         _keysCount = keysCount;
     }
 
@@ -100,8 +109,14 @@ internal class MultiGetCommand: MemcachedCommandBase
             // deserialize the response
             int flags = BinaryConverter.DecodeInt32(ResponseReader.Extra, 0);
 
-            Result[key] = new CacheItemResult((ushort)flags, ResponseReader.Data);
-            _casValues[key] = ResponseReader.Cas;
+            if (!_safeKeyToKey.TryGetValue(key, out var originalKey))
+            {
+                // we're not supposed to get here too
+                throw new InvalidOperationException();
+            }
+            
+            Result[originalKey] = new CacheItemResult((ushort)flags, ResponseReader.Data);
+            _casValues[originalKey] = ResponseReader.Cas;
         }
 
         // finished reading but we did not find the NOOP

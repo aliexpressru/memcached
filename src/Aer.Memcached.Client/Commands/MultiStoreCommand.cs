@@ -94,7 +94,7 @@ internal class MultiStoreCommand: MemcachedCommandBase
 
             var request = new BinaryRequest(OpCode)
             {
-                Key = key,
+                Key = GetSafeLengthKey(key),
                 Cas = casValue,
                 Extra = new ArraySegment<byte>(span.ToArray()),
                 Data = cacheItem.Data

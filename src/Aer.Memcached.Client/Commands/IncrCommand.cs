@@ -7,7 +7,7 @@ using Aer.Memcached.Client.Commands.Infrastructure;
 
 namespace Aer.Memcached.Client.Commands;
 
-internal class IncrCommand: SingleItemCommandBase
+internal class IncrCommand: SingleKeyMemcachedCommandBase
 {
     private readonly ulong _amountToAdd;
     private readonly ulong _initialValue;

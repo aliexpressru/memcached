@@ -1,13 +1,23 @@
+using System.Text;
+using Aer.ConsistentHash;
+using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.ConnectionPool;
 
 namespace Aer.Memcached.Client.Commands.Base;
 
-public abstract class MemcachedCommandBase: IDisposable
+public abstract class MemcachedCommandBase : IDisposable
 {
+    /// <summary>
+    /// The memcached by-design key length limitation.
+    /// </summary>
+    public const int MemcachedKeyLengthMaxLengthBytes = 250;
+
+    private static readonly IHashCalculator _hashCalculator = new HashCalculator();
+
     private bool _isDisposed;
-    
+
     internal BinaryResponseReader ResponseReader { get; set; }
 
     protected int StatusCode { get; set; }
@@ -34,13 +44,17 @@ public abstract class MemcachedCommandBase: IDisposable
     }
 
     protected abstract CommandResult ReadResponseCore(PooledSocket socket);
-    
+
     internal abstract IList<ArraySegment<byte>> GetBuffer();
 
-    internal virtual MemcachedCommandBase Clone()
-    {
-        throw new NotSupportedException($"{nameof(Clone)} method is not supported for command of type {GetType()}.");
-    }
+    internal virtual MemcachedCommandBase Clone() =>
+        throw new NotSupportedException(
+            $"{nameof(Clone)} method is not supported for command of type {GetType()}.");
+
+    internal static string GetSafeLengthKey(string possiblyTooLongKey) =>
+        Encoding.UTF8.GetByteCount(possiblyTooLongKey) > MemcachedKeyLengthMaxLengthBytes
+            ? _hashCalculator.DigestValue(possiblyTooLongKey)
+            : possiblyTooLongKey;
 
     public override string ToString()
     {
@@ -50,7 +64,7 @@ public abstract class MemcachedCommandBase: IDisposable
     public void Dispose()
     {
         if (_isDisposed)
-        { 
+        {
             return;
         }
 

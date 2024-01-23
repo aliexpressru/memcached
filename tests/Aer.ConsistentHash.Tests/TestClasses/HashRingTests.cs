@@ -5,7 +5,7 @@ using Aer.ConsistentHash.Tests.Model;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Aer.ConsistentHash.Tests;
+namespace Aer.ConsistentHash.Tests.TestClasses;
 
 [TestClass]
 public class HashRingTests

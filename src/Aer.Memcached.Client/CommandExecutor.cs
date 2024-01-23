@@ -198,7 +198,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             }
             
             // since we are not using the command internal buffers to read result 
-            // we don't need to dispose the command, this call is here for symmetry or future changes prposes
+            // we don't need to dispose the command, this call is here for symmetry or future changes purposes
             command.Dispose();
 
             if (sucessfullCommand is not null)

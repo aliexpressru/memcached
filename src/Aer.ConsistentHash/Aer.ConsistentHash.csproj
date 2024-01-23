@@ -10,7 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Standart.Hash.xxHash" Version="4.0.4" />
+        <PackageReference Include="Standart.Hash.xxHash" Version="4.0.5" />
     </ItemGroup>
     
 </Project>

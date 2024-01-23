@@ -7,7 +7,7 @@ using Aer.Memcached.Client.Commands.Infrastructure;
 
 namespace Aer.Memcached.Client.Commands;
 
-internal class DecrCommand: SingleItemCommandBase
+internal class DecrCommand: SingleKeyMemcachedCommandBase
 {
     private readonly ulong _amountToSubtract;
     private readonly ulong _initialValue;
@@ -15,9 +15,11 @@ internal class DecrCommand: SingleItemCommandBase
 
     public ulong Result { get; private set; }
 
-    public DecrCommand(string key, ulong amountToSubtract, ulong initialValue, uint expiresAtUnixTimeSeconds) : base(
-        key,
-        OpCode.Decrement)
+    public DecrCommand(
+        string key,
+        ulong amountToSubtract,
+        ulong initialValue,
+        uint expiresAtUnixTimeSeconds) : base(key, OpCode.Decrement)
     {
         _amountToSubtract = amountToSubtract;
         _initialValue = initialValue;
