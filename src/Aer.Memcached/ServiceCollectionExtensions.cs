@@ -122,27 +122,30 @@ public static class ServiceCollectionExtensions
     public static void AddMemcachedEndpoints(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
-
-        if (config.SyncSettings != null)
-        {
-            endpoints.MapPost(config.SyncSettings.DeleteEndpoint,
-                async ([FromBody] IEnumerable<string> keys, IMemcachedClient memcachedClient,
-                    CancellationToken token) =>
-                {
-                    await memcachedClient.MultiDeleteAsync(
-                        keys,
-                        token,
-                        cacheSyncOptions: new CacheSyncOptions
-                        {
-                            IsManualSyncOn = false
-                        });
-                });
-            
-            endpoints.MapPost(config.SyncSettings.FlushEndpoint,
-                async (IMemcachedClient memcachedClient, CancellationToken token) =>
-                {
-                    await memcachedClient.FlushAsync(token);
-                });
-        }
+        var deleteEndpoint = config.SyncSettings == null
+            ? MemcachedConfiguration.DefaultDeleteEndpoint
+            : config.SyncSettings.DeleteEndpoint;
+        var flushEndpoint = config.SyncSettings == null
+            ? MemcachedConfiguration.DefaultFlushEndpoint
+            : config.SyncSettings.FlushEndpoint;
+        
+        endpoints.MapPost(deleteEndpoint,
+            async ([FromBody] IEnumerable<string> keys, IMemcachedClient memcachedClient,
+                CancellationToken token) =>
+            {
+                await memcachedClient.MultiDeleteAsync(
+                    keys,
+                    token,
+                    cacheSyncOptions: new CacheSyncOptions
+                    {
+                        IsManualSyncOn = false
+                    });
+            });
+        
+        endpoints.MapPost(flushEndpoint,
+            async (IMemcachedClient memcachedClient, CancellationToken token) =>
+            {
+                await memcachedClient.FlushAsync(token);
+            });
     }
 }
