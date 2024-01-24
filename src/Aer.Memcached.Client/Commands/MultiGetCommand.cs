@@ -16,26 +16,28 @@ internal class MultiGetCommand: MemcachedCommandBase
     // this is here due to allocation optimization for batch split case. Batches are IEnumerable<string>.
     // to not generate another collection in this case we simply pass keys count to this command
     private readonly int _keysCount;
+    private readonly bool _isAllowLongKeys;
     private Dictionary<int, string> _idToKey;
     private int _noopId;
     
-    // Not used for now, it is leaved here on purpose of further possible usage :)
+    // ReSharper disable once CollectionNeverQueried.Local | Justification - Reamins here on purpose for further possible usage  
     private Dictionary<string, ulong> _casValues;
     
     public Dictionary<string, CacheItemResult> Result { get; private set; }
     
-    public MultiGetCommand(IEnumerable<string> keys, int keysCount): base(OpCode.GetQ)
+    public MultiGetCommand(IEnumerable<string> keys, int keysCount, bool isAllowLongKeys): base(OpCode.GetQ)
     {
         _safeKeyToKey = new Dictionary<string, string>(keysCount);
 
         foreach (var key in keys)
         {
-            var safeLengthKey = GetSafeLengthKey(key);
+            var safeLengthKey = isAllowLongKeys ? GetSafeLengthKey(key) : key;
             _safeKeyToKey[safeLengthKey] = key;
         }
 
         _keys = _safeKeyToKey.Keys;
         _keysCount = keysCount;
+        _isAllowLongKeys = isAllowLongKeys;
     }
 
     internal override bool HasResult => Result is {Count: > 0};
@@ -125,7 +127,7 @@ internal class MultiGetCommand: MemcachedCommandBase
 
     internal override MultiGetCommand Clone()
     {
-        return new MultiGetCommand(_keys, _keysCount);
+        return new MultiGetCommand(_keys, _keysCount, _isAllowLongKeys);
     }
     
     private BinaryRequest Build(string key)

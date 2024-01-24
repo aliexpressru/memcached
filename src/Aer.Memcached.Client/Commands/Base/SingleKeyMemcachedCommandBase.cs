@@ -9,23 +9,22 @@ internal abstract class SingleKeyMemcachedCommandBase: MemcachedCommandBase
 {
     protected string Key { get; }
 
-    protected string SafeLengthKey { get; }
-
     protected ulong CasValue { get; set; }
 
-    protected SingleKeyMemcachedCommandBase(string key, OpCode opCode): base(opCode)
+    protected SingleKeyMemcachedCommandBase(string key, OpCode opCode, bool isAllowLongKeys) : base(opCode)
     {
-        Key = key;
-        SafeLengthKey = GetSafeLengthKey(key);
+        Key = isAllowLongKeys
+            ? GetSafeLengthKey(key)
+            : key;
     }
-    
+
     protected abstract CommandResult ProcessResponse(BinaryResponseReader responseReader);
 
     protected abstract BinaryRequest Build(string key);
 
     internal override IList<ArraySegment<byte>> GetBuffer()
     {
-        return Build(SafeLengthKey).CreateBuffer();
+        return Build(Key).CreateBuffer();
     }
 
     protected override CommandResult ReadResponseCore(PooledSocket socket)

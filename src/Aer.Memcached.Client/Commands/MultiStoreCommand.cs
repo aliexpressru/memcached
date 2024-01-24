@@ -13,15 +13,18 @@ internal class MultiStoreCommand: MemcachedCommandBase
 {
     private readonly Dictionary<string, CacheItemForRequest> _keyValues;
     private readonly Dictionary<string, uint> _expirationByKey;
+    private readonly bool _isAllowLongKeys;
     private int _noopId;
 
     public MultiStoreCommand(
         StoreMode storeMode, 
         Dictionary<string, CacheItemForRequest> keyValues, 
-        Dictionary<string, uint> expirationByKey): base(storeMode.Resolve())
+        Dictionary<string, uint> expirationByKey,
+        bool isAllowLongKeys): base(storeMode.Resolve())
     {
         _keyValues = keyValues;
         _expirationByKey = expirationByKey;
+        _isAllowLongKeys = isAllowLongKeys;
     }
 
     internal override IList<ArraySegment<byte>> GetBuffer()
@@ -94,7 +97,7 @@ internal class MultiStoreCommand: MemcachedCommandBase
 
             var request = new BinaryRequest(OpCode)
             {
-                Key = GetSafeLengthKey(key),
+                Key = _isAllowLongKeys ? GetSafeLengthKey(key) : key,
                 Cas = casValue,
                 Extra = new ArraySegment<byte>(span.ToArray()),
                 Data = cacheItem.Data

@@ -356,6 +356,8 @@ Do not forget to set this option back to `false` or to delte it after the transi
 
 Key must be less than 250 characters and value must be less than 1MB of data.
 
+The key length restriction can be lifted, see [Long keys support](#long-keys-support) section for the details.
+
 ## Additional configuration
 
 ### SASL
@@ -555,6 +557,26 @@ app.UseEndpoints(endpoints =>
 
 `AddMemcachedSyncEndpoint` - to store data
 `AddMemcachedEndpoints` - for delete and flush endpoints
+
+### Long keys support
+
+Memcached has a by-design restriction on the key length - 250 bytes (or in most cases 250 characters).
+
+This library has a mechanism to circumvent this restriction. If the following option is set
+
+```json
+{
+  "MemcachedConfiguration": {
+    "IsAllowLongKeys" : true
+  }
+}
+```
+
+then on each operation the key byte size is calculated and, if it exceeds the 250-byte limit, the key is hashed using `xxHash128` algorithm to a fixed length string.
+
+Please note that all hashing algorithms, icluding `xxHash128`, has a potential to get a collision - same hash for two different inputs. Enabling aforementioned option might lead to unforeseen consequences, if the long to short keys ratio is considerable. Therefore it is recommended to enable `IsAllowLongKeys` option only if the long keys count is low.
+
+Nonetheless, it worth noting that every case for this option should be considered and tested individually.
 
 ## Monitoring
 

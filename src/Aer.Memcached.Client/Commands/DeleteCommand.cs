@@ -8,7 +8,7 @@ namespace Aer.Memcached.Client.Commands;
 
 internal class DeleteCommand: SingleKeyMemcachedCommandBase
 {
-    public DeleteCommand(string key) : base(key, OpCode.Delete)
+    public DeleteCommand(string key, bool isAllowLongKeys) : base(key, OpCode.Delete, isAllowLongKeys)
     {
     }
 

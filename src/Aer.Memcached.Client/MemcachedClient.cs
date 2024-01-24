@@ -70,7 +70,12 @@ public class MemcachedClient<TNode> : IMemcachedClient
             var cacheItem = _binarySerializer.Serialize(value);
             var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
-            using (var command = new StoreCommand(storeMode, key, cacheItem, expiration))
+            using (var command = new StoreCommand(
+                       storeMode,
+                       key,
+                       cacheItem,
+                       expiration,
+                       _memcachedConfiguration.IsAllowLongKeys))
             {
                 var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
@@ -213,7 +218,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return MemcachedClientValueResult<T>.Unsuccessful($"Memcached node for key {key} is not found");
             }
 
-            using (var command = new GetCommand(key))
+            using (var command = new GetCommand(key, _memcachedConfiguration.IsAllowLongKeys))
             {
                 using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
@@ -296,7 +301,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
         foreach (var (node, keysToGet) in nodes)
         {
-            var command = new MultiGetCommand(keysToGet, keysToGet.Count);
+            var command = new MultiGetCommand(keysToGet, keysToGet.Count, _memcachedConfiguration.IsAllowLongKeys);
             var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
 
             getCommandTasks.Add(executeTask);
@@ -362,7 +367,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return MemcachedClientResult.Unsuccessful($"Memcached node for key {key} is not found");
             }
 
-            using (var command = new DeleteCommand(key))
+            using (var command = new DeleteCommand(key, _memcachedConfiguration.IsAllowLongKeys))
             {
                 var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
@@ -412,7 +417,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
             {
                 foreach (var node in replicatedNode.EnumerateNodes())
                 {
-                    using (var command = new MultiDeleteCommand(keysToDelete, keysToDelete.Count))
+                    using (var command = new MultiDeleteCommand(
+                               keysToDelete,
+                               keysToDelete.Count,
+                               _memcachedConfiguration.IsAllowLongKeys))
                     {
                         var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
 
@@ -456,7 +464,12 @@ public class MemcachedClient<TNode> : IMemcachedClient
             var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
             // ReSharper disable once ConvertToUsingDeclaration | Justification - we need to explicitly control when the command gets disposed
-            using (var command = new IncrCommand(key, amountToAdd, initialValue, expiration))
+            using (var command = new IncrCommand(
+                       key,
+                       amountToAdd,
+                       initialValue,
+                       expiration,
+                       _memcachedConfiguration.IsAllowLongKeys))
             {
                 using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
@@ -494,7 +507,12 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
-            using (var command = new DecrCommand(key, amountToSubtract, initialValue, expiration))
+            using (var command = new DecrCommand(
+                       key,
+                       amountToSubtract,
+                       initialValue,
+                       expiration,
+                       _memcachedConfiguration.IsAllowLongKeys))
             {
                 using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
@@ -589,7 +607,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     keyValuesToStore[key] = _binarySerializer.Serialize(keyValues[key]);
                 }
 
-                var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap);
+                var command = new MultiStoreCommand(
+                    storeMode,
+                    keyValuesToStore,
+                    keyToExpirationMap,
+                    _memcachedConfiguration.IsAllowLongKeys);
 
                 var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
 
@@ -643,7 +665,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
                             keyValuesToStore[key] = _binarySerializer.Serialize(keyValues[key]);
                         }
 
-                        using (var command = new MultiStoreCommand(storeMode, keyValuesToStore, keyToExpirationMap))
+                        using (var command = new MultiStoreCommand(
+                                   storeMode,
+                                   keyValuesToStore,
+                                   keyToExpirationMap,
+                                   _memcachedConfiguration.IsAllowLongKeys))
                         {
                             await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
                         }
@@ -682,7 +708,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 {
                     // since internally in ExecuteCommandAsync the command gets cloned and
                     // original command gets disposed we don't need to wrap it in using statement
-                    var command = new MultiGetCommand(keysBatch, batchingOptions.BatchSize);
+                    var command = new MultiGetCommand(
+                        keysBatch,
+                        batchingOptions.BatchSize,
+                        _memcachedConfiguration.IsAllowLongKeys);
 
                     using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(
                         node,
@@ -736,7 +765,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 {
                     foreach (var keysBatch in keysToGet.Batch(batchingOptions.BatchSize))
                     {
-                        using (var command = new MultiDeleteCommand(keysBatch, batchingOptions.BatchSize))
+                        using (var command = new MultiDeleteCommand(
+                                   keysBatch,
+                                   batchingOptions.BatchSize,
+                                   _memcachedConfiguration.IsAllowLongKeys))
                         {
                             await _commandExecutor.ExecuteCommandAsync(
                                 node,

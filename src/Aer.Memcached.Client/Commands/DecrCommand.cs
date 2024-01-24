@@ -19,7 +19,8 @@ internal class DecrCommand: SingleKeyMemcachedCommandBase
         string key,
         ulong amountToSubtract,
         ulong initialValue,
-        uint expiresAtUnixTimeSeconds) : base(key, OpCode.Decrement)
+        uint expiresAtUnixTimeSeconds,
+        bool isAllowLongKeys) : base(key, OpCode.Decrement, isAllowLongKeys)
     {
         _amountToSubtract = amountToSubtract;
         _initialValue = initialValue;

@@ -174,7 +174,7 @@ public class MemcachedKeysBatchingBenchmarks
 		{
 			foreach (var keysBatch in keysToGet.Batch(batchSize))
 			{
-				var command = new MultiGetCommand(keysBatch, batchSize);
+				var command = new MultiGetCommand(keysBatch, batchSize, isAllowLongKeys: false);
 				var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, CancellationToken.None);
 
 				getTasks.Add(executeTask);

@@ -19,7 +19,8 @@ internal class IncrCommand: SingleKeyMemcachedCommandBase
         string key,
         ulong amountToAdd,
         ulong initialValue,
-        uint expiresAtUnixTimeSeconds) : base(key, OpCode.Increment)
+        uint expiresAtUnixTimeSeconds,
+        bool isAllowLongKeys) : base(key, OpCode.Increment, isAllowLongKeys)
     {
         _amountToAdd = amountToAdd;
         _initialValue = initialValue;

@@ -78,7 +78,14 @@ public class MemcachedConfiguration
     /// <summary>
     /// Set to <c>true</c> to delete memcached keys that produced deserializtion exceptions.
     /// </summary>
-    public bool IsDeleteMemcachedKeyOnDeserializationFail { get; set; } = false;
+    public bool IsDeleteMemcachedKeyOnDeserializationFail { get; set; }
+
+    /// <summary>
+    /// Set to <c>true</c> to allow long memcached keys. Memcached has a by-design limitation on key length - 250 bytes.
+    /// If this option is set to <c>true</c> - allow storing keys that exceed this length by hashing keys to a fixed length.
+    /// If this options is et to <c>false</c> - throws exception when key is too long.  
+    /// </summary>
+    public bool IsAllowLongKeys { get; set; }
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.

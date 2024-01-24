@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
-using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Client.Serializers;
@@ -26,7 +25,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     public MemcachedClientMethodsTestsBase(
         ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson) : base(
         isSingleNodeCluster: true,
-        binarySerializerType: binarySerializerType)
+        binarySerializerType: binarySerializerType,
+        isAllowLongKeys: true)
     { }
 
     [TestMethod]
@@ -597,7 +597,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         var config = new MemcachedConfiguration()
         {
-            BinarySerializerType = ObjectBinarySerializerType.Bson
+            BinarySerializerType = ObjectBinarySerializerType.Bson,
+            IsAllowLongKeys = true
         };
 
         var authProvider = new DefaultAuthenticationProvider(
@@ -643,6 +644,75 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         loggerMock
             .Received(0)
+            .Log(
+                Arg.Is(LogLevel.Error),
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                exception: Arg.Any<Exception>(),
+                formatter: Arg.Any<Func<object, Exception, string>>()
+            );
+    }
+    
+    [TestMethod]
+    public async Task Store_KeyIsTooLong_DisallowLongKeys_ShouldError()
+    {
+        var hashCalculator = new HashCalculator();
+        var nodeLocator = new HashRing<Pod>(hashCalculator);
+
+        nodeLocator.AddNodes(
+            new Pod("localhost")
+        );
+
+        var loggerMock = Substitute.For<ILogger<CommandExecutor<Pod>>>();
+        var clientLoggerMock = Substitute.For<ILogger<MemcachedClient<Pod>>>();
+
+        var config = new MemcachedConfiguration()
+        {
+            BinarySerializerType = ObjectBinarySerializerType.Bson,
+            IsAllowLongKeys = false
+        };
+
+        var authProvider = new DefaultAuthenticationProvider(
+            new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
+
+        var expirationCalculator = new ExpirationCalculator(
+            hashCalculator,
+            new OptionsWrapper<MemcachedConfiguration>(config));
+
+        var optionsWrapper = new OptionsWrapper<MemcachedConfiguration>(config);
+
+        var client = new MemcachedClient<Pod>(
+            nodeLocator,
+            new CommandExecutor<Pod>(
+                optionsWrapper,
+                authProvider,
+                loggerMock,
+                nodeLocator),
+            expirationCalculator,
+            cacheSynchronizer: null,
+            new BinarySerializer(
+                new ObjectBinarySerializerFactory(
+                    new OptionsWrapper<MemcachedConfiguration>(config),
+                    // we don't test custom binary serializers here so pass null
+                    serviceProvider: null)
+            ),
+            clientLoggerMock,
+            optionsWrapper
+        );
+
+        var key = GetTooLongKey();
+        var value = Guid.NewGuid().ToString();
+
+        await client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+
+        var getValue = await client.GetAsync<string>(key, CancellationToken.None);
+
+        getValue.Result.Should().BeNull();
+        getValue.Success.Should().BeFalse();
+        getValue.IsEmptyResult.Should().BeTrue();
+
+        loggerMock
+            .Received(2)
             .Log(
                 Arg.Is(LogLevel.Error),
                 Arg.Any<EventId>(),
@@ -962,20 +1032,5 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         var getValues = await Client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: (uint)(withReplicas ? 1 : 0));
         getValues.Count.Should().Be(0);
-    }
-
-    private string GetTooLongKey()
-    {
-        var uniquePart = Guid.NewGuid().ToString();
-        
-        var tooLongKey =
-            uniquePart
-            +
-            new string(
-                '*',
-                // this length is 1 byte too long to be stored
-                MemcachedCommandBase.MemcachedKeyLengthMaxLengthBytes - uniquePart.Length + 1); 
-
-        return tooLongKey;
     }
 }

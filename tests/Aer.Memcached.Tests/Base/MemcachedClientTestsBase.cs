@@ -2,6 +2,7 @@
 using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
+using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Interfaces;
@@ -17,10 +18,11 @@ namespace Aer.Memcached.Tests.Base;
 
 public abstract class MemcachedClientTestsBase
 {
-	protected readonly MemcachedClient<Pod> Client;
-	protected readonly Fixture Fixture;
-
 	protected const int CacheItemExpirationSeconds = 3;
+	
+	protected readonly MemcachedClient<Pod> Client;
+	
+	protected readonly Fixture Fixture;
 
 	protected readonly ObjectBinarySerializerType BinarySerizerType;
 
@@ -28,7 +30,8 @@ public abstract class MemcachedClientTestsBase
 	
 	protected MemcachedClientTestsBase(
 		bool isSingleNodeCluster, 
-		ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson)
+		ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson,
+		bool isAllowLongKeys = false)
 	{
 		BinarySerizerType = binarySerializerType;
 		
@@ -66,7 +69,8 @@ public abstract class MemcachedClientTestsBase
 				DisableSocketPoolDiagnosticsLogging = false,
 				SocketPoolDiagnosticsLoggingEventLevel = LogLevel.Information
 			},
-			BinarySerializerType = binarySerializerType
+			BinarySerializerType = binarySerializerType,
+			IsAllowLongKeys = isAllowLongKeys
 		};
 		
 		var authProvider = new DefaultAuthenticationProvider(
@@ -113,5 +117,20 @@ public abstract class MemcachedClientTestsBase
 			memcachedOptions);
 		
 		diagnosticSource.SubscribeWithAdapter(loggingListener);
+	}
+
+	protected string GetTooLongKey()
+	{
+		var uniquePart = Guid.NewGuid().ToString();
+
+		var tooLongKey =
+			uniquePart
+			+
+			new string(
+				'*',
+				// this length is 1 byte too long to be stored
+				MemcachedCommandBase.MemcachedKeyLengthMaxLengthBytes - uniquePart.Length + 1);
+
+		return tooLongKey;
 	}
 }

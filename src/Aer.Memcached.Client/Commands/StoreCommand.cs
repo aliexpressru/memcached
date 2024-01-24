@@ -17,7 +17,8 @@ internal class StoreCommand: SingleKeyMemcachedCommandBase
         StoreMode storeMode,
         string key,
         CacheItemForRequest cacheItem,
-        uint expiresAtUnixTimeSeconds) : base(key, storeMode.Resolve())
+        uint expiresAtUnixTimeSeconds,
+        bool isAllowLongKeys) : base(key, storeMode.Resolve(), isAllowLongKeys)
     {
         _cacheItem = cacheItem;
         _expiresAtUnixTimeSeconds = expiresAtUnixTimeSeconds;
