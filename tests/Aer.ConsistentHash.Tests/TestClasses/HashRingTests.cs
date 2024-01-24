@@ -31,7 +31,7 @@ public class HashRingTests
 
         node.Should().BeEquivalentTo(nodeToAdd);
     }
-    
+
     [TestMethod]
     public void GetNode_MultipleNodeAdded_ReturnsNode()
     {
@@ -43,14 +43,14 @@ public class HashRingTests
 
         nodesToAdd.Should().Contain(node);
     }
-    
+
     [TestMethod]
     public void GetNodes_MultipleNodeAdded_ReturnsNodes()
     {
         var hashRing = GetHashRing();
 
         var nodesToAdd = Enumerable.Range(0, 5).Select(_ => new TestHashRingNode()).ToArray();
-        
+
         hashRing.AddNodes(nodesToAdd);
         var nodes = hashRing.GetNodes(new[] {"test", "test2"}, replicationFactor: 0);
 
@@ -68,7 +68,7 @@ public class HashRingTests
         var nodesToInitiallyAdd = Enumerable.Range(0, 15)
             .Select(_ => new TestHashRingNode())
             .ToArray();
-        
+
         hashRing.AddNodes(nodesToInitiallyAdd);
 
         var nodesToAdd = Enumerable.Range(0, 15)
@@ -79,10 +79,7 @@ public class HashRingTests
             () =>
                 Parallel.ForEach(
                     nodesToAdd,
-                    nodeToAdd =>
-                    {
-                        hashRing.AddNode(nodeToAdd);
-                    }
+                    nodeToAdd => { hashRing.AddNode(nodeToAdd); }
                 )
         );
 
@@ -91,10 +88,7 @@ public class HashRingTests
         var keysToGet = new[] {"test", "test2"};
 
         var taskToGetNodes = Task.Run(
-            () =>
-            {
-                nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
-            }
+            () => { nodes = hashRing.GetNodesWithoutReplicas(keysToGet); }
         );
 
         await Task.WhenAll(taskToAddNodes, taskToGetNodes);
@@ -138,12 +132,9 @@ public class HashRingTests
         var keysToGet = new[] {"test", "test2"};
 
         var taskToGetNodes = Task.Run(
-            () =>
-            {
-                nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
-            }
+            () => { nodes = hashRing.GetNodesWithoutReplicas(keysToGet); }
         );
-        
+
         await Task.WhenAll(taskToAddNodes, taskToRemoveNodes, taskToGetNodes);
 
         nodes.Count.Should().Be(keysToGet.Length);
@@ -159,32 +150,32 @@ public class HashRingTests
         var node = hashRing.GetNode("test");
 
         node.Should().BeEquivalentTo(nodeToAdd);
-        
+
         hashRing.RemoveNode(nodeToAdd);
         node = hashRing.GetNode("test");
         node.Should().BeNull();
     }
-    
+
     [TestMethod]
     public void RemoveNode_NodesAddedAndRemoved_ReturnsEmptyDictionary()
     {
         var hashRing = GetHashRing();
 
         var nodesToAdd = Enumerable.Range(0, 5).Select(_ => new TestHashRingNode()).ToArray();
-        
+
         hashRing.AddNodes(nodesToAdd);
 
         var keysToGet = new[] {"test", "test2"};
-        
-        var nodes = hashRing.GetNodesWithoutReplicas(keysToGet); 
+
+        var nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
 
         foreach (var node in nodes)
         {
             nodesToAdd.Should().Contain(node.Key);
         }
-        
+
         hashRing.RemoveNodes(nodesToAdd);
-        
+
         nodes = hashRing.GetNodesWithoutReplicas(keysToGet);
         nodes.Keys.Count.Should().Be(0);
     }
@@ -220,14 +211,14 @@ public class HashRingTests
 
         hashRing.AddNodes(nodesToAdd);
 
-        var replicatedNodes = 
+        var replicatedNodes =
             hashRing.GetNodes(new[] {"test"}, replicationFactor: replicationFactor);
 
         var totalNodesCount = replicatedNodes
             .Sum(kv => kv.Key.ReplicaNodes.Count + 1); // +1 to account for primary node
 
         totalNodesCount.Should().Be(totalExpectedNodesCount);
-        
+
         foreach (var replicatedNode in replicatedNodes)
         {
             nodesToAdd.Should().Contain(replicatedNode.Key.PrimaryNode);
@@ -246,7 +237,7 @@ public class HashRingTests
     private INodeLocator<TestHashRingNode> GetHashRing()
     {
         var hashCalculator = new HashCalculator();
-        
+
         return new HashRing<TestHashRingNode>(hashCalculator);
     }
 }

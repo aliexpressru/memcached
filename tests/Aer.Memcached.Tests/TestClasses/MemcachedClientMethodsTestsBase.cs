@@ -291,7 +291,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task StoreAndGet_SimpleObject()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         var value = Fixture.Create<SimpleObject>();
 
         await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
@@ -312,6 +312,11 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Fixture.Create<SimpleObject>();
     
         await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
@@ -332,6 +337,11 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Fixture.Create<SimpleObject>();
 
         await Client.MultiStoreAsync(
             keyValues,
@@ -425,6 +435,11 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Guid.NewGuid().ToString();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Guid.NewGuid().ToString();
 
         await Client.MultiStoreAsync(
             keyValues,
@@ -708,7 +723,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task Delete_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         var value = Fixture.Create<SimpleObject>();
 
         await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
@@ -727,7 +742,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiDelete_OneKey_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         var value = Fixture.Create<SimpleObject>();
 
         await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
@@ -783,6 +798,11 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Fixture.Create<SimpleObject>();
     
         await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
@@ -803,7 +823,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task Incr_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         ulong initialValue = 0;
 
         var incrValue = await Client.IncrAsync(
@@ -828,7 +848,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task Incr_InitialValueNotZero_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         ulong initialValue = 15;
 
         var incrValue = await Client.IncrAsync(
@@ -862,7 +882,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task Decr_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         ulong initialValue = 15;
 
         var incrValue = await Client.DecrAsync(
@@ -887,7 +907,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task Decr_ToLessThanZero_DecrementedToZero()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         ulong initialValue = 5;
 
         var incrValue = await Client.DecrAsync(
@@ -946,10 +966,15 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
     private string GetTooLongKey()
     {
+        var uniquePart = Guid.NewGuid().ToString();
+        
         var tooLongKey =
+            uniquePart
+            +
             new string(
                 '*',
-                MemcachedCommandBase.MemcachedKeyLengthMaxLengthBytes + 1); // this key is too long to be stored
+                // this length is 1 byte too long to be stored
+                MemcachedCommandBase.MemcachedKeyLengthMaxLengthBytes - uniquePart.Length + 1); 
 
         return tooLongKey;
     }

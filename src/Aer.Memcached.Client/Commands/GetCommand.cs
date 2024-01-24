@@ -9,13 +9,13 @@ namespace Aer.Memcached.Client.Commands;
 
 internal class GetCommand: SingleKeyMemcachedCommandBase
 {
+    internal override bool HasResult => Result is not null;
+    
     public CacheItemResult Result { get; private set; }
 
     public GetCommand(string key) : base(key, OpCode.Get)
     {
     }
-
-    internal override bool HasResult => Result is not null;
 
     protected override BinaryRequest Build(string key)
     {

@@ -15,7 +15,11 @@ internal class IncrCommand: SingleKeyMemcachedCommandBase
 
     public ulong Result { get; private set; }
 
-    public IncrCommand(string key, ulong amountToAdd, ulong initialValue, uint expiresAtUnixTimeSeconds) : base(key, OpCode.Increment)
+    public IncrCommand(
+        string key,
+        ulong amountToAdd,
+        ulong initialValue,
+        uint expiresAtUnixTimeSeconds) : base(key, OpCode.Increment)
     {
         _amountToAdd = amountToAdd;
         _initialValue = initialValue;
