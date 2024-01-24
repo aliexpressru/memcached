@@ -7,15 +7,18 @@ using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Commands;
 
-internal class GetCommand: SingleItemCommandBase
+internal class GetCommand: SingleKeyMemcachedCommandBase
 {
+    private readonly bool _isAllowLongKeys;
+    
+    internal override bool HasResult => Result is not null;
+    
     public CacheItemResult Result { get; private set; }
 
-    public GetCommand(string key) : base(key, OpCode.Get)
+    public GetCommand(string key, bool isAllowLongKeys) : base(key, OpCode.Get, isAllowLongKeys)
     {
+        _isAllowLongKeys = isAllowLongKeys;
     }
-
-    internal override bool HasResult => Result is not null;
 
     protected override BinaryRequest Build(string key)
     {
@@ -52,6 +55,6 @@ internal class GetCommand: SingleItemCommandBase
 
     internal override GetCommand Clone()
     {
-        return new GetCommand(Key);
+        return new GetCommand(Key, _isAllowLongKeys);
     }
 }

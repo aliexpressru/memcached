@@ -14,6 +14,9 @@ namespace Aer.Memcached.Tests.TestClasses;
 // ReSharper disable once InconsistentNaming
 public class MemcachedClientTests_CustomSerializer : MemcachedClientTestsBase
 {
+	// NOTE: custom TestObjectBinarySerializer serializer is identical to MessagePack serializer
+	// Thus these tests do not inherit from MemcachedClientMethodsTestsBase to avoid testing already tested behavior
+	
 	public MemcachedClientTests_CustomSerializer() 
 		: base(isSingleNodeCluster: true, binarySerializerType: ObjectBinarySerializerType.Custom)
 	{ }

@@ -16,13 +16,17 @@ using NSubstitute;
 
 namespace Aer.Memcached.Tests.TestClasses;
 
-[TestClass]
-public class MemcachedClientTests : MemcachedClientTestsBase
+/// <remarks>
+/// We are not marking this class as TestClass since we need to perform these tests for both
+/// Bson and MessagePack serializers.
+/// </remarks>
+public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 {
-    public MemcachedClientTests(
+    public MemcachedClientMethodsTestsBase(
         ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson) : base(
         isSingleNodeCluster: true,
-        binarySerializerType: binarySerializerType)
+        binarySerializerType: binarySerializerType,
+        isAllowLongKeys: true)
     { }
 
     [TestMethod]
@@ -287,7 +291,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     [TestMethod]
     public async Task StoreAndGet_SimpleObject()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         var value = Fixture.Create<SimpleObject>();
 
         await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
@@ -308,6 +312,11 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Fixture.Create<SimpleObject>();
     
         await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
@@ -328,6 +337,11 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Fixture.Create<SimpleObject>();
 
         await Client.MultiStoreAsync(
             keyValues,
@@ -421,6 +435,11 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Guid.NewGuid().ToString();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Guid.NewGuid().ToString();
 
         await Client.MultiStoreAsync(
             keyValues,
@@ -564,7 +583,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     }
 
     [TestMethod]
-    public async Task Store_KeyIsTooLong_ValueNotStored_ExceptionLogged()
+    public async Task Store_KeyIsTooLong_ValueShouldBeStored()
     {
         var hashCalculator = new HashCalculator();
         var nodeLocator = new HashRing<Pod>(hashCalculator);
@@ -572,21 +591,25 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         nodeLocator.AddNodes(
             new Pod("localhost")
         );
-        
+
         var loggerMock = Substitute.For<ILogger<CommandExecutor<Pod>>>();
         var clientLoggerMock = Substitute.For<ILogger<MemcachedClient<Pod>>>();
 
-        var config = new MemcachedConfiguration(){
-            BinarySerializerType = ObjectBinarySerializerType.Bson
+        var config = new MemcachedConfiguration()
+        {
+            BinarySerializerType = ObjectBinarySerializerType.Bson,
+            IsAllowLongKeys = true
         };
-        
+
         var authProvider = new DefaultAuthenticationProvider(
             new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
 
-        var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
+        var expirationCalculator = new ExpirationCalculator(
+            hashCalculator,
+            new OptionsWrapper<MemcachedConfiguration>(config));
 
         var optionsWrapper = new OptionsWrapper<MemcachedConfiguration>(config);
-        
+
         var client = new MemcachedClient<Pod>(
             nodeLocator,
             new CommandExecutor<Pod>(
@@ -606,7 +629,78 @@ public class MemcachedClientTests : MemcachedClientTestsBase
             optionsWrapper
         );
 
-        var key = new string('*', 251); // this key is too long to be stored
+        var key = GetTooLongKey();
+        var value = Guid.NewGuid().ToString();
+
+        await client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+
+        var getValue = await client.GetAsync<string>(key, CancellationToken.None);
+
+        getValue.Result.Should().NotBeNull();
+        getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
+
+        getValue.Result.Should().Be(value);
+
+        loggerMock
+            .Received(0)
+            .Log(
+                Arg.Is(LogLevel.Error),
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                exception: Arg.Any<Exception>(),
+                formatter: Arg.Any<Func<object, Exception, string>>()
+            );
+    }
+    
+    [TestMethod]
+    public async Task Store_KeyIsTooLong_DisallowLongKeys_ShouldError()
+    {
+        var hashCalculator = new HashCalculator();
+        var nodeLocator = new HashRing<Pod>(hashCalculator);
+
+        nodeLocator.AddNodes(
+            new Pod("localhost")
+        );
+
+        var loggerMock = Substitute.For<ILogger<CommandExecutor<Pod>>>();
+        var clientLoggerMock = Substitute.For<ILogger<MemcachedClient<Pod>>>();
+
+        var config = new MemcachedConfiguration()
+        {
+            BinarySerializerType = ObjectBinarySerializerType.Bson,
+            IsAllowLongKeys = false
+        };
+
+        var authProvider = new DefaultAuthenticationProvider(
+            new OptionsWrapper<MemcachedConfiguration.AuthenticationCredentials>(config.MemcachedAuth));
+
+        var expirationCalculator = new ExpirationCalculator(
+            hashCalculator,
+            new OptionsWrapper<MemcachedConfiguration>(config));
+
+        var optionsWrapper = new OptionsWrapper<MemcachedConfiguration>(config);
+
+        var client = new MemcachedClient<Pod>(
+            nodeLocator,
+            new CommandExecutor<Pod>(
+                optionsWrapper,
+                authProvider,
+                loggerMock,
+                nodeLocator),
+            expirationCalculator,
+            cacheSynchronizer: null,
+            new BinarySerializer(
+                new ObjectBinarySerializerFactory(
+                    new OptionsWrapper<MemcachedConfiguration>(config),
+                    // we don't test custom binary serializers here so pass null
+                    serviceProvider: null)
+            ),
+            clientLoggerMock,
+            optionsWrapper
+        );
+
+        var key = GetTooLongKey();
         var value = Guid.NewGuid().ToString();
 
         await client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
@@ -617,8 +711,6 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         getValue.Success.Should().BeFalse();
         getValue.IsEmptyResult.Should().BeTrue();
 
-        var t = loggerMock.ReceivedCalls();
-        
         loggerMock
             .Received(2)
             .Log(
@@ -632,12 +724,27 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
     private async Task StoreAndGet_CheckType<T>()
     {
+        // normal length key
+        
         var key = Guid.NewGuid().ToString();
         var value = Fixture.Create<T>();
 
         await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
 
         var getValue = await Client.GetAsync<T>(key, CancellationToken.None);
+
+        getValue.Result.Should().BeEquivalentTo(value);
+        getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeFalse();
+        
+        // too long key
+
+        key = GetTooLongKey();
+        value = Fixture.Create<T>();
+
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+
+        getValue = await Client.GetAsync<T>(key, CancellationToken.None);
 
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
@@ -653,12 +760,17 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<T>();
         }
-    
+        
+        // add too long memcached key to the keys collection
+        
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Fixture.Create<T>();
+        
         await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None, replicationFactor: (uint)(withReplicas ? 5 : 0));
     
         var getValues = await Client.MultiGetAsync<T>(keyValues.Keys, CancellationToken.None, replicationFactor: 1);
 
-        getValues.Count.Should().Be(numberOfValues);
+        getValues.Count.Should().Be(numberOfValues + 1); // +1 beacuse of one too long key
         
         foreach (var keyValue in keyValues)
         {
@@ -681,7 +793,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     [TestMethod]
     public async Task Delete_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         var value = Fixture.Create<SimpleObject>();
 
         await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
@@ -700,7 +812,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiDelete_OneKey_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         var value = Fixture.Create<SimpleObject>();
 
         await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
@@ -720,11 +832,16 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     public async Task MultiDelete_MultipleKeys_Successful()
     {
         var keyValues = new Dictionary<string, SimpleObject>();
-    
+        
         foreach (var _ in Enumerable.Range(0, 5))
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Fixture.Create<SimpleObject>();
     
         await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
@@ -751,6 +868,11 @@ public class MemcachedClientTests : MemcachedClientTestsBase
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
         }
+
+        // add too long memcached key to the keys collection
+
+        var tooLongKey = GetTooLongKey();
+        keyValues[tooLongKey] = Fixture.Create<SimpleObject>();
     
         await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
     
@@ -771,7 +893,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     [TestMethod]
     public async Task Incr_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         ulong initialValue = 0;
 
         var incrValue = await Client.IncrAsync(
@@ -796,7 +918,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     [TestMethod]
     public async Task Incr_InitialValueNotZero_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         ulong initialValue = 15;
 
         var incrValue = await Client.IncrAsync(
@@ -830,7 +952,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     [TestMethod]
     public async Task Decr_Successful()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         ulong initialValue = 15;
 
         var incrValue = await Client.DecrAsync(
@@ -855,7 +977,7 @@ public class MemcachedClientTests : MemcachedClientTestsBase
     [TestMethod]
     public async Task Decr_ToLessThanZero_DecrementedToZero()
     {
-        var key = Guid.NewGuid().ToString();
+        var key = GetTooLongKey();
         ulong initialValue = 5;
 
         var incrValue = await Client.DecrAsync(
@@ -879,11 +1001,12 @@ public class MemcachedClientTests : MemcachedClientTestsBase
 
     private async Task<string[]> MultiStoreAndGetKeys()
     {
-        var keyValues = Enumerable.Range(0, 10).Select(_ => (key: Guid.NewGuid().ToString("N"), value: Guid.NewGuid().ToString("N")))
+        var keyValues = Enumerable.Range(0, 10)
+            .Select(_ => (key: Guid.NewGuid().ToString("N"), value: Guid.NewGuid().ToString("N")))
             .ToDictionary(x => x.key, x => x.value);
 
         await Client.MultiStoreAsync(keyValues, TimeSpan.FromMinutes(10), CancellationToken.None);
-        
+
         return keyValues.Keys.ToArray();
     }
 

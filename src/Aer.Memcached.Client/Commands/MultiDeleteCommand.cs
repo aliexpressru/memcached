@@ -16,9 +16,9 @@ internal class MultiDeleteCommand: MemcachedCommandBase
     private readonly int _keysCount;
     private int _noopId;
 
-    public MultiDeleteCommand(IEnumerable<string> keys, int keysCount): base(OpCode.DeleteQ)
+    public MultiDeleteCommand(IEnumerable<string> keys, int keysCount, bool isAllowLongKeys): base(OpCode.DeleteQ)
     {
-        _keys = keys;
+        _keys = isAllowLongKeys ? keys.Select(GetSafeLengthKey) : keys;
         _keysCount = keysCount;
     }
 

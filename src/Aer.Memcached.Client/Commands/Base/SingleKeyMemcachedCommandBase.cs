@@ -5,17 +5,19 @@ using Aer.Memcached.Client.ConnectionPool;
 
 namespace Aer.Memcached.Client.Commands.Base;
 
-internal abstract class SingleItemCommandBase: MemcachedCommandBase
+internal abstract class SingleKeyMemcachedCommandBase: MemcachedCommandBase
 {
     protected string Key { get; }
-    
+
     protected ulong CasValue { get; set; }
 
-    protected SingleItemCommandBase(string key, OpCode opCode): base(opCode)
+    protected SingleKeyMemcachedCommandBase(string key, OpCode opCode, bool isAllowLongKeys) : base(opCode)
     {
-        Key = key;
+        Key = isAllowLongKeys
+            ? GetSafeLengthKey(key)
+            : key;
     }
-    
+
     protected abstract CommandResult ProcessResponse(BinaryResponseReader responseReader);
 
     protected abstract BinaryRequest Build(string key);

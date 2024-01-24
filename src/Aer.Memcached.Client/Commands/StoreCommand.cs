@@ -8,12 +8,17 @@ using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Commands;
 
-internal class StoreCommand: SingleItemCommandBase
+internal class StoreCommand: SingleKeyMemcachedCommandBase
 {
     private readonly CacheItemForRequest _cacheItem;
     private readonly uint _expiresAtUnixTimeSeconds;
 
-    public StoreCommand(StoreMode storeMode, string key, CacheItemForRequest cacheItem, uint expiresAtUnixTimeSeconds) : base(key, storeMode.Resolve())
+    public StoreCommand(
+        StoreMode storeMode,
+        string key,
+        CacheItemForRequest cacheItem,
+        uint expiresAtUnixTimeSeconds,
+        bool isAllowLongKeys) : base(key, storeMode.Resolve(), isAllowLongKeys)
     {
         _cacheItem = cacheItem;
         _expiresAtUnixTimeSeconds = expiresAtUnixTimeSeconds;

@@ -7,7 +7,7 @@ using Aer.Memcached.Client.Commands.Infrastructure;
 
 namespace Aer.Memcached.Client.Commands;
 
-internal class IncrCommand: SingleItemCommandBase
+internal class IncrCommand: SingleKeyMemcachedCommandBase
 {
     private readonly ulong _amountToAdd;
     private readonly ulong _initialValue;
@@ -15,7 +15,12 @@ internal class IncrCommand: SingleItemCommandBase
 
     public ulong Result { get; private set; }
 
-    public IncrCommand(string key, ulong amountToAdd, ulong initialValue, uint expiresAtUnixTimeSeconds) : base(key, OpCode.Increment)
+    public IncrCommand(
+        string key,
+        ulong amountToAdd,
+        ulong initialValue,
+        uint expiresAtUnixTimeSeconds,
+        bool isAllowLongKeys) : base(key, OpCode.Increment, isAllowLongKeys)
     {
         _amountToAdd = amountToAdd;
         _initialValue = initialValue;
