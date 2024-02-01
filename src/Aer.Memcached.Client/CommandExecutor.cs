@@ -241,7 +241,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             }
             catch (TimeoutException)
             {
-                _logger.LogWarning("Write to socket timed out");
+                _logger.LogError("Write to socket {SocketAddress} timed out", socket.EndPointAddressString);
                 
                 return CommandExecutionResult.Unsuccessful(command);
             }

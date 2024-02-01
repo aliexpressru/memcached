@@ -107,15 +107,24 @@ public class PooledSocket : IDisposable
 
         if (available > 0)
         {
-            _logger.LogWarning(
-                "Socket bound to {EndPoint} has {AvailableDataCount} unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
+            _logger.LogError(
+                "Socket bound to {EndPoint} has {AvailableDataCount} bytes of unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
                 EndPointAddressString,
                 available,
                 InstanceId);
 
+            // clear socket - read data from it and throw it away
+            
             byte[] data = ArrayPool<byte>.Shared.Rent(available);
 
-            Read(data.AsSpan(0, available), available);
+            try
+            {
+                Read(data.AsSpan(0, available), available);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(data);
+            }
         }
     }
     

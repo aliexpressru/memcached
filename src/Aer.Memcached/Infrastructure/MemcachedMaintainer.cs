@@ -287,7 +287,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
             if (!_deadNodes.IsEmpty)
             {
-                _logger.LogWarning("Dead nodes: [{DeadNodes}]", _deadNodes.Select(n => n.GetKey()));
+                _logger.LogInformation("Dead nodes: [{DeadNodes}]", _deadNodes.Select(n => n.GetKey()));
                 
                 _nodeLocator.RemoveNodes(_deadNodes);                
             }
