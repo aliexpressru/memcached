@@ -237,11 +237,11 @@ internal class SocketPool : IDisposable
         {
             var endPointAddressString = _endPoint.GetEndPointString();
             
-            _logger.LogWarning(
-                ex,
-                "Failed to create socket for endpoint {EndPoint}. Attempt {AttemptNumber}",
+            _logger.LogDebug(
+                "Failed to create socket for endpoint {EndPoint}. Attempt {AttemptNumber}. Error message : {Reason}",
                 endPointAddressString,
-                _failedSocketCreationAttemptsCount + 1 // +1 because we are reporting attempt number not length
+                _failedSocketCreationAttemptsCount + 1, // +1 because we are reporting attempt number not length
+                ex.Message
             );
 
             if (!_isEndPointBroken && _failedSocketCreationAttemptsCount > _config.MaximumSocketCreationAttempts)
