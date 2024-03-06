@@ -5,14 +5,14 @@ using Microsoft.Extensions.Options;
 
 namespace Aer.Memcached.Diagnostics.Listeners;
 
-public class MetricsMemcachedDiagnosticListener
+internal class MetricsMemcachedDiagnosticListener
 {
-    private readonly MemcachedMetrics _metrics;
+    private readonly MemcachedMetricsProvider _metricsProvider;
     private readonly MemcachedConfiguration _config;
 
-    public MetricsMemcachedDiagnosticListener(MemcachedMetrics metrics, IOptions<MemcachedConfiguration> config)
+    public MetricsMemcachedDiagnosticListener(MemcachedMetricsProvider metricsProvider, IOptions<MemcachedConfiguration> config)
     {
-        _metrics = metrics;
+        _metricsProvider = metricsProvider;
         _config = config.Value;
     }
 
@@ -24,7 +24,7 @@ public class MetricsMemcachedDiagnosticListener
             return;
         }
         
-        _metrics.ObserveCommandDurationSeconds(commandName, duration);
+        _metricsProvider.ObserveCommandDurationSeconds(commandName, duration);
     }
     
     [DiagnosticName(MemcachedDiagnosticSource.CommandsTotalDiagnosticName)]
@@ -35,7 +35,7 @@ public class MetricsMemcachedDiagnosticListener
             return;
         }
         
-        _metrics.ObserveExecutedCommand(commandName, isSuccessful);
+        _metricsProvider.ObserveExecutedCommand(commandName, isSuccessful);
     }
 
     [DiagnosticName(MemcachedDiagnosticSource.SocketPoolUsedSocketCountDiagnosticName)]
@@ -46,6 +46,6 @@ public class MetricsMemcachedDiagnosticListener
             return;
         }
         
-        _metrics.ObserveSocketPoolUsedSocketsCount(enpointAddress, usedSocketCount);
+        _metricsProvider.ObserveSocketPoolUsedSocketsCount(enpointAddress, usedSocketCount);
     }
 }

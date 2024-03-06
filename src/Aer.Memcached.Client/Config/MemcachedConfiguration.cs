@@ -88,6 +88,12 @@ public class MemcachedConfiguration
     public bool IsAllowLongKeys { get; set; }
 
     /// <summary>
+    /// Name of the metrics provider. Allowed values : <c>Prometheus</c>, <c>OpenTelemetry</c>.
+    /// If not set - default value of <c>Prometheus</c> is used.
+    /// </summary>
+    public string MetricsProviderName { get; set; }
+
+    /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.
     /// </summary>
     public bool IsConfigured()

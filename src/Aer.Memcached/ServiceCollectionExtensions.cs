@@ -12,6 +12,7 @@ using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Client.Serializers;
 using Aer.Memcached.Diagnostics;
+using Aer.Memcached.Diagnostics.Extensions;
 using Aer.Memcached.Diagnostics.Listeners;
 using Aer.Memcached.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -57,6 +58,8 @@ public static class ServiceCollectionExtensions
         services.Configure<MemcachedConfiguration.AuthenticationCredentials>(
             configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
 
+        services.AddMetrics(MemcachedMetricsProvider.MeterName);
+        
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
         if (!config.Diagnostics.DisableDiagnostics)
         {
@@ -65,7 +68,7 @@ public static class ServiceCollectionExtensions
 
             services.AddSingleton(metricFactory);
             services.AddSingleton(collectorRegistry);
-            services.AddSingleton<MemcachedMetrics>();
+            services.AddSingleton<MemcachedMetricsProvider>();
             services.AddSingleton<MetricsMemcachedDiagnosticListener>();
             services.AddSingleton<LoggingMemcachedDiagnosticListener>();
             services.AddSingleton(MemcachedDiagnosticSource.Instance);
