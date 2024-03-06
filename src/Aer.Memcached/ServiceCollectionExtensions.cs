@@ -32,10 +32,7 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
+        ArgumentNullException.ThrowIfNull(services);
 
         services.Configure<MemcachedConfiguration>(configuration.GetSection(nameof(MemcachedConfiguration)));
         services.AddSingleton<IHashCalculator, HashCalculator>();
@@ -44,10 +41,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeHealthChecker<Pod>, NodeHealthChecker<Pod>>();
         services.AddSingleton<ICommandExecutor<Pod>, CommandExecutor<Pod>>();
         services.AddSingleton<IExpirationCalculator, ExpirationCalculator>();
-        
+
         services.AddSingleton<IObjectBinarySerializerFactory, ObjectBinarySerializerFactory>();
         services.AddSingleton<BinarySerializer>();
-        
+
         services.AddHttpClient();
         services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
         services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
@@ -61,9 +58,8 @@ public static class ServiceCollectionExtensions
         services.Configure<MemcachedConfiguration.AuthenticationCredentials>(
             configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
 
-        // add open telemetry metrics
         services.AddOpenTelemetryMetrics(MemcachedMetricsProvider.MeterName);
-        
+
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
         if (!config.Diagnostics.DisableDiagnostics)
         {
@@ -77,16 +73,11 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<LoggingMemcachedDiagnosticListener>();
             services.AddSingleton(MemcachedDiagnosticSource.Instance);
         }
-        
+
         return services;
     }
 
-    /// <summary>
-    /// Add the open telemetry metrics to DI.
-    /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="meterName">The meter name.</param>
-    public static void AddOpenTelemetryMetrics(this IServiceCollection services, string meterName)
+    private static void AddOpenTelemetryMetrics(this IServiceCollection services, string meterName)
     {
         ArgumentNullException.ThrowIfNull(meterName);
 
@@ -107,7 +98,8 @@ public static class ServiceCollectionExtensions
             });
     }
 
-    public static IApplicationBuilder EnableMemcachedDiagnostics(this IApplicationBuilder applicationBuilder,
+    public static IApplicationBuilder EnableMemcachedDiagnostics(
+        this IApplicationBuilder applicationBuilder,
         IConfiguration configuration)
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
@@ -136,8 +128,11 @@ public static class ServiceCollectionExtensions
 
         if (config.SyncSettings != null)
         {
-            endpoints.MapPost(config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>(),
-                async ([FromBody] CacheSyncModel<T> model, IMemcachedClient memcachedClient,
+            endpoints.MapPost(
+                config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>(),
+                async (
+                    [FromBody] CacheSyncModel<T> model,
+                    IMemcachedClient memcachedClient,
                     CancellationToken token) =>
                 {
                     await memcachedClient.MultiStoreAsync(
@@ -161,9 +156,12 @@ public static class ServiceCollectionExtensions
         var flushEndpoint = config.SyncSettings == null
             ? MemcachedConfiguration.DefaultFlushEndpoint
             : config.SyncSettings.FlushEndpoint;
-        
-        endpoints.MapPost(deleteEndpoint,
-            async ([FromBody] IEnumerable<string> keys, IMemcachedClient memcachedClient,
+
+        endpoints.MapPost(
+            deleteEndpoint,
+            async (
+                [FromBody] IEnumerable<string> keys,
+                IMemcachedClient memcachedClient,
                 CancellationToken token) =>
             {
                 await memcachedClient.MultiDeleteAsync(
@@ -174,8 +172,9 @@ public static class ServiceCollectionExtensions
                         IsManualSyncOn = false
                     });
             });
-        
-        endpoints.MapPost(flushEndpoint,
+
+        endpoints.MapPost(
+            flushEndpoint,
             async (IMemcachedClient memcachedClient, CancellationToken token) =>
             {
                 await memcachedClient.FlushAsync(token);
