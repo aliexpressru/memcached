@@ -1,8 +1,7 @@
 using System.Diagnostics.Metrics;
 using Aer.Memcached.Client.Config;
-using OpenTelemetry.Metrics;
+using Aer.Memcached.Diagnostics.Configuration;
 using Prometheus.Client;
-using Aer.Memcached.Diagnostics.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace Aer.Memcached.Diagnostics;
@@ -21,6 +20,16 @@ internal class MemcachedMetricsProvider
     private readonly IMetricFamily<IHistogram> _socketPoolUsedSocketsCounts;
     private readonly IMetricFamily<ICounter> _commandsTotal;
 
+    private const string CommandDurationSecondsMetricName = "memcached_command_duration_seconds";
+    private const string SocketPoolUsedSocketsCountsMetricName = "memecached_socket_pool_used_sockets";
+    private const string CommandsTotalOtelMetricName = "memcached_commands_total";
+
+    public static readonly Dictionary<string, double[]> MetricsBuckets = new()
+    {
+        [CommandDurationSecondsMetricName] = new[] {0.0005, 0.001, 0.005, 0.007, 0.015, 0.05, 0.2, 0.5, 1},
+        [SocketPoolUsedSocketsCountsMetricName] = new[] {0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0}
+    };
+    
     private const string CommandNameLabel = "command_name";
     private const string IsSuccessfulLabel = "is_successful";
     private const string SocketPoolEndpointAddressLabel = "socket_pool_endpoint_address";
@@ -30,61 +39,58 @@ internal class MemcachedMetricsProvider
         IMeterFactory meterFactory,
         IOptions<MemcachedConfiguration> configuration)
     {
-        if (!Enum.TryParse(configuration.Value.MetricsProviderName, out MetricsProvider metricsProvider))
+        if (!Enum.TryParse(configuration.Value.MetricsProviderName, out MetricsProviderType metricsProvider))
         {
             // if metrics provider is not set or set incorrectly - use default behavior : Prometheus metrics
-            metricsProvider = MetricsProvider.Prometheus;
+            metricsProvider = MetricsProviderType.Prometheus;
         }
 
-        // Prometheus metrics
+        if (metricsProvider == MetricsProviderType.OpenTelemetry)
+        {
+            // use open telemetry metrics
+
+            ArgumentNullException.ThrowIfNull(meterFactory);
+
+            var meter = meterFactory.Create(MeterName);
+
+            _commandDurationSecondsOtel = meter.CreateHistogram<double>(
+                name: CommandDurationSecondsMetricName,
+                unit: "second",
+                description: "Memcached command duration in seconds");
+
+            _socketPoolUsedSocketsCountsOtel = meter.CreateHistogram<int>(
+                name: SocketPoolUsedSocketsCountsMetricName,
+                unit: null,
+                description: "Number of used socket pool sockets");
+
+            _commandsTotalOtel = meter.CreateCounter<int>(
+                name: CommandsTotalOtelMetricName,
+                unit: null,
+                description: "Number of total executed memcached commands");
+
+            return;
+        }
+
+        // use Prometheus metrics
+        
+        ArgumentNullException.ThrowIfNull(metricFactory);
+        
         _commandDurationSeconds = metricFactory.CreateHistogram(
-            "memcached_command_duration_seconds",
+            CommandDurationSecondsMetricName,
             "",
-            new[] {0.0005, 0.001, 0.005, 0.007, 0.015, 0.05, 0.2, 0.5, 1},
+            MetricsBuckets[CommandDurationSecondsMetricName],
             labelNames: new[] {CommandNameLabel});
 
         _socketPoolUsedSocketsCounts = metricFactory.CreateHistogram(
-            "memecached_socket_pool_used_sockets",
+            SocketPoolUsedSocketsCountsMetricName,
             "",
-            new[]
-            {
-                0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0
-            },
+            MetricsBuckets[SocketPoolUsedSocketsCountsMetricName],
             labelNames: new[] {SocketPoolEndpointAddressLabel});
 
         _commandsTotal = metricFactory.CreateCounter(
-            "memcached_commands_total",
+            CommandsTotalOtelMetricName,
             "",
             labelNames: new[] {CommandNameLabel, IsSuccessfulLabel});
-
-        // open telemetry metrics
-
-        var meter = meterFactory.Create(MeterName);
-
-        _commandDurationSecondsOtel = meter.CreateHistogram<double>(
-            name: "memcached_command_duration_seconds",
-            unit: "second",
-            description: "Memcached command duration in seconds",
-            boundaries: new[] {0.0005, 0.001, 0.005, 0.007, 0.015, 0.05, 0.2, 0.5, 1});
-
-        _socketPoolUsedSocketsCountsOtel = meter.CreateHistogram<int>(
-            name: "memecached_socket_pool_used_sockets",
-            unit: null,
-            description: "Number of used socket pool sockets",
-            boundaries: new[]
-            {
-                0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0
-            });
-
-        _commandsTotalOtel = meter.CreateCounter<int>(
-            name: "memcached_commands_total",
-            unit: null,
-            description: "Number of total executed memcached commands");
-    }
-
-    public static void RegisterMeter(MeterProviderBuilder meterProviderBuilder)
-    {
-        meterProviderBuilder.AddMeter(MeterName);
     }
 
     /// <summary>

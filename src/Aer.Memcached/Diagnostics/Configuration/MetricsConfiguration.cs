@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using OpenTelemetry.Metrics;
 
-namespace Aer.Memcached.Diagnostics;
+namespace Aer.Memcached.Diagnostics.Configuration;
 
 internal static class MetricsConfiguration
 {

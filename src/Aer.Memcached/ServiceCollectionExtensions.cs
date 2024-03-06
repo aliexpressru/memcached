@@ -12,7 +12,6 @@ using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Client.Serializers;
 using Aer.Memcached.Diagnostics;
-using Aer.Memcached.Diagnostics.Extensions;
 using Aer.Memcached.Diagnostics.Listeners;
 using Aer.Memcached.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -20,6 +19,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry.Metrics;
+
+// ReSharper disable UnusedType.Global
+// ReSharper disable UnusedMember.Global
 
 namespace Aer.Memcached;
 
@@ -58,7 +61,8 @@ public static class ServiceCollectionExtensions
         services.Configure<MemcachedConfiguration.AuthenticationCredentials>(
             configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
 
-        services.AddMetrics(MemcachedMetricsProvider.MeterName);
+        // add open telemetry metrics
+        services.AddOpenTelemetryMetrics(MemcachedMetricsProvider.MeterName);
         
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
         if (!config.Diagnostics.DisableDiagnostics)
@@ -75,6 +79,32 @@ public static class ServiceCollectionExtensions
         }
         
         return services;
+    }
+
+    /// <summary>
+    /// Add the open telemetry metrics to DI.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="meterName">The meter name.</param>
+    public static void AddOpenTelemetryMetrics(this IServiceCollection services, string meterName)
+    {
+        ArgumentNullException.ThrowIfNull(meterName);
+
+        services.AddOpenTelemetry().WithMetrics(
+            builder =>
+            {
+                builder.AddMeter(meterName);
+
+                builder.AddView(
+                    instrument =>
+                    {
+                        var buckets = MemcachedMetricsProvider.MetricsBuckets.GetValueOrDefault(instrument.Name);
+
+                        return buckets is not null
+                            ? new ExplicitBucketHistogramConfiguration() {Boundaries = buckets}
+                            : null;
+                    });
+            });
     }
 
     public static IApplicationBuilder EnableMemcachedDiagnostics(this IApplicationBuilder applicationBuilder,
