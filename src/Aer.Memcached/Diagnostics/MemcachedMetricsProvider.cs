@@ -8,7 +8,7 @@ namespace Aer.Memcached.Diagnostics;
 
 internal class MemcachedMetricsProvider
 {
-    public static readonly string MeterName = "Aer.Mont.Service.Kv.Metrics";
+    public static readonly string MeterName = "Aer.Memcached.Metrics";
 
     // open telemetry metrics
     private readonly Histogram<double> _commandDurationSecondsOtel;
@@ -129,18 +129,18 @@ internal class MemcachedMetricsProvider
     /// <summary>
     /// Observes specified endpoint socket pool used sockets count.
     /// </summary>
-    /// <param name="enpointAddress">The address of an endpoint to obeserve socket pool state for.</param>
+    /// <param name="endpointAddress">The address of an endpoint to obeserve socket pool state for.</param>
     /// <param name="usedSocketCount">The number of currently used sockets for the specified pool.</param>
-    public void ObserveSocketPoolUsedSocketsCount(string enpointAddress, int usedSocketCount)
+    public void ObserveSocketPoolUsedSocketsCount(string endpointAddress, int usedSocketCount)
     {
         _socketPoolUsedSocketsCountsOtel?.Record(
             usedSocketCount,
             new KeyValuePair<string, object>(
                 SocketPoolEndpointAddressLabel,
-                enpointAddress));
+                endpointAddress));
 
         _socketPoolUsedSocketsCounts
-            ?.WithLabels(enpointAddress)
+            ?.WithLabels(endpointAddress)
             ?.Observe(usedSocketCount);
     }
 }

@@ -81,11 +81,14 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(meterName);
 
+        // Register IMeterFactory - https://github.com/dotnet/core/issues/8436#issuecomment-1575846943
+        services.AddMetrics();
+        
         services.AddOpenTelemetry().WithMetrics(
             builder =>
             {
                 builder.AddMeter(meterName);
-
+                
                 builder.AddView(
                     instrument =>
                     {
