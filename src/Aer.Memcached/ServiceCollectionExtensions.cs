@@ -19,6 +19,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry.Metrics;
+
+// ReSharper disable UnusedType.Global
+// ReSharper disable UnusedMember.Global
 
 namespace Aer.Memcached;
 
@@ -28,10 +32,7 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
+        ArgumentNullException.ThrowIfNull(services);
 
         services.Configure<MemcachedConfiguration>(configuration.GetSection(nameof(MemcachedConfiguration)));
         services.AddSingleton<IHashCalculator, HashCalculator>();
@@ -40,10 +41,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeHealthChecker<Pod>, NodeHealthChecker<Pod>>();
         services.AddSingleton<ICommandExecutor<Pod>, CommandExecutor<Pod>>();
         services.AddSingleton<IExpirationCalculator, ExpirationCalculator>();
-        
+
         services.AddSingleton<IObjectBinarySerializerFactory, ObjectBinarySerializerFactory>();
         services.AddSingleton<BinarySerializer>();
-        
+
         services.AddHttpClient();
         services.AddSingleton<ISyncServersProvider, DefaultSyncServersProvider>();
         services.AddSingleton<ICacheSynchronizer, CacheSynchronizer>();
@@ -57,6 +58,8 @@ public static class ServiceCollectionExtensions
         services.Configure<MemcachedConfiguration.AuthenticationCredentials>(
             configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
 
+        services.AddOpenTelemetryMetrics(MemcachedMetricsProvider.MeterName);
+
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
         if (!config.Diagnostics.DisableDiagnostics)
         {
@@ -65,16 +68,41 @@ public static class ServiceCollectionExtensions
 
             services.AddSingleton(metricFactory);
             services.AddSingleton(collectorRegistry);
-            services.AddSingleton<MemcachedMetrics>();
+            services.AddSingleton<MemcachedMetricsProvider>();
             services.AddSingleton<MetricsMemcachedDiagnosticListener>();
             services.AddSingleton<LoggingMemcachedDiagnosticListener>();
             services.AddSingleton(MemcachedDiagnosticSource.Instance);
         }
-        
+
         return services;
     }
 
-    public static IApplicationBuilder EnableMemcachedDiagnostics(this IApplicationBuilder applicationBuilder,
+    private static void AddOpenTelemetryMetrics(this IServiceCollection services, string meterName)
+    {
+        ArgumentNullException.ThrowIfNull(meterName);
+
+        // Register IMeterFactory - https://github.com/dotnet/core/issues/8436#issuecomment-1575846943
+        services.AddMetrics();
+        
+        services.AddOpenTelemetry().WithMetrics(
+            builder =>
+            {
+                builder.AddMeter(meterName);
+                
+                builder.AddView(
+                    instrument =>
+                    {
+                        var buckets = MemcachedMetricsProvider.MetricsBuckets.GetValueOrDefault(instrument.Name);
+
+                        return buckets is not null
+                            ? new ExplicitBucketHistogramConfiguration() {Boundaries = buckets}
+                            : null;
+                    });
+            });
+    }
+
+    public static IApplicationBuilder EnableMemcachedDiagnostics(
+        this IApplicationBuilder applicationBuilder,
         IConfiguration configuration)
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
@@ -103,8 +131,11 @@ public static class ServiceCollectionExtensions
 
         if (config.SyncSettings != null)
         {
-            endpoints.MapPost(config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>(),
-                async ([FromBody] CacheSyncModel<T> model, IMemcachedClient memcachedClient,
+            endpoints.MapPost(
+                config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>(),
+                async (
+                    [FromBody] CacheSyncModel<T> model,
+                    IMemcachedClient memcachedClient,
                     CancellationToken token) =>
                 {
                     await memcachedClient.MultiStoreAsync(
@@ -128,9 +159,12 @@ public static class ServiceCollectionExtensions
         var flushEndpoint = config.SyncSettings == null
             ? MemcachedConfiguration.DefaultFlushEndpoint
             : config.SyncSettings.FlushEndpoint;
-        
-        endpoints.MapPost(deleteEndpoint,
-            async ([FromBody] IEnumerable<string> keys, IMemcachedClient memcachedClient,
+
+        endpoints.MapPost(
+            deleteEndpoint,
+            async (
+                [FromBody] IEnumerable<string> keys,
+                IMemcachedClient memcachedClient,
                 CancellationToken token) =>
             {
                 await memcachedClient.MultiDeleteAsync(
@@ -141,8 +175,9 @@ public static class ServiceCollectionExtensions
                         IsManualSyncOn = false
                     });
             });
-        
-        endpoints.MapPost(flushEndpoint,
+
+        endpoints.MapPost(
+            flushEndpoint,
             async (IMemcachedClient memcachedClient, CancellationToken token) =>
             {
                 await memcachedClient.FlushAsync(token);

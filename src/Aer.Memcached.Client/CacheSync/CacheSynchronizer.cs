@@ -149,7 +149,7 @@ internal class CacheSynchronizer : ICacheSynchronizer
                     }
                 });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // this exception was already logged in _cacheSyncClient
             // no need to crash if something goes wrong with sync

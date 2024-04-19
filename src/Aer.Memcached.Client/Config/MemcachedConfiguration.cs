@@ -1,10 +1,13 @@
+using System.Diagnostics.CodeAnalysis;
 using Aer.ConsistentHash.Abstractions;
 using Microsoft.Extensions.Logging;
 
-// ReSharper disable MemberCanBeInternal
-
 namespace Aer.Memcached.Client.Config;
 
+[SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
+[SuppressMessage("ReSharper", "MemberCanBeInternal")]
+[SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
+[SuppressMessage("ReSharper", "AutoPropertyCanBeMadeGetOnly.Global")]
 public class MemcachedConfiguration
 {
     /// <summary>
@@ -76,7 +79,7 @@ public class MemcachedConfiguration
     public ObjectBinarySerializerType BinarySerializerType { get; set; } = ObjectBinarySerializerType.Bson;
 
     /// <summary>
-    /// Set to <c>true</c> to delete memcached keys that produced deserializtion exceptions.
+    /// Set to <c>true</c> to delete memcached keys that produced deserialization exceptions.
     /// </summary>
     public bool IsDeleteMemcachedKeyOnDeserializationFail { get; set; }
 
@@ -86,6 +89,12 @@ public class MemcachedConfiguration
     /// If this options is et to <c>false</c> - throws exception when key is too long.  
     /// </summary>
     public bool IsAllowLongKeys { get; set; }
+
+    /// <summary>
+    /// Name of the metrics provider. Allowed values : <c>Prometheus</c>, <c>OpenTelemetry</c>.
+    /// If not set - default value of <c>Prometheus</c> is used.
+    /// </summary>
+    public string MetricsProviderName { get; set; }
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.
@@ -116,7 +125,7 @@ public class MemcachedConfiguration
         public bool DisableSocketPoolDiagnosticsLogging { get; set; }
 
         /// <summary>
-        /// The event level under which the socket pool diagniostics logs should be written out.
+        /// The event level under which the socket pool diagnostics logs should be written out.
         /// </summary>
         public LogLevel SocketPoolDiagnosticsLoggingEventLevel { get; set; } = LogLevel.Information;
     }
