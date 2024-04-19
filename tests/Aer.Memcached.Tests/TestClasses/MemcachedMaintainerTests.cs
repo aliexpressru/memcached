@@ -20,8 +20,8 @@ public class MemcachedMaintainerTests
 {
 	private (
 		MemcachedMaintainer<Pod> Maintainer,
-		TestMemcachedMaintainerLoggerWarpper MaintainerLogger,
-		TestNodeHealthCheckerLoggerWarpper NodeHealthCheckerLogger)
+		TestMemcachedMaintainerLoggerWrapper MaintainerLogger,
+		TestNodeHealthCheckerLoggerWrapper NodeHealthCheckerLogger)
 		GetMaintainerAndLoggers(
 			bool useSocketPoolForNodeHealthChecks, 
 			int numberOfMaintainerCyclesToCloseSocketAfter = 0,
