@@ -2,7 +2,7 @@
 
 namespace Aer.Memcached.Tests.Infrastructure.Logging;
 
-internal class TestLoggerWarpperBase
+internal class TestLoggerWrapperBase
 {
 	private readonly ILogger _logger;
 
@@ -12,7 +12,7 @@ internal class TestLoggerWarpperBase
 
 	public List<string> LoggedMessages { get; } = new();
 
-	public TestLoggerWarpperBase(ILogger logger)
+	public TestLoggerWrapperBase(ILogger logger)
 	{
 		_logger = logger;
 	}

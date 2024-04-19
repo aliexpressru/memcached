@@ -43,11 +43,11 @@ public class MemcachedMaintainerTests
 
 		var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
 		
-		var memcachedMaintainerLogger = new TestMemcachedMaintainerLoggerWarpper(
+		var memcachedMaintainerLogger = new TestMemcachedMaintainerLoggerWrapper(
 			loggerFactory.CreateLogger<
 				MemcachedMaintainer<Pod>>());
 
-		var nodeHealthCheckerLogger = new TestNodeHealthCheckerLoggerWarpper(
+		var nodeHealthCheckerLogger = new TestNodeHealthCheckerLoggerWrapper(
 			loggerFactory.CreateLogger<
 				NodeHealthChecker<Pod>>());
 
