@@ -210,6 +210,17 @@ public class MemcachedConfiguration
         /// Enables health check of nodes to remove dead nodes.
         /// </summary>
         public bool NodeHealthCheckEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Number of memcached maintainer cycles to close <see cref="NumberOfSocketsToClosePerPool"/> socket connections after.
+        /// </summary>
+        /// <remarks>The sockets are going to be destroyed on the next maintainer cycle after the specified number.</remarks>
+        public int MaintainerCyclesToCloseSocketAfter { get; set; }
+        
+        /// <summary>
+        /// Number of sockets to close per pool on each <see cref="MaintainerCyclesToCloseSocketAfter"/>.
+        /// </summary>
+        public int NumberOfSocketsToClosePerPool { get; set; } = 1;
         
         /// <summary>
         /// If set to <c>true</c>, node health checker mechanism should use socket pool
