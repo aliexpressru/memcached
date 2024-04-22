@@ -58,17 +58,21 @@ public static class ServiceCollectionExtensions
         services.Configure<MemcachedConfiguration.AuthenticationCredentials>(
             configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
 
-        services.AddOpenTelemetryMetrics(MemcachedMetricsProvider.MeterName);
-
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
         if (!config.Diagnostics.DisableDiagnostics)
         {
             var metricFactory = Prometheus.Client.Metrics.DefaultFactory;
             var collectorRegistry = Prometheus.Client.Metrics.DefaultCollectorRegistry;
 
+            // add prometheus metrics dependencies
             services.AddSingleton(metricFactory);
             services.AddSingleton(collectorRegistry);
+
+            // add open telemetry metrics dependencies
+            services.AddOpenTelemetryMetrics(MemcachedMetricsProvider.MeterName);
+            
             services.AddSingleton<MemcachedMetricsProvider>();
+            
             services.AddSingleton<MetricsMemcachedDiagnosticListener>();
             services.AddSingleton<LoggingMemcachedDiagnosticListener>();
             services.AddSingleton(MemcachedDiagnosticSource.Instance);

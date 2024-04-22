@@ -39,7 +39,7 @@ internal class MemcachedMetricsProvider
         IMeterFactory meterFactory,
         IOptions<MemcachedConfiguration> configuration)
     {
-        if (!Enum.TryParse(configuration.Value.MetricsProviderName, out MetricsProviderType metricsProvider))
+        if (!Enum.TryParse(configuration.Value.Diagnostics.MetricsProviderName, out MetricsProviderType metricsProvider))
         {
             // if metrics provider is not set or set incorrectly - use default behavior : Prometheus metrics
             metricsProvider = MetricsProviderType.Prometheus;

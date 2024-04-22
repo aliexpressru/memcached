@@ -22,7 +22,10 @@ public class MemcachedMaintainerTests
 		MemcachedMaintainer<Pod> Maintainer,
 		TestMemcachedMaintainerLoggerWrapper MaintainerLogger,
 		TestNodeHealthCheckerLoggerWrapper NodeHealthCheckerLogger)
-		GetMaintainerAndLoggers(bool useSocketPoolForNodeHealthChecks)
+		GetMaintainerAndLoggers(
+			bool useSocketPoolForNodeHealthChecks, 
+			int numberOfMaintainerCyclesToCloseSocketAfter = 0,
+			int numberOfSocketsToClosePerPool = 1)
 	{
 		var hashCalculator = new HashCalculator();
 
@@ -51,6 +54,8 @@ public class MemcachedMaintainerTests
 		var maintainerConfig = MemcachedConfiguration.MaintainerConfiguration.DefaultConfiguration();
 
 		maintainerConfig.UseSocketPoolForNodeHealthChecks = useSocketPoolForNodeHealthChecks;
+		maintainerConfig.MaintainerCyclesToCloseSocketAfter = numberOfMaintainerCyclesToCloseSocketAfter;
+		maintainerConfig.NumberOfSocketsToClosePerPool = numberOfSocketsToClosePerPool;
 
 		var config = new MemcachedConfiguration()
 		{
@@ -99,32 +104,90 @@ public class MemcachedMaintainerTests
 	[TestMethod]
 	public void RunMaintainer_UseSocketPoolForNodeHealthChecks()
 	{
-		var (maintainer, maintainerLogger, healthChecketLogger) =
+		var (maintainer, maintainerLogger, healthCheckerLogger) =
 			GetMaintainerAndLoggers(useSocketPoolForNodeHealthChecks: true);
 
 		maintainer.RunOnce();
 		maintainer.RunOnce();
 
+		maintainerLogger.LoggedMessages.Count(
+				m => m.Contains(
+					"Going to destroy 1 pooled sockets"))
+			.Should().Be(2);
+
 		maintainerLogger.ErrorCount.Should().Be(0);
 		maintainerLogger.WarningCount.Should().Be(0);
 
-		healthChecketLogger.ErrorCount.Should().Be(0);
-		healthChecketLogger.WarningCount.Should().Be(0);
+		healthCheckerLogger.ErrorCount.Should().Be(0);
+		healthCheckerLogger.WarningCount.Should().Be(0);
 	}
 
 	[TestMethod]
 	public void RunMaintainer_DontUseSocketPoolForNodeHealthChecks()
 	{
-		var (maintainer, maintainerLogger, healthChecketLogger) =
+		var (maintainer, maintainerLogger, healthCheckerLogger) =
 			GetMaintainerAndLoggers(useSocketPoolForNodeHealthChecks: false);
 
 		maintainer.RunOnce();
 		maintainer.RunOnce();
 
+		maintainerLogger.LoggedMessages.Count(
+				m => m.Contains(
+					"Going to destroy 1 pooled sockets"))
+			.Should().Be(2);
+
 		maintainerLogger.ErrorCount.Should().Be(0);
 		maintainerLogger.WarningCount.Should().Be(0);
 
-		healthChecketLogger.ErrorCount.Should().Be(0);
-		healthChecketLogger.WarningCount.Should().Be(0);
+		healthCheckerLogger.ErrorCount.Should().Be(0);
+		healthCheckerLogger.WarningCount.Should().Be(0);
+	}
+
+	[TestMethod]
+	public void SocketClosesAfterMaintainerCycles_DontCloseSockets()
+	{
+		var numbeOfSocketsToDestroy = 2;
+		
+		var (maintainer, maintainerLogger, _) =
+			GetMaintainerAndLoggers(
+				useSocketPoolForNodeHealthChecks: false,
+				numberOfMaintainerCyclesToCloseSocketAfter: 2,
+				numberOfSocketsToClosePerPool: numbeOfSocketsToDestroy);
+
+		maintainer.RunOnce();
+
+		maintainerLogger.LoggedMessages
+			.All(m => m.Contains($"Going to destroy {numbeOfSocketsToDestroy} pooled sockets"))
+			.Should().BeFalse();
+
+		maintainerLogger.ErrorCount.Should().Be(0);
+		maintainerLogger.WarningCount.Should().Be(0);
+	}
+
+	[TestMethod]
+	public void SocketClosesAfterMaintainerCycles_ShouldCloseSpecifiedNumberOfSockets()
+	{
+		var numberOfDestructionCycles = 2;
+		var numbeOfSocketsToDestroy = 2;
+		var numbeOfCyclesAfterWhichToToDestroySockets = 2;
+		
+		var (maintainer, maintainerLogger, _) =
+			GetMaintainerAndLoggers(
+				useSocketPoolForNodeHealthChecks: false,
+				numberOfMaintainerCyclesToCloseSocketAfter: numbeOfCyclesAfterWhichToToDestroySockets,
+				numberOfSocketsToClosePerPool: numbeOfSocketsToDestroy);
+
+		for (int i = 0; i <= numbeOfSocketsToDestroy * numberOfDestructionCycles + 1; i++)
+		{
+			maintainer.RunOnce();
+		}
+		
+		maintainerLogger.LoggedMessages.Count(
+			m => m.Contains(
+				$"Going to destroy {numbeOfSocketsToDestroy} pooled sockets"))
+			.Should().Be(numberOfDestructionCycles);
+
+		maintainerLogger.ErrorCount.Should().Be(0);
+		maintainerLogger.WarningCount.Should().Be(0);
 	}
 }

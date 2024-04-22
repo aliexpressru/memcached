@@ -13,7 +13,7 @@ namespace Aer.Memcached.Infrastructure;
 
 internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TNode : class, INode
 {
-    private const int NUMBER_OF_SOCKETS_TO_DESTROY_PER_POOL_PER_MAINTENANCE_CYCLE = 1;
+    //private const int NUMBER_OF_SOCKETS_TO_DESTROY_PER_POOL_PER_MAINTENANCE_CYCLE = 1;
     
     private readonly INodeProvider<TNode> _nodeProvider;
     private readonly INodeLocator<TNode> _nodeLocator;
@@ -24,6 +24,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
     private readonly ReaderWriterLockSlim _locker;
     private readonly ConcurrentBag<TNode> _deadNodes;
+
+    private int _maintainerCyclesToCloseSocketAfterLeft;
 
     private Timer _nodeRebuildingTimer;
     private Timer _nodeHealthCheckTimer;
@@ -45,6 +47,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
         _locker = new ReaderWriterLockSlim();
         _deadNodes = new ConcurrentBag<TNode>();
+        _maintainerCyclesToCloseSocketAfterLeft = _config.MemcachedMaintainer.MaintainerCyclesToCloseSocketAfter;
     }
 
     public Task StartAsync(CancellationToken stoppingToken)
@@ -153,18 +156,29 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                     nodesToAdd.Select(n => n.GetKey()));
             }
 
-            if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
+            int numberOfDestroyedSocketsInAllSocketPools = 0;
+            
+            if (_maintainerCyclesToCloseSocketAfterLeft <= 0)
             {
-                _logger.LogDebug(
-                    "Going to destroy {NumberOfDestroyedSockets} pooled sockets in each socket pool during maintenance",
-                    NUMBER_OF_SOCKETS_TO_DESTROY_PER_POOL_PER_MAINTENANCE_CYCLE);
+                if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
+                {
+                    _logger.LogDebug(
+                        "Going to destroy {NumberOfDestroyedSockets} pooled sockets in each socket pool during maintenance",
+                        _config.MemcachedMaintainer.NumberOfSocketsToClosePerPool);
+                }
+
+                // This is done to refresh sockets in the pool.
+                numberOfDestroyedSocketsInAllSocketPools =
+                    _commandExecutor.DestroyAvailablePooledSocketsInAllSocketPools(
+                        _config.MemcachedMaintainer.NumberOfSocketsToClosePerPool);
+                
+                _maintainerCyclesToCloseSocketAfterLeft = _config.MemcachedMaintainer.MaintainerCyclesToCloseSocketAfter;
+            }
+            else
+            {
+                _maintainerCyclesToCloseSocketAfterLeft--;
             }
 
-            // This is done to refresh sockets in the pool. We can tune this strategy if needed.
-            int numberOfDestroyedSocketsInAllSocketPools =
-                _commandExecutor.DestroyAvailablePooledSocketsInAllSocketPools(
-                    NUMBER_OF_SOCKETS_TO_DESTROY_PER_POOL_PER_MAINTENANCE_CYCLE);
-            
             nodesInLocator = _nodeLocator.GetAllNodes();
 
             if (!_config.Diagnostics.DisableRebuildNodesStateLogging)
