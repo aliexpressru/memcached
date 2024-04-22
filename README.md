@@ -393,7 +393,7 @@ To enable metrics and diagnostics use tho following DI extension method in `Star
 
 #### Metrics
 
-`MemcachedClient` writes RT and RPS metrics to diagnostics. To disable it specify:
+`MemcachedClient` writes RT and RPS metrics to either Prometheus or OpenTelemetry diagnostics. To disable metrics specify:
 
 ```json
 {
@@ -405,6 +405,24 @@ To enable metrics and diagnostics use tho following DI extension method in `Star
   }
 }
 ```
+
+You can select which metrics provider will be used by setting `MetricsProviderName` to either `Prometheus` or `OpenTelemetry` as follows:
+
+```json
+{
+  "MemcachedConfiguration": {
+    "HeadlessServiceAddress": "my-memchached-service-headless.namespace.svc.cluster.local",
+    "Diagnostics":{    
+      "MetricsProviderName" : "Prometheus"
+    }
+  }
+}
+```
+
+**`MetricsProviderName` values**
+
+- `Prometheus`: use Prometheus metrics
+- `OpenTelemetry`: use OpenTelemetry metrics
 
 #### Disagnostic information
 
@@ -473,7 +491,9 @@ If you need to tune it, add the following sections in config:
       "NodesRebuildingPeriod": "00:00:15",
       "NodesHealthCheckPeriod": "00:00:15",
       "NodeHealthCheckEnabled": true,
-      "UseSocketPoolForNodeHealthChecks" : true
+      "UseSocketPoolForNodeHealthChecks" : true,
+      "MaintainerCyclesToCloseSocketAfter" : 2,
+      "NumberOfSocketsToClosePerPool" : 2
     }
   }
 }
@@ -483,7 +503,9 @@ If you need to tune it, add the following sections in config:
 
 - `NodesRebuildingPeriod`: Period to rebuild nodes using dns lookup by Headless Service
 - `NodesHealthCheckPeriod`: Period to check if nodes are responsive. If node is not responded during `SocketPool.ConnectionTimeout` it is marked as dead and will be deleted from memcached nodes until it is responsive again
-- `UseSocketPoolForNodeHealthChecks` : If set to `true` node health checker mechanism should use socket pool to obtain sockets for nodes health checks. If set to `false`, new non-pooled socket will be created for each node health check
+- `UseSocketPoolForNodeHealthChecks`: If set to `true` node health checker mechanism should use socket pool to obtain sockets for nodes health checks. If set to `false`, new non-pooled socket will be created for each node health check
+- `MaintainerCyclesToCloseSocketAfter`: Number of memcached maintainer cycles to close `NumberOfSocketsToClosePerPool` (see later) socket connections after. The sockets are going to be destroyed on the next maintainer cycle after the specified number
+- `NumberOfSocketsToClosePerPool`: Number of sockets to close per pool on each `MaintainerCyclesToCloseSocketAfter`
 
 ### Jitter
 
