@@ -171,7 +171,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
 
-            // this check is first since it shortcuts all of the following logic
+            // this check is first since it shortcuts all the following logic
             if (keyToExpirationMap is null)
             {
                 return MemcachedClientResult.Unsuccessful(
@@ -225,7 +225,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 if (!commandExecutionResult.Success)
                 {
                     return MemcachedClientValueResult<T>.Unsuccessful(
-                        $"Error occured during {nameof(GetAsync)} exucution");
+                        $"Error occured during {nameof(GetAsync)} execution");
                 }
 
                 try
@@ -396,7 +396,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
-            // to avoid mutiple enumeration
+            // to avoid multiple enumeration
             var keysList = keys.ToList();
 
             var nodes = _nodeLocator.GetNodes(keysList, replicationFactor);
@@ -476,8 +476,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return new MemcachedClientValueResult<ulong>(
                     result.Success,
                     result.GetCommandAs<IncrCommand>().Result,
-                    // successfull incr command result can't be empty,
-                    // while unsuccessfull command result is always empty
+                    // successful incr command result can't be empty,
+                    // while unsuccessful command result is always empty
                     isEmptyResult: !result.Success
                 );
             }
@@ -519,8 +519,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return new MemcachedClientValueResult<ulong>(
                     result.Success,
                     result.GetCommandAs<DecrCommand>().Result,
-                    // successfull incr command result can't be empty,
-                    // while unsuccessfull command result is always empty
+                    // successful decr command result can't be empty,
+                    // while unsuccessful command result is always empty
                     isEmptyResult: !result.Success
                 );
             }
@@ -796,7 +796,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         if (!deleteResult.Success)
         {
             _logger.LogError(
-                "Failed to delete unserializable key {Key} from memcached. Error detalis : {ErrorDetails}",
+                "Failed to delete unserializable key {Key} from memcached. Error details : {ErrorDetails}",
                 key,
                 deleteResult.ErrorMessage);
         }

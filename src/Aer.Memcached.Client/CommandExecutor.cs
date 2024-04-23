@@ -158,7 +158,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
                 return await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
             }
 
-            // we preserve initial command to return data through it
+            // we preserve initial command to return data through it.
             // we issue commands to all nodes including primary one as clones
             
             List<Task<CommandExecutionResult>> commandExecutionTasks = new(replicatedNode.NodeCount);
@@ -176,24 +176,24 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
 
             await Task.WhenAll(commandExecutionTasks);
 
-            MemcachedCommandBase sucessfullCommand = null;
+            MemcachedCommandBase successfulCommand = null;
             
             foreach (var nodeExecutionTask in commandExecutionTasks)
             {
                 var nodeExecutionIsSuccessful = nodeExecutionTask.Result.Success;
                 var nodeCommand = nodeExecutionTask.Result.ExecutedCommand;
 
-                if (sucessfullCommand is null && nodeExecutionIsSuccessful)
+                if (successfulCommand is null && nodeExecutionIsSuccessful)
                 {
                     // if the result of the command is not null - remember the command and discard all others
                     if (nodeCommand.HasResult)
                     {
-                        sucessfullCommand = nodeCommand;
+                        successfulCommand = nodeCommand;
                         continue;
                     }
                 }
 
-                // dispose all other commands except successfull one to return rented read buffers
+                // dispose all other commands except successful one to return rented read buffers
                 nodeCommand.Dispose();
             }
             
@@ -201,9 +201,9 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
             // we don't need to dispose the command, this call is here for symmetry or future changes purposes
             command.Dispose();
 
-            if (sucessfullCommand is not null)
+            if (successfulCommand is not null)
             { 
-                return CommandExecutionResult.Successful(sucessfullCommand);
+                return CommandExecutionResult.Successful(successfulCommand);
             }
 
             // means no successful command found
@@ -315,7 +315,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         
         if (startResult.StatusCode != FURTHER_AUTHENTICATION_STEPS_REQUIRED_STATUS_CODE) 
         {
-            // means that sasl start result is niether a success
+            // means that sasl start result is neither a success
             // nor the one that indicates that additional steps required
             throw new AuthenticationException();
         }
