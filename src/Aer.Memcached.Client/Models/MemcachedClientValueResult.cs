@@ -35,9 +35,18 @@ public class MemcachedClientValueResult<T>
         IsEmptyResult = isEmptyResult;
     }
 
-    internal static MemcachedClientValueResult<T> Successful(T result, bool isResultEmpty)
+    /// <summary>
+    /// Creates an instance of <see cref="MemcachedClientValueResult{T}"/> with a successful result.
+    /// </summary>
+    /// <param name="result">The result of the memcached operation.</param>
+    /// <param name="isResultEmpty">If set to <c>true</c>, the result is empty.</param>
+    public static MemcachedClientValueResult<T> Successful(T result, bool isResultEmpty)
         => new(success: true, result: result, isEmptyResult: isResultEmpty);
 
-    internal static MemcachedClientValueResult<T> Unsuccessful(string errorMessage) 
+    /// <summary>
+    /// Creates an instance of <see cref="MemcachedClientValueResult{T}"/> with an unsuccessful result.
+    /// </summary>
+    /// <param name="errorMessage">The unsuccessful result error message.</param>
+    public static MemcachedClientValueResult<T> Unsuccessful(string errorMessage) 
         => new(success: false, errorMessage: errorMessage);
 }

@@ -12,6 +12,9 @@ public class MemcachedClientResult
     /// </summary>
     public string ErrorMessage { get; }
 
+    /// <summary>
+    /// Gets an instance of <see cref="MemcachedClientResult"/> with a successful result.
+    /// </summary>
     public static MemcachedClientResult Successful { get; } = new(success: true);
     
     internal MemcachedClientResult(bool success, string errorMessage = null)
@@ -20,10 +23,10 @@ public class MemcachedClientResult
         ErrorMessage = errorMessage;
     }
 
-    public static MemcachedClientResult Unsuccessful(string errorMessage)
-    {
-        return new MemcachedClientResult(success: false, errorMessage);
-    }
-    
-    
+    /// <summary>
+    /// Creates an instance of <see cref="MemcachedClientResult"/> with an unsuccessful result.
+    /// </summary>
+    /// <param name="errorMessage">The unsuccessful result error message.</param>
+    public static MemcachedClientResult Unsuccessful(string errorMessage) 
+        => new(success: false, errorMessage);
 }
