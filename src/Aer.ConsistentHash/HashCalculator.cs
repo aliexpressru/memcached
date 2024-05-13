@@ -1,4 +1,3 @@
-using System;
 using Aer.ConsistentHash.Abstractions;
 using Standart.Hash.xxHash;
 

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Aer.ConsistentHash.Abstractions;
 
 namespace Aer.ConsistentHash.Infrastructure;

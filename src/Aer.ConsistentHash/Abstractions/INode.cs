@@ -1,4 +1,3 @@
-using System;
 using System.Net;
 
 namespace Aer.ConsistentHash.Abstractions;
