@@ -12,6 +12,8 @@
         <RepositoryUrl>https://github.com/aliexpressru/memcached</RepositoryUrl>
         <PackageProjectUrl>https://github.com/aliexpressru/memcached</PackageProjectUrl>
         <PackageIcon>memcached-icon.png</PackageIcon>
+        <PackageTags>memcached distributed cache</PackageTags>
+        <Description>Base infrastructure for adding a distributed Memcached client to a service.</Description>
     </PropertyGroup>
 
     <ItemGroup>
