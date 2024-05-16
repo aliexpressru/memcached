@@ -558,26 +558,30 @@ In case you need consistent cache across clusters or data centers
 
 `DefaultSyncServersProvider` is used as default and can be replaced with your own implementation.
 By default sync servers are got from `SyncServers` array and filtered by name of a cluster that is specified in `ClusterNameEnvVariable` to avoid requesting service itself.
+
 - `RetryCount` equals `3` by default if it's not specified. Number of retries to sync data to servers.
 - `TimeToSync` equals `00:00:01` by default if it's not specified. Time before sync is cancelled.
 
 `CacheSyncCircuitBreaker` allows to switch off synchronization if there are too many errors
+
 - `Interval` time interval to count errors
 - `MaxErrors` maximum number of errors in `Interval` by instance
 - `SwitchOffTime` time of synchronization switch off
 
-Also you must add sync endpoints
+Also you must add sync endpoints in `Configure` method of your `Startup` class.
+
 ```c#
 app.UseEndpoints(endpoints =>
         {
-            endpoints.AddMemcachedSyncEndpoint<string>(builder.Configuration);
-            endpoints.AddMemcachedSyncEndpoint<ComplexModel>(builder.Configuration);
-            endpoints.AddMemcachedEndpoints(builder.Configuration);
+            endpoints.AddMemcachedSyncEndpoint<string>(this.Configuration);
+            endpoints.AddMemcachedSyncEndpoint<ComplexModel>(this.Configuration);
+            endpoints.AddMemcachedEndpoints(this.Configuration);
             endpoints.MapControllers();
         });
 ```
 
-`AddMemcachedSyncEndpoint` - to store data
+`Configuration` argument here is a property on a `Startup` instance
+`AddMemcachedSyncEndpoint` - to store data. The generic parameter type must be the same as in corresponding `GetAsync` / `MultiGetAsync` / `StoreAsync` / `MultiStoreAsync` method calls.
 `AddMemcachedEndpoints` - for delete and flush endpoints
 
 ### Long keys support
