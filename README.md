@@ -424,6 +424,12 @@ You can select which metrics provider will be used by setting `MetricsProviderNa
 - `Prometheus`: use Prometheus metrics
 - `OpenTelemetry`: use OpenTelemetry metrics
 
+This library exposes the following memcached metrics
+
+- `memcached_command_duration_seconds` - memcached command duration in seconds per command
+- `memecached_socket_pool_used_sockets` - number of used socket pool sockets per endpoint
+- `memcached_commands_total` - total executed memcached commands number
+
 #### Disagnostic information
 
 `MemcachedClient` writes memcached nodes rebuild process state to diagnostics. This state includes the nodes that are currently in use and socket pools statistics. To disable this data logging specify:
@@ -606,7 +612,7 @@ Nonetheless, it worth noting that every case for this option should be considere
 
 ## Monitoring
 
-Other than logs check Prometheus metrics.
+Other than logs check Prometheus \ OpenTelemetry metrics.
 
 To check if there are any unsuccesful commands: problems with connection, pool is run out of sockets, etc. :
 `sum(rate(memcached_commands_total{app_kubernetes_io_instance="$instance",kube_cluster=~"$cluster",is_successful="0"}[1m])) by (command_name)`
