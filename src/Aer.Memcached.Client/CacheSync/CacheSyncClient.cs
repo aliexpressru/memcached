@@ -64,7 +64,7 @@ internal class CacheSyncClient: ICacheSyncClient
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unable to sync data to {SyncServerAddress}", syncServer.Address);
+            _logger.LogError(e, "Unable to sync data to {SyncServerAddress}. Check configured sync server URL and Startup class configuration", syncServer.Address);
 
             throw;
         }
