@@ -144,7 +144,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             {
                 _nodeLocator.RemoveNodes(nodesToRemove);
                 _logger.LogInformation(
-                    "Removed nodes: [{RemovedNodes}]",
+                    "Removed nodes: {RemovedNodes}",
                     nodesToRemove.Select(n => n.GetKey()));
             }
 
@@ -152,7 +152,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             {
                 _nodeLocator.AddNodes(nodesToAdd);
                 _logger.LogInformation(
-                    "Added nodes: [{AddedNodes}]",
+                    "Added nodes: {AddedNodes}",
                     nodesToAdd.Select(n => n.GetKey()));
             }
 
