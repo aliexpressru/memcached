@@ -44,46 +44,28 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode> where TNode : clas
         MemcachedCommandBase command,
         CancellationToken token)
     {
-        try
-        {
-            var diagnosticTimer = DiagnosticTimer.StartNew(command);
+        var diagnosticTimer = DiagnosticTimer.StartNew(command);
 
-            var result = await ExecuteCommandInternalAsync(node, command, token);
+        var result = await ExecuteCommandInternalAsync(node, command, token);
 
-            diagnosticTimer.StopAndWriteDiagnostics(result);
+        diagnosticTimer.StopAndWriteDiagnostics(result);
 
-            return result;
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "Fatal error occured during replicated node command '{Command}' execution", command.ToString());
-
-            return CommandExecutionResult.Unsuccessful(command);
-        }
+        return result;
     }
 
     /// <inheritdoc />
     public async Task<CommandExecutionResult> ExecuteCommandAsync(
-        TNode node, 
+        TNode node,
         MemcachedCommandBase command,
         CancellationToken token)
     {
-        try
-        {
-            var diagnosticTimer = DiagnosticTimer.StartNew(command);
-            
-            var result = await ExecuteCommandInternalAsync(node, command, token);
-            
-            diagnosticTimer.StopAndWriteDiagnostics(result);
+        var diagnosticTimer = DiagnosticTimer.StartNew(command);
 
-            return result;
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "Fatal error occured during node command '{Command}' execution", command.ToString());
+        var result = await ExecuteCommandInternalAsync(node, command, token);
 
-            return CommandExecutionResult.Unsuccessful(command);
-        }
+        diagnosticTimer.StopAndWriteDiagnostics(result);
+
+        return result;
     }
 
     /// <inheritdoc />
