@@ -3,7 +3,11 @@
 [![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Faliexpressru%2Fmemcached%2Fbadge%3Fref%3Dmain&style=flat)](https://actions-badge.atrox.dev/aliexpressru/memcached/goto?ref=main)
 [![NuGet Release][package-image]][package-nuget-url]
 
-This solution allows to easily add memcached to a service
+## Features
+- **Distributed Caching:** Easily scale your cache across multiple servers.
+- **High Performance:** Efficiently handles large amounts of data with low latency.
+- **Scalability:** Seamlessly increase cache capacity as your application grows.
+- **Ease of Use:** Simple setup and configuration.
 
 ---
 
