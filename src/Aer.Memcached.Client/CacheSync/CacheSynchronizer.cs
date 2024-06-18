@@ -41,18 +41,18 @@ internal class CacheSynchronizer : ICacheSynchronizer
     public bool IsCacheSyncEnabled() => _syncServersProvider.IsConfigured();
 
     /// <inheritdoc />
-    public async Task SyncCacheAsync<T>(
+    public async Task<bool> TrySyncCacheAsync<T>(
         CacheSyncModel<T> model,
         CancellationToken token)
     {
         if (model.KeyValues == null)
         {
-            return;
+            return true;
         }
 
         if (!IsCacheSyncEnabled())
         {
-            return;
+            return false;
         }
 
         try
@@ -63,7 +63,7 @@ internal class CacheSynchronizer : ICacheSynchronizer
             
             if (model.KeyValues.Count == 0)
             {
-                return;
+                return true;
             }
 
             await Parallel.ForEachAsync(
@@ -98,21 +98,24 @@ internal class CacheSynchronizer : ICacheSynchronizer
         {
             // this exception was already logged in _cacheSyncClient
             // no need to crash if something goes wrong with sync 
+            return false;
         }
+
+        return true;
     }
     
-    public async Task DeleteCacheAsync(
+    public async Task<bool> TryDeleteCacheAsync(
         IEnumerable<string> keys,
         CancellationToken token)
     {
         if (keys == null)
         {
-            return;
+            return true;
         }
 
         if (!IsCacheSyncEnabled())
         {
-            return;
+            return false;
         }
 
         try
@@ -153,7 +156,10 @@ internal class CacheSynchronizer : ICacheSynchronizer
         {
             // this exception was already logged in _cacheSyncClient
             // no need to crash if something goes wrong with sync
+            return false;
         }
+
+        return true;
     }
 
     private async Task CheckCircuitBreaker(string serverKey, DateTimeOffset utcNow)

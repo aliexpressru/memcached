@@ -19,9 +19,12 @@ public class MemcachedController : ControllerBase
     [HttpPost("multi-store")]
     public async Task<ActionResult<MultiStoreResponse>> Get(MultiStoreRequest request)
     {
-        await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
+        var result = await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
 
-        return Ok(new MultiStoreResponse());
+        return Ok(new MultiStoreResponse
+        {
+            SyncSuccess = result.SyncSuccess
+        });
     }
     
     [HttpPost("multi-get")]
@@ -38,9 +41,12 @@ public class MemcachedController : ControllerBase
     [HttpPost("multi-store-complex")]
     public async Task<ActionResult<MultiStoreResponse>> Get(MultiStoreComplexRequest request)
     {
-        await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
+        var result = await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
 
-        return Ok(new MultiStoreComplexResponse());
+        return Ok(new MultiStoreComplexResponse
+        {
+            SyncSuccess = result.SyncSuccess
+        });
     }
     
     [HttpPost("multi-get-complex")]
@@ -57,10 +63,11 @@ public class MemcachedController : ControllerBase
     [HttpPost("multi-delete")]
     public async Task<ActionResult<MultiDeleteResponse>> Get(MultiDeleteRequest request)
     {
-        await _memcachedClient.MultiDeleteAsync(request.Keys, CancellationToken.None);
+        var result = await _memcachedClient.MultiDeleteAsync(request.Keys, CancellationToken.None);
 
         return Ok(new MultiDeleteResponse()
         {
+            SyncSuccess = result.SyncSuccess
         });
     }
 }
