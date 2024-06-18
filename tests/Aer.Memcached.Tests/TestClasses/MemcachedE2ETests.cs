@@ -314,11 +314,13 @@ public class MemcachedE2ETests
 
         var keysToGet = keyValues.Keys.ToArray();
         
-        await client1.MultiStoreComplex(new MultiStoreComplexRequest
+        var storeResult = await client1.MultiStoreComplex(new MultiStoreComplexRequest
         {
             KeyValues = keyValues,
             ExpirationTime = DateTimeOffset.UtcNow.AddMinutes(2)
         });
+
+        storeResult.SyncSuccess.Should().BeTrue();
 
         var result = await client1.MultiGetComplex(new MultiGetComplexRequest
         {
@@ -393,7 +395,7 @@ public class MemcachedE2ETests
         // Store data while second cluster is off
         for (int i = 0; i < maxErrors; i++)
         {
-            keyValues = await StoreAndAssert(client1, withTimeSpan);
+            keyValues = await StoreAndAssert(client1, withTimeSpan, false);
             keyValuesArray.Add(keyValues);
         }
 
@@ -472,26 +474,31 @@ public class MemcachedE2ETests
     }
 
     private async Task<Dictionary<string, string>> StoreAndAssert(MemcachedWebApiClient client,
-        bool withTimeSpan = false)
+        bool withTimeSpan = false,
+        bool syncSuccessShouldBe = true)
     {
         var keyValues = Enumerable.Range(0, 5)
             .ToDictionary(_ => Guid.NewGuid().ToString(), _ => Guid.NewGuid().ToString());
 
         if (withTimeSpan)
         {
-            await client.MultiStore(new MultiStoreRequest
+            var multiStoreResult = await client.MultiStore(new MultiStoreRequest
             {
                 KeyValues = keyValues,
                 TimeSpan = TimeSpan.FromMinutes(2)
             });
+
+            multiStoreResult.SyncSuccess.Should().Be(syncSuccessShouldBe);
         }
         else
         {
-            await client.MultiStore(new MultiStoreRequest
+            var multiStoreResult = await client.MultiStore(new MultiStoreRequest
             {
                 KeyValues = keyValues,
                 ExpirationTime = DateTimeOffset.UtcNow.AddMinutes(2)
             });
+            
+            multiStoreResult.SyncSuccess.Should().Be(syncSuccessShouldBe);
         }
 
         var result = await client.MultiGet(new MultiGetRequest

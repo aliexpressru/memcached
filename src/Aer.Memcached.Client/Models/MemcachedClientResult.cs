@@ -11,6 +11,12 @@ public class MemcachedClientResult
     /// If any errors occured on memcached side, this property contains the error message.
     /// </summary>
     public string ErrorMessage { get; }
+    
+    /// <summary>
+    /// If set to <c>true</c>, then no errors occured on cached sync side.
+    /// It is set as <c>false</c> when cache sync is not enabled.
+    /// </summary>
+    public bool SyncSuccess { get; set; }
 
     /// <summary>
     /// Gets an instance of <see cref="MemcachedClientResult"/> with a successful result.

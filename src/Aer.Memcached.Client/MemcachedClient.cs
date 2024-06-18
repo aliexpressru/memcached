@@ -6,6 +6,7 @@ using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Extensions;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Aer.Memcached.Client.Serializers;
@@ -79,9 +80,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
             {
                 var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
+                var syncSuccess = false;
                 if (IsCacheSyncEnabled(cacheSyncOptions))
                 {
-                    await _cacheSynchronizer.SyncCacheAsync(
+                    syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
                         new CacheSyncModel<T>
                         {
                             KeyValues = new Dictionary<string, T>()
@@ -95,7 +97,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                         token);
                 }
 
-                return new MemcachedClientResult(result.Success);
+                return new MemcachedClientResult(result.Success).WithSyncSuccess(syncSuccess);
             }
         }
         catch (Exception e)
@@ -130,9 +132,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
+            var syncSuccess = false;
             if (IsCacheSyncEnabled(cacheSyncOptions))
             {
-                await _cacheSynchronizer.SyncCacheAsync(
+                syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
                     new CacheSyncModel<T>
                     {
                         KeyValues = keyValues,
@@ -143,7 +146,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     token);
             }
 
-            return MemcachedClientResult.Successful;
+            return MemcachedClientResult.Successful.WithSyncSuccess(syncSuccess);
         }
         catch (Exception e)
         {
@@ -187,9 +190,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
+            var syncSuccess = false;
             if (IsCacheSyncEnabled(cacheSyncOptions))
             {
-                await _cacheSynchronizer.SyncCacheAsync(
+                syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
                     new CacheSyncModel<T>
                     {
                         KeyValues = keyValues,
@@ -198,7 +202,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     token);
             }
 
-            return MemcachedClientResult.Successful;
+            return MemcachedClientResult.Successful.WithSyncSuccess(syncSuccess);
         }
         catch (Exception e)
         {
@@ -371,12 +375,13 @@ public class MemcachedClient<TNode> : IMemcachedClient
             {
                 var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
+                var syncSuccess = false;
                 if (IsCacheSyncEnabled(cacheSyncOptions))
                 {
-                    await _cacheSynchronizer.DeleteCacheAsync(new[] {key}, token);
+                    syncSuccess = await _cacheSynchronizer.TryDeleteCacheAsync(new[] {key}, token);
                 }
 
-                return new MemcachedClientResult(commandExecutionResult.Success);
+                return new MemcachedClientResult(commandExecutionResult.Success).WithSyncSuccess(syncSuccess);
             }
         }
         catch (Exception e)
@@ -429,14 +434,15 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 }
             }
 
+            var syncSuccess = false;
             if (IsCacheSyncEnabled(cacheSyncOptions))
             {
-                await _cacheSynchronizer.DeleteCacheAsync(keysList, token);
+                syncSuccess = await _cacheSynchronizer.TryDeleteCacheAsync(keysList, token);
             }
 
             await Task.WhenAll(deleteTasks);
 
-            return MemcachedClientResult.Successful;
+            return MemcachedClientResult.Successful.WithSyncSuccess(syncSuccess);
         }
         catch (Exception e)
         {
