@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Aer.Memcached.Client.Commands.Base;
 
 namespace Aer.Memcached.Client.Models;
 
+[SuppressMessage("ReSharper", "MemberCanBeInternal")]
 public class CommandExecutionResult : IDisposable
 {
     /// <summary>
@@ -14,6 +16,11 @@ public class CommandExecutionResult : IDisposable
     /// Indicates whether the command execution was successful.
     /// </summary>
     public bool Success { get; }
+
+    /// <summary>
+    /// If command execution was not successful, contains error message.
+    /// </summary>
+    public string ErrorMessage { get; init; }
 
     private CommandExecutionResult(MemcachedCommandBase executedCommand, bool isSuccess)
     {
@@ -39,11 +46,12 @@ public class CommandExecutionResult : IDisposable
             return specificCommand;
         }
 
-        throw new InvalidCastException($"Can't cast command of type '{ExecutedCommand?.GetType()}' to type '{typeof(T)}'");
+        throw new InvalidCastException(
+            $"Can't cast command of type '{ExecutedCommand?.GetType()}' to type '{typeof(T)}'");
     }
 
-    public static CommandExecutionResult Unsuccessful(MemcachedCommandBase executedCommand)
-        => new(executedCommand, false);
+    public static CommandExecutionResult Unsuccessful(MemcachedCommandBase executedCommand, string errorMessage)
+        => new(executedCommand, false) {ErrorMessage = errorMessage};
 
     public static CommandExecutionResult Successful(MemcachedCommandBase executedCommand)
         => new(executedCommand, true);

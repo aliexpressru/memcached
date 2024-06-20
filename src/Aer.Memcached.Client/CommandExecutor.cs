@@ -193,7 +193,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             }
 
             // means no successful command found
-            return CommandExecutionResult.Unsuccessful(command);
+            return CommandExecutionResult.Unsuccessful(command, "All commands on all replica nodes failed");
         }
         catch (Exception e)
         {
@@ -204,7 +204,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 replicatedNode.PrimaryNode.GetKey(),
                 replicatedNode.ReplicaNodes.Select(n => n.GetKey()));
 
-            return CommandExecutionResult.Unsuccessful(command);
+            return CommandExecutionResult.Unsuccessful(command, e.Message);
         }
     }
 
@@ -219,7 +219,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
 
             if (socket == null)
             {
-                return CommandExecutionResult.Unsuccessful(command);
+                return CommandExecutionResult.Unsuccessful(command, "Socket not found");
             }
 
             var buffer = command.GetBuffer();
@@ -234,14 +234,14 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 _logger.LogError("Write to socket {SocketAddress} timed out", socket.EndPointAddressString);
 
-                return CommandExecutionResult.Unsuccessful(command);
+                return CommandExecutionResult.Unsuccessful(command, $"Write to socket {socket.EndPointAddressString} timed out");
             }
 
             var readResult = command.ReadResponse(socket);
 
             return readResult.Success
                 ? CommandExecutionResult.Successful(command)
-                : CommandExecutionResult.Unsuccessful(command);
+                : CommandExecutionResult.Unsuccessful(command, readResult.Message);
         }
         catch (Exception e)
         {
@@ -251,7 +251,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 command.ToString(),
                 node.GetKey());
 
-            return CommandExecutionResult.Unsuccessful(command);
+            return CommandExecutionResult.Unsuccessful(command, e.Message);
         }
     }
 

@@ -8,27 +8,27 @@ public class CommandResult
         Fail("Failed to read from the socket. Socket seems to be dead");
     
     /// <summary>
-    /// A value indicating whether an command was successful
+    /// A value indicating whether a command was successful.
     /// </summary>
     public bool Success { get; set; }
 
     /// <summary>
-    /// A message indicating success, warning or failure reason for an command
+    /// A message indicating success, warning or failure reason for a command.
     /// </summary>
     public string Message { get; set; }
 
     /// <summary>
-    /// An exception that caused a failure
+    /// An exception that caused a failure.
     /// </summary>
     public Exception Exception { get; set; }
 
     /// <summary>
-    /// The StatusCode returned from the server
+    /// The StatusCode returned from the server.
     /// </summary>
     public int? StatusCode { get; set; }
 
     /// <summary>
-    /// A result that influenced the current result
+    /// A result that influenced the current result.
     /// </summary>
     public CommandResult InnerResult { get; set; }
     
