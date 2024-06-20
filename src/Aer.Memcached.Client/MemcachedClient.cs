@@ -278,7 +278,9 @@ public class MemcachedClient<TNode> : IMemcachedClient
         catch (Exception e)
         {
             return MemcachedClientValueResult<IDictionary<string, T>>.Unsuccessful(
-                $"An exception happened during {nameof(MultiGetSafeAsync)} execution.\nException details: {e}");
+                $"An exception happened during {nameof(MultiGetSafeAsync)} execution.\nException details: {e}",
+                defaultResultValue: new Dictionary<string, T>()
+            );
         }
     }
 

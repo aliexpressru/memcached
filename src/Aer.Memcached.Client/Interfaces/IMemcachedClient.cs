@@ -83,7 +83,7 @@ public interface IMemcachedClient
 		uint replicationFactor = 0);
 
 	/// <summary>
-	/// Gets multiple values by keys. Does not throw exceptions.
+	/// Gets multiple values by keys. Does not throw exceptions and returns a not-null value.
 	/// </summary>
 	/// <param name="keys">Keys</param>
 	/// <param name="token">Cancellation token</param>

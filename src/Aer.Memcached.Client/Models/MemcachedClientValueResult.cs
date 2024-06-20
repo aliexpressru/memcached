@@ -1,5 +1,12 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Aer.Memcached.Client.Models;
 
+/// <summary>
+/// Represents the result of key-value item read.
+/// </summary>
+/// <typeparam name="T">Type of the read value item.</typeparam>
+[SuppressMessage("ReSharper", "MemberCanBeInternal")]
 public class MemcachedClientValueResult<T>
 {
     /// <summary>
@@ -49,4 +56,13 @@ public class MemcachedClientValueResult<T>
     /// <param name="errorMessage">The unsuccessful result error message.</param>
     public static MemcachedClientValueResult<T> Unsuccessful(string errorMessage) 
         => new(success: false, errorMessage: errorMessage);
+
+    /// <summary>
+    /// Creates an instance of <see cref="MemcachedClientValueResult{T}"/> with an unsuccessful result
+    /// and a specified default result value.
+    /// </summary>
+    /// <param name="errorMessage">The unsuccessful result error message.</param>
+    /// <param name="defaultResultValue">The default value for <see cref="Result"/> property.</param>
+    public static MemcachedClientValueResult<T> Unsuccessful(string errorMessage, T defaultResultValue)
+        => new(success: false, result: defaultResultValue, errorMessage: errorMessage);
 }

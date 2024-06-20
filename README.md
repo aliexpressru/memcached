@@ -537,7 +537,7 @@ Initial number of seconds is got by last digits of calculated hash. Number of di
 
 ### Cache sync
 
-In case you need consistent cache across clusters or data centers
+In case you need consistent cache across clusters or data centers you can use cache synchronization feature of this library.
 
 ```json
 {
@@ -569,10 +569,10 @@ In case you need consistent cache across clusters or data centers
 ```
 
 `DefaultSyncServersProvider` is used as default and can be replaced with your own implementation.
-By default sync servers are got from `SyncServers` array and filtered by name of a cluster that is specified in `ClusterNameEnvVariable` to avoid requesting service itself.
+By default sync servers are obtained from `SyncServers` array and filtered by name of a cluster that is specified in `ClusterNameEnvVariable` to prevent a service instnace in one cluster from syncing cache to itself.
 
-- `RetryCount` equals `3` by default if it's not specified. Number of retries to sync data to servers.
-- `TimeToSync` equals `00:00:01` by default if it's not specified. Time before sync is cancelled.
+- `RetryCount` - number of retries to sync data to servers. Default value is `3`.
+- `TimeToSync` - time before sync attempt is cancelled. Default value is `00:00:01`.
 
 `CacheSyncCircuitBreaker` allows to switch off synchronization if there are too many errors
 
@@ -595,6 +595,8 @@ app.UseEndpoints(endpoints =>
 `Configuration` argument here is a property on a `Startup` instance
 `AddMemcachedSyncEndpoint` - to store data. The generic parameter type must be the same as in corresponding `GetAsync` / `MultiGetAsync` / `StoreAsync` / `MultiStoreAsync` method calls.
 `AddMemcachedEndpoints` - for delete and flush endpoints
+
+When using cache synchronization feature, the `MemcachedClientResult.SyncSuccess` property can be inspected to determine whether the sync operation succeeded. When cache synchronization is not used this property is set to `false`.
 
 ### Long keys support
 
