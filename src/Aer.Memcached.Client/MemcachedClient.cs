@@ -97,7 +97,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                         token);
                 }
 
-                return new MemcachedClientResult(result.Success).WithSyncSuccess(syncSuccess);
+                return new MemcachedClientResult(result.Success, errorMessage: result.ErrorMessage)
+                    .WithSyncSuccess(syncSuccess);
             }
         }
         catch (Exception e)
@@ -383,7 +384,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     syncSuccess = await _cacheSynchronizer.TryDeleteCacheAsync(new[] {key}, token);
                 }
 
-                return new MemcachedClientResult(commandExecutionResult.Success).WithSyncSuccess(syncSuccess);
+                return new MemcachedClientResult(
+                        commandExecutionResult.Success,
+                        errorMessage: commandExecutionResult.ErrorMessage)
+                    .WithSyncSuccess(syncSuccess);
             }
         }
         catch (Exception e)
@@ -486,7 +490,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     result.GetCommandAs<IncrCommand>().Result,
                     // successful incr command result can't be empty,
                     // while unsuccessful command result is always empty
-                    isEmptyResult: !result.Success
+                    isEmptyResult: !result.Success,
+                    errorMessage: result.ErrorMessage
                 );
             }
         }
@@ -529,7 +534,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     result.GetCommandAs<DecrCommand>().Result,
                     // successful decr command result can't be empty,
                     // while unsuccessful command result is always empty
-                    isEmptyResult: !result.Success
+                    isEmptyResult: !result.Success,
+                    errorMessage: result.ErrorMessage
                 );
             }
         }
@@ -540,6 +546,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         }
     }
 
+    /// <inheritdoc />
     public async Task<MemcachedClientResult> FlushAsync(CancellationToken token)
     {
         try
