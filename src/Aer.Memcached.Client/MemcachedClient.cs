@@ -81,7 +81,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
                 var syncSuccess = false;
-                if (IsCacheSyncEnabled(cacheSyncOptions))
+                if (IsCacheSyncEnabledInternal(cacheSyncOptions))
                 {
                     syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
                         new CacheSyncModel<T>
@@ -134,7 +134,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
             var syncSuccess = false;
-            if (IsCacheSyncEnabled(cacheSyncOptions))
+            if (IsCacheSyncEnabledInternal(cacheSyncOptions))
             {
                 syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
                     new CacheSyncModel<T>
@@ -168,7 +168,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
-            if (keyValues is null or {Count: 0})
+            if (keyValues is null or { Count: 0 })
             {
                 return MemcachedClientResult.Successful;
             }
@@ -192,7 +192,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
 
             var syncSuccess = false;
-            if (IsCacheSyncEnabled(cacheSyncOptions))
+            if (IsCacheSyncEnabledInternal(cacheSyncOptions))
             {
                 syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
                     new CacheSyncModel<T>
@@ -330,7 +330,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var command = taskResult.GetCommandAs<MultiGetCommand>();
 
-            if (command.Result is null or {Count: 0})
+            if (command.Result is null or { Count: 0 })
             {
                 // skip results that are empty  
                 continue;
@@ -379,9 +379,9 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
 
                 var syncSuccess = false;
-                if (IsCacheSyncEnabled(cacheSyncOptions))
+                if (IsCacheSyncEnabledInternal(cacheSyncOptions))
                 {
-                    syncSuccess = await _cacheSynchronizer.TryDeleteCacheAsync(new[] {key}, token);
+                    syncSuccess = await _cacheSynchronizer.TryDeleteCacheAsync(new[] { key }, token);
                 }
 
                 return new MemcachedClientResult(
@@ -441,7 +441,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
             }
 
             var syncSuccess = false;
-            if (IsCacheSyncEnabled(cacheSyncOptions))
+            if (IsCacheSyncEnabledInternal(cacheSyncOptions))
             {
                 syncSuccess = await _cacheSynchronizer.TryDeleteCacheAsync(keysList, token);
             }
@@ -643,6 +643,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
             commandBase.Dispose();
         }
     }
+    
+    /// <inheritdoc />
+    public bool IsCacheSyncEnabled() => _cacheSynchronizer != null
+                                        && _cacheSynchronizer.IsCacheSyncEnabled();
 
     private async Task MultiStoreBatchedInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
@@ -795,10 +799,9 @@ public class MemcachedClient<TNode> : IMemcachedClient
             });
     }
 
-    private bool IsCacheSyncEnabled(CacheSyncOptions cacheSyncOptions)
-        => _cacheSynchronizer != null
-            && _cacheSynchronizer.IsCacheSyncEnabled()
-            && (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn);
+    private bool IsCacheSyncEnabledInternal(CacheSyncOptions cacheSyncOptions)
+        => IsCacheSyncEnabled()
+           && (cacheSyncOptions == null || cacheSyncOptions.IsManualSyncOn);
 
     private async Task DeleteUndeserializableKey(string key, CancellationToken token)
     {

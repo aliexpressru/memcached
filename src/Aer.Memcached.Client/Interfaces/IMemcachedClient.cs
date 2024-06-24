@@ -158,4 +158,7 @@ public interface IMemcachedClient
 	/// Flush memcached data
 	/// </summary>
 	Task<MemcachedClientResult> FlushAsync(CancellationToken token);
+
+	/// <returns>Returns <c>true</c> if cache is turned on</returns>
+	bool IsCacheSyncEnabled();
 }
