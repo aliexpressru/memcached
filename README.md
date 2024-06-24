@@ -224,6 +224,24 @@ Clears the cache on all the memcached cluster nodes.
 Task FlushAsync(CancellationToken token);
 ```
 
+### Error logging
+
+This library internally logs all exceptions that occur during memcached operations. Also both `MemcachedClientResult` and `MemcachedClientValueResult<T>` have a public property `Success` which is set to `false` if any error occured during command execution. You can inspect the `ErrorMessage` property to get error message.
+To simplify the error logging, an extension method exist for each of the aforementioned return types.
+
+```csharp
+public static void LogErrorIfAny(
+        this MemcachedClientResult target,
+        ILogger logger,
+        [CallerMemberName] string operationName = null)
+
+public static void LogErrorIfAny<T>(
+    this MemcachedClientValueResult<T> target,
+    ILogger logger,
+    int? cacheKeysCount,
+    [CallerMemberName] string operationName = null)
+```
+
 ### Batching
 
 For `MultiStoreAsync` and `MultiGetAsync` methods there is an optional argument `batchingOptions`. If this argument is specified the store and get operations split input key or key-value collection into batches an processe every batch on every memcached node in parallel with specified maximum degree of parallelism (`Environment.ProcessorCount` by default).
@@ -597,6 +615,8 @@ app.UseEndpoints(endpoints =>
 `AddMemcachedEndpoints` - for delete and flush endpoints
 
 When using cache synchronization feature, the `MemcachedClientResult.SyncSuccess` property can be inspected to determine whether the sync operation succeeded. When cache synchronization is not used this property is set to `false`.
+
+To check whether the cache synchronization is configured and enabled call the `IMemcachedClient.IsCacheSyncEnabled` method.
 
 ### Long keys support
 
