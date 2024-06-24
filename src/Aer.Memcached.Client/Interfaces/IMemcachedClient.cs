@@ -3,6 +3,9 @@ using Aer.Memcached.Client.Models;
 
 namespace Aer.Memcached.Client.Interfaces;
 
+/// <summary>
+/// A memcached client interface.
+/// </summary>
 public interface IMemcachedClient
 {
 	/// <summary>
@@ -159,6 +162,8 @@ public interface IMemcachedClient
 	/// </summary>
 	Task<MemcachedClientResult> FlushAsync(CancellationToken token);
 
-	/// <returns>Returns <c>true</c> if cache is turned on</returns>
+	/// <summary>
+	/// Returns <c>true</c> if cache synchronization is turned on, <c>false</c> otherwise.
+	/// </summary>
 	bool IsCacheSyncEnabled();
 }
