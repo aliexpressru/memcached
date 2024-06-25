@@ -28,21 +28,37 @@ public static class MemcachedClientResultExtensions
     /// <param name="operationName">
     /// The operation name that called client method. Do not assign - assigned automatically.
     /// </param>
+    /// <param name="customErrorMessage">
+    /// An optional custom error message to write out instead of a default one.
+    /// Expected to not have any structured logging parameter placeholders.
+    /// </param>
     public static void LogErrorIfAny(
         this MemcachedClientResult target,
         ILogger logger,
-        [CallerMemberName] string operationName = null)
+        [CallerMemberName] string operationName = null,
+        string customErrorMessage = null)
     {
         if (target.Success)
         {
             return;
         }
 
-        logger.LogError(
-            "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
-            operationName,
-            target.ErrorMessage ?? DefaultErrorMessage
-        );
+        if (!string.IsNullOrEmpty(customErrorMessage))
+        {
+            logger.LogError(
+                "{ErrorMessage}. Error details : {ErrorDetails}",
+                customErrorMessage,
+                target.ErrorMessage ?? DefaultErrorMessage
+            );
+        }
+        else
+        {
+            logger.LogError(
+                "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
+                operationName,
+                target.ErrorMessage ?? DefaultErrorMessage
+            );
+        }
     }
 
     /// <summary>
@@ -54,34 +70,50 @@ public static class MemcachedClientResultExtensions
     /// <param name="operationName">
     /// The operation name that called client method. Do not assign - assigned automatically.
     /// </param>
+    /// <param name="customErrorMessage">
+    /// An optional custom error message to write out instead of a default one.
+    /// Expected to not have any structured logging parameter placeholders.
+    /// When specified <paramref name="cacheKeysCount"/> parameter is ignored.
+    /// </param>
     public static void LogErrorIfAny<T>(
         this MemcachedClientValueResult<T> target,
         ILogger logger,
         int? cacheKeysCount,
-        [CallerMemberName] string operationName = null)
+        [CallerMemberName] string operationName = null,
+        string customErrorMessage = null)
     {
         if (target.Success)
         {
             return;
         }
 
-        if (cacheKeysCount is { } keysCount)
+        switch (cacheKeysCount, customErrorMessage)
         {
-            logger.LogError(
-                "Error happened during memcached {Operation} operation with cache keys count : {CacheKeysCount}. Error details : {ErrorDetails}",
-                operationName,
-                keysCount,
-                target.ErrorMessage ?? DefaultErrorMessage
-            );
-        }
-        else
-        { 
-            // means cacheKeysCount not specified
-            logger.LogError(
-                "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
-                operationName,
-                target.ErrorMessage ?? DefaultErrorMessage
-            );
+            case (_, {Length: > 0} specificErrorMessage):
+                logger.LogError(
+                    "{ErrorMessage}. Error details : {ErrorDetails}",
+                    specificErrorMessage,
+                    target.ErrorMessage ?? DefaultErrorMessage
+                );
+                break;
+
+            case ({ } keysCount, null):
+                logger.LogError(
+                    "Error happened during memcached {Operation} operation with cache keys count : {CacheKeysCount}. Error details : {ErrorDetails}",
+                    operationName,
+                    keysCount,
+                    target.ErrorMessage ?? DefaultErrorMessage
+                );
+                break;
+
+            case (null, null):
+                // means cacheKeysCount not specified
+                logger.LogError(
+                    "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
+                    operationName,
+                    target.ErrorMessage ?? DefaultErrorMessage
+                );
+                break;
         }
     }
 }
