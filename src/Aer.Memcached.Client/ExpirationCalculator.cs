@@ -7,11 +7,19 @@ using Microsoft.Extensions.Options;
 
 namespace Aer.Memcached.Client;
 
+/// <summary>
+/// The key-value item expiration calculator implementation. 
+/// </summary>
 public class ExpirationCalculator: IExpirationCalculator
 {
     private readonly IHashCalculator _hashCalculator;
     private readonly MemcachedConfiguration.ExpirationJitterSettings _expirationJitterSettings;
     
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ExpirationCalculator"/> class.
+    /// </summary>
+    /// <param name="hashCalculator">The item key hash calculator.</param>
+    /// <param name="config">The memcached configuration.</param>
     public ExpirationCalculator(
         IHashCalculator hashCalculator,
         IOptions<MemcachedConfiguration> config)

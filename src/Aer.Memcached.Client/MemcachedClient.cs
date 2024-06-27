@@ -16,6 +16,10 @@ using MoreLinq.Extensions;
 
 namespace Aer.Memcached.Client;
 
+/// <summary>
+/// A memcached client implementation.
+/// </summary>
+/// <typeparam name="TNode">The type of the memcached hash ring node.</typeparam>
 [SuppressMessage(
     "ReSharper",
     "ConvertToUsingDeclaration",
@@ -31,6 +35,16 @@ public class MemcachedClient<TNode> : IMemcachedClient
     private readonly ILogger _logger;
     private readonly MemcachedConfiguration _memcachedConfiguration;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MemcachedClient{TNode}"/> class.
+    /// </summary>
+    /// <param name="nodeLocator">The node locator.</param>
+    /// <param name="commandExecutor">The memcached command executor.</param>
+    /// <param name="expirationCalculator">The key-value item expiration calculator.</param>
+    /// <param name="cacheSynchronizer">The multi-cluster cache synchronizer.</param>
+    /// <param name="binarySerializer">The value item binary serializer.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="memcachedConfiguration">The memcached configuration.</param>
     public MemcachedClient(
         INodeLocator<TNode> nodeLocator,
         ICommandExecutor<TNode> commandExecutor,

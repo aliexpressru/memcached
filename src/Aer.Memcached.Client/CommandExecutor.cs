@@ -15,6 +15,10 @@ using Microsoft.Extensions.Options;
 
 namespace Aer.Memcached.Client;
 
+/// <summary>
+/// The memcached command executor implementation. 
+/// </summary>
+/// <typeparam name="TNode">The type of the hash ring node.</typeparam>
 public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     where TNode : class, INode
 {
@@ -26,6 +30,13 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     private readonly ConcurrentDictionary<TNode, SocketPool> _socketPools;
     private readonly INodeLocator<TNode> _nodeLocator;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CommandExecutor{TNode}"/> class.
+    /// </summary>
+    /// <param name="config">The memcached configuration.</param>
+    /// <param name="authenticationProvider">The memcached authentication provider.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="nodeLocator">The memcached node locator.</param>
     public CommandExecutor(
         IOptions<MemcachedConfiguration> config,
         IAuthenticationProvider authenticationProvider,

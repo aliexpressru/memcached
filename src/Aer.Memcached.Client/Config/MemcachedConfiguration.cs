@@ -4,6 +4,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.Config;
 
+/// <summary>
+/// Represents a memcached configuration.
+/// </summary>
 [SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
 [SuppressMessage("ReSharper", "MemberCanBeInternal")]
 [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
