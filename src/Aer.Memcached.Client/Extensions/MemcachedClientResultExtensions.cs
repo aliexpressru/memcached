@@ -82,7 +82,7 @@ public static class MemcachedClientResultExtensions
     public static void LogErrorIfAny<T>(
         this MemcachedClientValueResult<T> target,
         ILogger logger,
-        int? cacheKeysCount,
+        int? cacheKeysCount = null,
         [CallerMemberName] string operationName = null,
         string customErrorMessage = null,
         LogLevel logLevel = LogLevel.Error)
