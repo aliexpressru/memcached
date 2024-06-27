@@ -124,7 +124,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
     /// <inheritdoc />
     public async Task<MemcachedClientResult> MultiStoreAsync<T>(
-        Dictionary<string, T> keyValues,
+        IDictionary<string, T> keyValues,
         TimeSpan? expirationTime,
         CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
@@ -172,7 +172,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
     /// <inheritdoc />
     public async Task<MemcachedClientResult> MultiStoreAsync<T>(
-        Dictionary<string, T> keyValues,
+        IDictionary<string, T> keyValues,
         DateTimeOffset? expirationTime,
         CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
@@ -602,7 +602,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
     private async Task MultiStoreInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, uint> keyToExpirationMap,
-        Dictionary<string, T> keyValues,
+        IDictionary<string, T> keyValues,
         CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null)
@@ -664,7 +664,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
     private async Task MultiStoreBatchedInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
-        Dictionary<string, T> keyValues,
+        IDictionary<string, T> keyValues,
         BatchingOptions batchingOptions,
         Dictionary<string, uint> keyToExpirationMap,
         StoreMode storeMode,
