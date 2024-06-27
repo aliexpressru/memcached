@@ -12,8 +12,9 @@ namespace Aer.Memcached.Client.Extensions;
 [SuppressMessage("ReSharper", "MemberCanBeInternal")]
 public static class MemcachedClientResultExtensions
 {
-    private const string DefaultErrorMessage = "UNKNOWN - see memcached command execution logs : search for substring 'Error occured during command'";
-    
+    private const string DefaultErrorMessage =
+        "UNKNOWN - see memcached command execution logs : search for substring 'Error occured during command'";
+
     internal static MemcachedClientResult WithSyncSuccess(this MemcachedClientResult result, bool syncSuccess)
     {
         result.SyncSuccess = syncSuccess;
@@ -32,11 +33,13 @@ public static class MemcachedClientResultExtensions
     /// An optional custom error message to write out instead of a default one.
     /// Expected to not have any structured logging parameter placeholders.
     /// </param>
+    /// <param name="logLevel">The logger log level. Default value is <see cref="LogLevel.Error"/>.</param>
     public static void LogErrorIfAny(
         this MemcachedClientResult target,
         ILogger logger,
         [CallerMemberName] string operationName = null,
-        string customErrorMessage = null)
+        string customErrorMessage = null,
+        LogLevel logLevel = LogLevel.Error)
     {
         if (target.Success)
         {
@@ -45,19 +48,19 @@ public static class MemcachedClientResultExtensions
 
         if (!string.IsNullOrEmpty(customErrorMessage))
         {
-            logger.LogError(
+            logger.Log(
+                logLevel,
                 "{ErrorMessage}. Error details : {ErrorDetails}",
                 customErrorMessage,
-                target.ErrorMessage ?? DefaultErrorMessage
-            );
+                target.ErrorMessage ?? DefaultErrorMessage);
         }
         else
         {
-            logger.LogError(
+            logger.Log(
+                logLevel,
                 "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
                 operationName,
-                target.ErrorMessage ?? DefaultErrorMessage
-            );
+                target.ErrorMessage ?? DefaultErrorMessage);
         }
     }
 
@@ -75,12 +78,14 @@ public static class MemcachedClientResultExtensions
     /// Expected to not have any structured logging parameter placeholders.
     /// When specified <paramref name="cacheKeysCount"/> parameter is ignored.
     /// </param>
+    /// <param name="logLevel">The logger log level. Default value is <see cref="LogLevel.Error"/>.</param>
     public static void LogErrorIfAny<T>(
         this MemcachedClientValueResult<T> target,
         ILogger logger,
         int? cacheKeysCount,
         [CallerMemberName] string operationName = null,
-        string customErrorMessage = null)
+        string customErrorMessage = null,
+        LogLevel logLevel = LogLevel.Error)
     {
         if (target.Success)
         {
@@ -90,29 +95,28 @@ public static class MemcachedClientResultExtensions
         switch (cacheKeysCount, customErrorMessage)
         {
             case (_, {Length: > 0} specificErrorMessage):
-                logger.LogError(
+                logger.Log(
+                    logLevel,
                     "{ErrorMessage}. Error details : {ErrorDetails}",
                     specificErrorMessage,
-                    target.ErrorMessage ?? DefaultErrorMessage
-                );
+                    target.ErrorMessage ?? DefaultErrorMessage);
                 break;
 
             case ({ } keysCount, null):
-                logger.LogError(
+                logger.Log(
+                    logLevel,
                     "Error happened during memcached {Operation} operation with cache keys count : {CacheKeysCount}. Error details : {ErrorDetails}",
                     operationName,
                     keysCount,
-                    target.ErrorMessage ?? DefaultErrorMessage
-                );
+                    target.ErrorMessage ?? DefaultErrorMessage);
                 break;
 
             case (null, null):
-                // means cacheKeysCount not specified
-                logger.LogError(
+                logger.Log(
+                    logLevel,
                     "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
                     operationName,
-                    target.ErrorMessage ?? DefaultErrorMessage
-                );
+                    target.ErrorMessage ?? DefaultErrorMessage);
                 break;
         }
     }
