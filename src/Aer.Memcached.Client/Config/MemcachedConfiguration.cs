@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Aer.ConsistentHash.Abstractions;
+using Aer.Memcached.Client.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.Config;
@@ -70,7 +71,14 @@ public class MemcachedConfiguration
     /// Enables additional jitter for key expiration if property is not null.
     /// </summary>
     public ExpirationJitterSettings ExpirationJitter { get; set; }
-    
+
+    /// <summary>
+    /// Enables custom jitter provider to be used to calculate jitter.
+    /// If <see cref="CustomExpirationJitterSettings.IsEnabled"/> key is set to <c>true</c>,
+    /// the <see cref="ExpirationJitter"/> is ignored.
+    /// </summary>
+    public CustomExpirationJitterSettings CustomExpirationJitter { get; set; }
+
     /// <summary>
     /// Sync settings to store data in multiple clusters.
     /// </summary>
@@ -275,6 +283,25 @@ public class MemcachedConfiguration
         public double MultiplicationFactor { get; set; }
 
         public ulong SpreadFactor { get; set; } = 100;
+    }
+
+    public class CustomExpirationJitterSettings
+    {
+        /// <summary>
+        /// If set to <c>true</c>, the custom jitter implementation interface <see cref="IJitterProvider"/> will be searched in DI.
+        /// If it is found - it is going to be used to calculate jitter. If it is not - an exception is thrown.
+        /// </summary>
+        public bool IsEnabled { set; get; }
+
+        /// <summary>
+        /// The seed delay for the jitter calculation. Calculated jitter can't be less than this value.
+        /// </summary>
+        public TimeSpan SeedDelay { set; get; }
+
+        /// <summary>
+        /// The max delay for the jitter calculation. Calculated jitter can't be less than this value.
+        /// </summary>
+        public TimeSpan MaxDelay { set; get; }
     }
 
     public class SynchronizationSettings
