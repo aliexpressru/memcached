@@ -114,7 +114,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
             await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
         }
     }
-    
+
     [DataTestMethod]
     [DataRow(true)]
     [DataRow(false)]
@@ -205,14 +205,14 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         var getValue = await Client.MultiGetAsync<string>(new[] {key}, CancellationToken.None);
 
         getValue.Count.Should().Be(1);
-        
+
         await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
 
-        getValue = await Client.MultiGetAsync<string>(new[]{key}, CancellationToken.None);
+        getValue = await Client.MultiGetAsync<string>(new[] {key}, CancellationToken.None);
 
         getValue.Count.Should().Be(0);
     }
-    
+
     [TestMethod]
     public async Task StoreAndGet_EmptyString()
     {
@@ -227,41 +227,47 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         getValue.Success.Should().BeTrue();
         getValue.IsEmptyResult.Should().BeFalse();
     }
-    
+
     [TestMethod]
     public async Task MultiStoreAndGet_NullAsString()
     {
         var keyValues = new Dictionary<string, string>();
-    
+
         foreach (var _ in Enumerable.Range(0, 5))
         {
             keyValues[Guid.NewGuid().ToString()] = null;
         }
-    
-        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
-    
+
+        await Client.MultiStoreAsync(
+            keyValues,
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
+            CancellationToken.None);
+
         var getValues = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
-    
+
         foreach (var keyValue in keyValues)
         {
             getValues[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
         }
     }
-    
+
     [TestMethod]
     public async Task MultiStoreAndGet_EmptyString()
     {
         var keyValues = new Dictionary<string, string>();
-    
+
         foreach (var _ in Enumerable.Range(0, 5))
         {
             keyValues[Guid.NewGuid().ToString()] = string.Empty;
         }
-    
-        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
-    
+
+        await Client.MultiStoreAsync(
+            keyValues,
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
+            CancellationToken.None);
+
         var getValues = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
-    
+
         foreach (var keyValue in keyValues)
         {
             getValues[keyValue.Key].Should().BeNull();
@@ -275,15 +281,15 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         var value = Fixture.Create<SimpleObject>();
 
         await Client.StoreAsync(
-            key, 
-            value, 
-            expirationTime: null, 
+            key,
+            value,
+            expirationTime: null,
             CancellationToken.None);
 
         var getValue = await Client.GetAsync<SimpleObject>(key, CancellationToken.None);
 
         getValue.Success.Should().BeTrue();
-        
+
         getValue.IsEmptyResult.Should().BeFalse();
         getValue.Result.Should().BeEquivalentTo(value);
     }
@@ -302,12 +308,12 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         getValue.Success.Should().BeTrue();
         getValue.IsEmptyResult.Should().BeFalse();
     }
-    
+
     [TestMethod]
     public async Task MultiStoreAndGet_SimpleObject()
     {
         var keyValues = new Dictionary<string, SimpleObject>();
-    
+
         foreach (var _ in Enumerable.Range(0, 5))
         {
             keyValues[Guid.NewGuid().ToString()] = Fixture.Create<SimpleObject>();
@@ -317,11 +323,14 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         var tooLongKey = GetTooLongKey();
         keyValues[tooLongKey] = Fixture.Create<SimpleObject>();
-    
-        await Client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
-    
+
+        await Client.MultiStoreAsync(
+            keyValues,
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
+            CancellationToken.None);
+
         var getValues = await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
-    
+
         foreach (var keyValue in keyValues)
         {
             getValues[keyValue.Key].Should().BeEquivalentTo(keyValues[keyValue.Key]);
@@ -395,7 +404,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
             CancellationToken.None);
 
         storeResult.Success.Should().BeFalse();
-        
+
         storeResult = await Client.MultiStoreAsync(
             keyValues,
             expirationTime: DateTimeOffset.Now,
@@ -403,11 +412,11 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         storeResult.Success.Should().BeFalse();
 
-        var getValues = 
+        var getValues =
             await Client.MultiGetAsync<SimpleObject>(keyValues.Keys, CancellationToken.None);
 
         // no keys should be stored
-        
+
         getValues.Count.Should().Be(0);
     }
 
@@ -468,11 +477,64 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         var getValue = await Client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
 
-        getValue.Result.Should().BeEquivalentTo(value);
         getValue.Success.Should().BeTrue();
+        getValue.Result.Should().BeEquivalentTo(value);
         getValue.IsEmptyResult.Should().BeFalse();
     }
     
+    [TestMethod]
+    public async Task StoreAndGet_VeryLargeObject()
+    {
+        var key = Guid.NewGuid().ToString();
+        
+        // very large array 1_024_000 * 4 = 4MB
+        var value = new int[1_024_000];
+
+        // memcached, while restricting item to configured "-I" parameter, 
+        // returns success while trying to add a too large item to cache,
+        // it just does nothing - it does not throw anything but does not store the key either
+        var storeResult = await Client.StoreAsync(
+            key,
+            value,
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
+            CancellationToken.None);
+
+        storeResult.Success.Should().BeTrue();
+        
+        // when trying to read too large object
+        // memcached simply returns nothing since it was not set in the first place
+        var getValue = await Client.GetAsync<byte[]>(key, CancellationToken.None);
+
+        getValue.Success.Should().BeTrue();
+        getValue.IsEmptyResult.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task StoreAndMultiGet_VeryLargeObject()
+    {
+        var key = Guid.NewGuid().ToString();
+
+        // very large array 1_024_000 * 4 = 4MB
+        var value = new int[1_024_000];
+
+        // memcached, while restricting item to configured "-I" parameter, 
+        // returns success while trying to add a too large item to cache,
+        // it just does nothing - it does not throw anything but does not store the key either
+        var storeResult = await Client.StoreAsync(
+            key,
+            value,
+            TimeSpan.FromSeconds(CacheItemExpirationSeconds),
+            CancellationToken.None);
+
+        storeResult.Success.Should().BeTrue();
+
+        // when trying to read too large object
+        // memcached simply returns nothing since it was not set in the first place
+        var getValue = await Client.MultiGetAsync<byte[]>([key], CancellationToken.None);
+
+        getValue.ContainsKey(key).Should().BeFalse();
+    }
+
     [TestMethod]
     public async Task MultiStoreAndGet_ObjectWithCollections()
     {

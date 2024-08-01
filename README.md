@@ -376,11 +376,17 @@ To enable this option set the following configuration key.
 
 Do not forget to set this option back to `false` or to delte it after the transition period is over.
 
-## Restrictions
+## Restrictions && Limitations
 
-Key must be less than 250 characters and value must be less than 1MB of data.
+Key must be less than 250 characters and value must be less than the value `-I` configured during memcached instance start.
 
 The key length restriction can be lifted, see [Long keys support](#long-keys-support) section for the details.
+
+If the value is greater than the configured `-I` value the memcached client won't throw an exception - it simply won't store a key without any notification.
+Therefore, when trying to read such key - nothing will be returned.
+
+Also, please note that this library utilizes a memcached item `flags` to store item type information to simplify and make deserialization faster.
+This implies that one is not advised to use this library to read the data from memcached that you didn't put there using this library - it might be deserialized incorrectly or not deserialized at all.
 
 ## Additional configuration
 

@@ -4,20 +4,23 @@ services:
     image: memcached:latest
     restart: always
     container_name: memcached-1
-    command: ["-m", "128"]  
-    ports:  
+    command: ["-m", "128", "-I", "1M"]
+    # command: ["-m", "128", "-I", "512k", "-o", "slab_chunk_max=524288"]
+    ports:
       - 11211:11211
   memcached-2:
     image: memcached:latest
     restart: always
     container_name: memcached-2
-    command: ["-m", "128"]  
-    ports:  
+    command: ["-m", "128", "-I", "1M"]
+    # command: ["-m", "128", "-I", "512k", "-o", "slab_chunk_max=524288"]
+    ports:
       - 11212:11211
   memcached-3:
     image: memcached:latest
     restart: always
     container_name: memcached-3
-    command: ["-m", "128"]  
-    ports:  
+    command: ["-m", "128", "-I", "1M"]
+    # command: ["-m", "128", "-I", "512k", "-o", "slab_chunk_max=524288"]
+    ports:
       - 11213:11211

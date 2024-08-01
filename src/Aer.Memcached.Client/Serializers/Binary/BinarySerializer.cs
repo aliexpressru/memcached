@@ -13,7 +13,7 @@ public class BinarySerializer
     private const uint RawDataFlag = 0xfa52;
     private const uint TypeCodeSerializationMask = 0x0100;
     private const uint TypeCodeDeserializationMask = 0xff;
-
+    
     private readonly IObjectBinarySerializer _objectBinarySerializer;
 
     public BinarySerializer(IObjectBinarySerializerFactory objectBinarySerializerFactory)
@@ -119,6 +119,17 @@ public class BinarySerializer
         var typeCode = (TypeCode) (item.Flags & TypeCodeDeserializationMask);
         if (typeCode == TypeCode.Empty)
         {
+            // the flags value is set during item serialization
+            // it stores the cache item System.Runtime.TypeCode
+            // if it is not set -> Flags == 0 or Flags contain some unknown value 
+            // then the item is considered empty
+            // The Data property for such empty items though
+            // will contain ASCII bytes for "Not found" string
+            // 0x4E, 0x6F, 0x74, 0x20, 0x66, 0x6F, 0x75, 0x6E, 0x64
+            // we don't check them since typeCode absence already tells us that the item is empty
+            // it does, though impede using this library for reading existing
+            // memcached keys that were written not using this library
+            // since they may set Flags to some arbitrary value which we interpret 
             return DeserializationResult<T>.Empty;
         }
 
