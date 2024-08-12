@@ -1,6 +1,7 @@
 using Aer.Memcached.Samples.Shared;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using Aer.Memcached.Samples.Shared.Models;
 
 namespace Aer.Memcached.Samples.WepApiToSync;
 
@@ -10,10 +11,11 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+        // Add services to the container.
 
-        builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+        builder.Services.AddControllers().AddNewtonsoftJson();
+        
+        // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
@@ -30,7 +32,7 @@ public class Program
 
         var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+        // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
@@ -47,6 +49,7 @@ public class Program
             endpoints.AddMemcachedSyncEndpoint<ComplexModel>(builder.Configuration);
             endpoints.AddMemcachedSyncEndpoint<List<string>>(builder.Configuration);
             endpoints.AddMemcachedSyncEndpoint<Dictionary<string, string>>(builder.Configuration);
+            endpoints.AddMemcachedSyncEndpoint<Dictionary<ComplexDictionaryKey, ComplexModel>>(builder.Configuration);
             endpoints.AddMemcachedEndpoints(builder.Configuration);
             endpoints.MapControllers();
         });

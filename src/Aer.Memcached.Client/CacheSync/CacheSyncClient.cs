@@ -52,8 +52,10 @@ internal class CacheSyncClient: ICacheSyncClient
     {
         try
         {
+            var serializedData = JsonConvert.SerializeObject(data, JsonSettings);
+            
             var content = new StringContent(
-                JsonConvert.SerializeObject(data, JsonSettings),
+                serializedData,
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
             

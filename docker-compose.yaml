@@ -1,4 +1,3 @@
-version: "3"
 services:
   memcached-1:
     image: memcached:latest
