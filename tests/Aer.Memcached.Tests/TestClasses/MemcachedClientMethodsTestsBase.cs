@@ -49,6 +49,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         await StoreAndGet_CheckType<float>();
         await StoreAndGet_CheckType<SimpleObject>();
         await StoreAndGet_CheckType<Dictionary<string, int>>();
+        await StoreAndGet_CheckType<SimpleRecord>();
 
         if (BinarySerizerType != ObjectBinarySerializerType.Bson)
         {
@@ -79,6 +80,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         await MultiStoreAndGet_CheckType<float>(withReplicas);
         await MultiStoreAndGet_CheckType<SimpleObject>(withReplicas);
         await MultiStoreAndGet_CheckType<Dictionary<string, int>>(withReplicas);
+        await MultiStoreAndGet_CheckType<SimpleRecord>(withReplicas);
 
         if (BinarySerizerType != ObjectBinarySerializerType.Bson)
         {
@@ -87,6 +89,16 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         }
     }
 
+    [TestMethod]
+    public async Task RealWorldTest()
+    {
+        var v =
+            await Client.MultiGetSafeAsync<SimpleRecord>(["k1", "k2"], CancellationToken.None);
+
+        v.Success.Should().BeTrue();
+        v.Result.Count.Should().Be(0);
+    }
+    
     [TestMethod]
     public async Task Get_CheckAllTypes_DefaultValue()
     {
@@ -107,6 +119,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         await Get_CheckType<float>();
         await Get_CheckType<SimpleObject>();
         await Get_CheckType<Dictionary<string, int>>();
+        await Get_CheckType<SimpleRecord>();
 
         if (BinarySerizerType != ObjectBinarySerializerType.Bson)
         {
