@@ -288,7 +288,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             return MemcachedClientValueResult<IDictionary<string, T>>.Successful(
                 getKeysResult,
-                isResultEmpty: getKeysResult.Count > 0);
+                isResultEmpty: getKeysResult is null or {Count: 0});
         }
         catch (Exception e)
         {
