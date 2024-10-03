@@ -41,7 +41,7 @@ public class MemcachedClientValueResult<T>
         T result = default,
         bool isEmptyResult = true,
         string errorMessage = null,
-        bool isRequestCancelled = true)
+        bool isRequestCancelled = false)
     {
         Success = success;
         Result = result;

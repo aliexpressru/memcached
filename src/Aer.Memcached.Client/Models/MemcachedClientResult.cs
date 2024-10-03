@@ -34,8 +34,11 @@ public class MemcachedClientResult
     /// Gets an instance of <see cref="MemcachedClientResult"/> with a successful result.
     /// </summary>
     public static MemcachedClientResult Successful { get; } = new(success: true);
-    
-    internal MemcachedClientResult(bool success, string errorMessage = null, bool isRequestCancelled = false)
+
+    internal MemcachedClientResult(
+        bool success,
+        string errorMessage = null,
+        bool isRequestCancelled = false)
     {
         Success = success;
         ErrorMessage = errorMessage;
