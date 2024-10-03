@@ -46,21 +46,31 @@ public static class MemcachedClientResultExtensions
             return;
         }
 
-        if (!string.IsNullOrEmpty(customErrorMessage))
+        switch (customErrorMessage, RequestWasCancelled: target.RequestCancelled)
         {
-            logger.Log(
-                logLevel,
-                "{ErrorMessage}. Error details : {ErrorDetails}",
-                customErrorMessage,
-                target.ErrorMessage ?? DefaultErrorMessage);
-        }
-        else
-        {
-            logger.Log(
-                logLevel,
-                "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
-                operationName,
-                target.ErrorMessage ?? DefaultErrorMessage);
+            case ({Length: > 0}, true):
+            case ({Length: > 0}, false):
+                logger.Log(
+                    logLevel,
+                    "{ErrorMessage}. Error details : {ErrorDetails}",
+                    customErrorMessage,
+                    target.ErrorMessage ?? DefaultErrorMessage);
+                break;
+
+            case (null, true):
+                logger.Log(
+                    logLevel,
+                    "Memcached operation {ErrorMessage} was cancelled",
+                    target.ErrorMessage);
+                break;
+
+            case (null, false):
+                logger.Log(
+                    logLevel,
+                    "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
+                    operationName,
+                    target.ErrorMessage ?? DefaultErrorMessage);
+                break;
         }
     }
 
@@ -92,17 +102,18 @@ public static class MemcachedClientResultExtensions
             return;
         }
 
-        switch (cacheKeysCount, customErrorMessage)
+        switch (cacheKeysCount, customErrorMessage, target.RequestCancelled)
         {
-            case (_, {Length: > 0} specificErrorMessage):
+            case (_, {Length: > 0}, true):
+            case (_, {Length: > 0}, false):
                 logger.Log(
                     logLevel,
                     "{ErrorMessage}. Error details : {ErrorDetails}",
-                    specificErrorMessage,
+                    customErrorMessage,
                     target.ErrorMessage ?? DefaultErrorMessage);
                 break;
 
-            case ({ } keysCount, null):
+            case ({ } keysCount, null, false):
                 logger.Log(
                     logLevel,
                     "Error happened during memcached {Operation} operation with cache keys count : {CacheKeysCount}. Error details : {ErrorDetails}",
@@ -111,12 +122,26 @@ public static class MemcachedClientResultExtensions
                     target.ErrorMessage ?? DefaultErrorMessage);
                 break;
 
-            case (null, null):
+            case ({ } keysCount, null, true):
+                logger.Log(
+                    logLevel,
+                    "Memcached operation {ErrorMessage} was cancelled",
+                    target.ErrorMessage);
+                break;
+
+            case (null, null, false):
                 logger.Log(
                     logLevel,
                     "Error happened during memcached {Operation} operation. Error details : {ErrorDetails}",
                     operationName,
                     target.ErrorMessage ?? DefaultErrorMessage);
+                break;
+
+            case (null, null, true):
+                logger.Log(
+                    logLevel,
+                    "Memcached operation {ErrorMessage} was cancelled",
+                    target.ErrorMessage);
                 break;
         }
     }

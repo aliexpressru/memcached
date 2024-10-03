@@ -24,7 +24,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
 {
     private const int FURTHER_AUTHENTICATION_STEPS_REQUIRED_STATUS_CODE = 0x21;
 
-    private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
+    private readonly MemcachedConfiguration _config;
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly ILogger<CommandExecutor<TNode>> _logger;
     private readonly ConcurrentDictionary<TNode, SocketPool> _socketPools;
@@ -43,7 +43,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         ILogger<CommandExecutor<TNode>> logger,
         INodeLocator<TNode> nodeLocator)
     {
-        _config = config.Value.SocketPool;
+        _config = config.Value;
         _authenticationProvider = authenticationProvider;
         _logger = logger;
         _nodeLocator = nodeLocator;
@@ -95,7 +95,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     {
         var ret = new List<SocketPoolStatisctics>(nodes.Length);
 
-        SocketPool ValueFactory(TNode node) => new(node.GetEndpoint(), _config, _logger);
+        SocketPool ValueFactory(TNode node) => new(node.GetEndpoint(), _config.SocketPool, _logger);
 
         foreach (var node in nodes)
         {
@@ -206,6 +206,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             // means no successful command found
             return CommandExecutionResult.Unsuccessful(command, "All commands on all replica nodes failed");
         }
+        catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
+        {
+            // just rethrow this exception and don't log any details.
+            // it will be handled in MemcachedClient
+            throw;
+        }
         catch (Exception e)
         {
             _logger.LogError(
@@ -239,7 +245,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
 
             try
             {
-                await writeSocketTask.WaitAsync(_config.ReceiveTimeout, token);
+                await writeSocketTask.WaitAsync(_config.SocketPool.ReceiveTimeout, token);
             }
             catch (TimeoutException)
             {
@@ -253,6 +259,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             return readResult.Success
                 ? CommandExecutionResult.Successful(command)
                 : CommandExecutionResult.Unsuccessful(command, readResult.Message);
+        }
+        catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
+        {
+            // just rethrow this exception and don't log any details.
+            // it will be handled in MemcachedClient
+            throw;
         }
         catch (Exception e)
         {
@@ -274,7 +286,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         var socketPool = _socketPools.GetOrAdd(
             node,
             valueFactory: static (n, args) =>
-                new SocketPool(n.GetEndpoint(), args.Config, args.Logger),
+                new SocketPool(n.GetEndpoint(), args.Config.SocketPool, args.Logger),
             factoryArgument: (Config: _config, Logger: _logger)
         );
 

@@ -59,6 +59,9 @@ public class MemcachedConfiguration
     /// </summary>
     public MaintainerConfiguration MemcachedMaintainer { get; set; } = MaintainerConfiguration.DefaultConfiguration();
     
+    /// <summary>
+    /// Authentication configuration.
+    /// </summary>
     public AuthenticationCredentials MemcachedAuth { get; set; }
 
     /// <summary>
@@ -92,6 +95,11 @@ public class MemcachedConfiguration
     /// If this options is et to <c>false</c> - throws exception when key is too long.  
     /// </summary>
     public bool IsAllowLongKeys { get; set; }
+
+    /// <summary>
+    /// If set to <c>true</c>, external cancellations will be logged in terse manner - only as operation name.
+    /// </summary>
+    public bool IsTerseCancellationLogging { get; set; }
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.

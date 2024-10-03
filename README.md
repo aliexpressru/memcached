@@ -242,6 +242,14 @@ public static void LogErrorIfAny<T>(
     [CallerMemberName] string operationName = null)
 ```
 
+#### Cancellation logging
+
+By default cancellations and therefore `OperationCancelledException` occurrences are treated as any other exceptions and logged accordingly. But there are times when one just need to know that cancellation heppened and doesn't need a full stacktrace for it.
+
+It's possible to switch on the _terse cancellaiton logging_ by setting `MemcachedConfiguration.IsTerseCancellationLogging` config key to `true`.
+
+In that case only the operation name and a short message will be logged upon cancellation.
+
 ### Batching
 
 For `MultiStoreAsync` and `MultiGetAsync` methods there is an optional argument `batchingOptions`. If this argument is specified the store and get operations split input key or key-value collection into batches an processe every batch on every memcached node in parallel with specified maximum degree of parallelism (`Environment.ProcessorCount` by default).

@@ -115,6 +115,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     .WithSyncSuccess(syncSuccess);
             }
         }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientResult.Cancelled(nameof(StoreAsync));
+        }
         catch (Exception e)
         {
             return MemcachedClientResult.Unsuccessful(
@@ -162,6 +166,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
             }
 
             return MemcachedClientResult.Successful.WithSyncSuccess(syncSuccess);
+        }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientResult.Cancelled(nameof(MultiStoreAsync));
         }
         catch (Exception e)
         {
@@ -219,6 +227,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             return MemcachedClientResult.Successful.WithSyncSuccess(syncSuccess);
         }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientResult.Cancelled(nameof(MultiStoreAsync));
+        }
         catch (Exception e)
         {
             return MemcachedClientResult.Unsuccessful(
@@ -268,6 +280,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 }
             }
         }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientValueResult<T>.Cancelled(nameof(GetAsync));
+        }
         catch (Exception e)
         {
             return MemcachedClientValueResult<T>.Unsuccessful(
@@ -290,6 +306,13 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 getKeysResult,
                 isResultEmpty: getKeysResult is null or {Count: 0});
         }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientValueResult<IDictionary<string, T>>.Cancelled(
+                nameof(MultiGetSafeAsync),
+                defaultResultValue: new Dictionary<string, T>()
+            );
+        }
         catch (Exception e)
         {
             return MemcachedClientValueResult<IDictionary<string, T>>.Unsuccessful(
@@ -306,6 +329,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         BatchingOptions batchingOptions = null,
         uint replicationFactor = 0)
     {
+
         var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
         if (nodes.Keys.Count == 0)
         {
@@ -344,7 +368,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var command = taskResult.GetCommandAs<MultiGetCommand>();
 
-            if (command.Result is null or { Count: 0 })
+            if (command.Result is null or {Count: 0})
             {
                 // skip results that are empty  
                 continue;
@@ -403,6 +427,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
                         errorMessage: commandExecutionResult.ErrorMessage)
                     .WithSyncSuccess(syncSuccess);
             }
+        }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientResult.Cancelled(nameof(DeleteAsync));
         }
         catch (Exception e)
         {
@@ -464,6 +492,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             return MemcachedClientResult.Successful.WithSyncSuccess(syncSuccess);
         }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientResult.Cancelled(nameof(MultiDeleteAsync));
+        }
         catch (Exception e)
         {
             return MemcachedClientResult.Unsuccessful(
@@ -509,6 +541,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 );
             }
         }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientValueResult<ulong>.Cancelled(nameof(IncrAsync));
+        }
         catch (Exception e)
         {
             return MemcachedClientValueResult<ulong>.Unsuccessful(
@@ -553,6 +589,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 );
             }
         }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientValueResult<ulong>.Cancelled(nameof(DecrAsync));
+        }
         catch (Exception e)
         {
             return MemcachedClientValueResult<ulong>.Unsuccessful(
@@ -591,6 +631,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
             }
 
             return MemcachedClientResult.Successful;
+        }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientResult.Cancelled(nameof(FlushAsync));
         }
         catch (Exception e)
         {
