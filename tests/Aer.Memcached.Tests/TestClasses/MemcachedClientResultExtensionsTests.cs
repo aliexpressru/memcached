@@ -40,29 +40,49 @@ public class MemcachedClientResultExtensionsTests
 	public void TestLogging_TypedResult(string customMessage, int? keyCount)
 	{
 		var errorResult = MemcachedClientValueResult<int>.Unsuccessful("Some error", -1);
-		
+
 		errorResult.LogErrorIfAny(_logger, cacheKeysCount: keyCount, customErrorMessage: customMessage);
 
 		_logger.WrittenEvents.Count.Should().Be(1);
-		var firstMessage = _logger.WrittenEvents[0].message; 
-		
+		var firstMessage = _logger.WrittenEvents[0].message;
+
 		switch (keyCount, customMessage)
 		{
 			case (_, {Length: > 0} customErrorMessage):
-			{
 				firstMessage.Should().Contain(customErrorMessage);
 				break;
-			}
+
 			case ({ } keysCount, null):
-			{
 				firstMessage.Should().Contain("with cache keys count");
 				firstMessage.Should().Contain(keysCount.ToString());
 				break;
-			}
-			case (null, null):
 
+			case (null, null):
 				firstMessage.Should().Contain("Error happened during memcached");
 				break;
 		}
+	}
+
+	[DataTestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public void TestLogging_Cancellation(bool isTypedResult)
+	{
+		if (!isTypedResult)
+		{
+			var errorResult = MemcachedClientResult.Cancelled("SomeOperation");
+			errorResult.LogErrorIfAny(_logger);
+		}
+		else
+		{
+			var errorResult = MemcachedClientValueResult<int>.Cancelled("SomeOperation", -1);
+			errorResult.LogErrorIfAny(_logger);
+		}
+
+		_logger.WrittenEvents.Count.Should().Be(1);
+		var firstMessage = _logger.WrittenEvents[0].message;
+
+		firstMessage.Should().Contain("SomeOperation");
+		firstMessage.Should().Contain("was cancelled");
 	}
 }
