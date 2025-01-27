@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Runtime.CompilerServices;
+using System.Text;
 using Aer.Memcached.Client.Commands.Infrastructure;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
@@ -54,10 +55,10 @@ public class BinarySerializer
                 data = new ArraySegment<byte>(BitConverter.GetBytes((bool) value));
                 break;
             case TypeCode.SByte:
-                data = new ArraySegment<byte>(BitConverter.GetBytes((sbyte) value));
+                data = new ArraySegment<byte>(GetBytes((sbyte) value));
                 break;
             case TypeCode.Byte:
-                data = new ArraySegment<byte>(BitConverter.GetBytes((byte) value));
+                data = new ArraySegment<byte>([(byte)value]);
                 break;
             case TypeCode.Int16:
                 data = new ArraySegment<byte>(BitConverter.GetBytes((short) value));
@@ -207,5 +208,12 @@ public class BinarySerializer
     private static uint TypeCodeToFlag(TypeCode code)
     {
         return (uint) ((int) code | TypeCodeSerializationMask);
+    }
+    
+    public static byte[] GetBytes(short value)
+    {
+        byte[] bytes = new byte[sizeof(short)];
+        Unsafe.As<byte, short>(ref bytes[0]) = value;
+        return bytes;
     }
 }
