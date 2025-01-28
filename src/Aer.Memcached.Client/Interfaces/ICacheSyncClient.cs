@@ -11,9 +11,9 @@ public interface ICacheSyncClient
     /// <param name="syncServer">Server to sync data</param>
     /// <param name="data">Data to sync</param>
     /// <param name="token">Cancellation token</param>
-    Task SyncAsync<T>(
+    Task SyncAsync(
         MemcachedConfiguration.SyncServer syncServer,
-        CacheSyncModel<T> data,
+        CacheSyncModel data,
         CancellationToken token);
 
     /// <summary>

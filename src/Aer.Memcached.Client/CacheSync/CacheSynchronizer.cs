@@ -41,8 +41,8 @@ internal class CacheSynchronizer : ICacheSynchronizer
     public bool IsCacheSyncEnabled() => _syncServersProvider.IsConfigured();
 
     /// <inheritdoc />
-    public async Task<bool> TrySyncCacheAsync<T>(
-        CacheSyncModel<T> model,
+    public async Task<bool> TrySyncCacheAsync(
+        CacheSyncModel model,
         CancellationToken token)
     {
         if (model.KeyValues == null)

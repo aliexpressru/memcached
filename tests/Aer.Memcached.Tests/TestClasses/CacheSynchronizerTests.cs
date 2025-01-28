@@ -46,13 +46,13 @@ public class CacheSynchronizerTests
     {
         var cacheSynchronizer = GetCacheSynchronizer();
 
-        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel<string>{
-            KeyValues = _fixture.Create<Dictionary<string, string>>(),
+        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel{
+            KeyValues = _fixture.Create<Dictionary<string, byte[]>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, CancellationToken.None);
 
         await _cacheSyncClient.Received(0).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
-            Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+            Arg.Any<CacheSyncModel>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(0)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
         syncSuccess.Should().BeFalse();
@@ -82,13 +82,13 @@ public class CacheSynchronizerTests
 
         var cacheSynchronizer = GetCacheSynchronizer();
 
-        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel<string>{
-            KeyValues = _fixture.Create<Dictionary<string, string>>(),
+        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel{
+            KeyValues = _fixture.Create<Dictionary<string, byte[]>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, CancellationToken.None);
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
-            Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+            Arg.Any<CacheSyncModel>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(0)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
         syncSuccess.Should().BeTrue();
@@ -121,18 +121,18 @@ public class CacheSynchronizerTests
         _syncServersProvider.IsConfigured().Returns(true);
         _syncServersProvider.GetSyncServers().Returns(syncServers);
         _cacheSyncClient
-            .SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<CacheSyncModel<string>>(),
+            .SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<CacheSyncModel>(),
                 Arg.Any<CancellationToken>()).Throws(new Exception());
 
         var cacheSynchronizer = GetCacheSynchronizer();
 
-        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel<string>{
-            KeyValues = _fixture.Create<Dictionary<string, string>>(),
+        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel{
+            KeyValues = _fixture.Create<Dictionary<string, byte[]>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, CancellationToken.None);
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
-            Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+            Arg.Any<CacheSyncModel>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(0)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
         syncSuccess.Should().BeFalse();
@@ -168,7 +168,7 @@ public class CacheSynchronizerTests
         _syncServersProvider.IsConfigured().Returns(true);
         _syncServersProvider.GetSyncServers().Returns(syncServers);
         _cacheSyncClient
-            .SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<CacheSyncModel<string>>(),
+            .SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<CacheSyncModel>(),
                 Arg.Any<CancellationToken>()).Throws(new Exception());
 
         var cacheSynchronizer = GetCacheSynchronizer(new MemcachedConfiguration
@@ -179,14 +179,14 @@ public class CacheSynchronizerTests
             }
         });
 
-        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel<string>
+        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel
         {
-            KeyValues = _fixture.Create<Dictionary<string, string>>(),
+            KeyValues = _fixture.Create<Dictionary<string, byte[]>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, CancellationToken.None);
 
         await _cacheSyncClient.Received(syncServers.Length).SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(),
-            Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+            Arg.Any<CacheSyncModel>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(syncServers.Length)
             .GetErrorStatisticsAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<TimeSpan>());
         syncSuccess.Should().BeFalse();
@@ -231,7 +231,7 @@ public class CacheSynchronizerTests
         _syncServersProvider.IsConfigured().Returns(true);
         _syncServersProvider.GetSyncServers().Returns(syncServers);
         _cacheSyncClient
-            .SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<CacheSyncModel<string>>(),
+            .SyncAsync(Arg.Any<MemcachedConfiguration.SyncServer>(), Arg.Any<CacheSyncModel>(),
                 Arg.Any<CancellationToken>()).Throws(new Exception());
         _errorStatisticsStore.GetErrorStatisticsAsync(syncServerToTurnOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>())
             .Returns(
@@ -248,30 +248,30 @@ public class CacheSynchronizerTests
             }
         });
 
-        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel<string>{
-            KeyValues = _fixture.Create<Dictionary<string, string>>(),
+        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel{
+            KeyValues = _fixture.Create<Dictionary<string, byte[]>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, CancellationToken.None);
 
         await _cacheSyncClient.Received(1).SyncAsync(syncServerNotTurnedOff,
-            Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+            Arg.Any<CacheSyncModel>(), Arg.Any<CancellationToken>());
         await _cacheSyncClient.Received(1).SyncAsync(syncServerToTurnOff,
-            Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+            Arg.Any<CacheSyncModel>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(1)
             .GetErrorStatisticsAsync(syncServerToTurnOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
         await _errorStatisticsStore.Received(1)
             .GetErrorStatisticsAsync(syncServerNotTurnedOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
         syncSuccess.Should().BeFalse();
 
-        syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel<string>{
-            KeyValues = _fixture.Create<Dictionary<string, string>>(),
+        syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel{
+            KeyValues = _fixture.Create<Dictionary<string, byte[]>>(),
             ExpirationTime = _fixture.Create<DateTimeOffset>()
         }, CancellationToken.None);
 
         await _cacheSyncClient.Received(2).SyncAsync(syncServerNotTurnedOff,
-            Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+            Arg.Any<CacheSyncModel>(), Arg.Any<CancellationToken>());
         await _cacheSyncClient.Received(1).SyncAsync(syncServerToTurnOff,
-            Arg.Any<CacheSyncModel<string>>(), Arg.Any<CancellationToken>());
+            Arg.Any<CacheSyncModel>(), Arg.Any<CancellationToken>());
         await _errorStatisticsStore.Received(1)
             .GetErrorStatisticsAsync(syncServerToTurnOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
         await _errorStatisticsStore.Received(2)

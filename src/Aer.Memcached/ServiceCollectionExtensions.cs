@@ -129,27 +129,24 @@ public static class ServiceCollectionExtensions
         return applicationBuilder;
     }
 
-    public static void AddMemcachedSyncEndpoint<T>(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
+    public static void AddMemcachedSyncEndpoint(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
 
         if (config.SyncSettings != null)
         {
             endpoints.MapPost(
-                config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>(),
+                config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<byte>(),
                 async (
-                    [FromBody] CacheSyncModel<T> model,
+                    [FromBody] CacheSyncModel model,
                     IMemcachedClient memcachedClient,
                     CancellationToken token) =>
                 {
-                    await memcachedClient.MultiStoreAsync(
+                    await memcachedClient.MultiStoreSynchronizeDataAsync(
                         model.KeyValues,
+                        model.Flags,
                         model.ExpirationTime,
-                        token,
-                        cacheSyncOptions: new CacheSyncOptions
-                        {
-                            IsManualSyncOn = false
-                        });
+                        token);
                 });
         }
     }

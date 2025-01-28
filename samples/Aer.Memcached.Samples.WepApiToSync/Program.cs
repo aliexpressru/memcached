@@ -43,10 +43,7 @@ public class Program
 
         app.UseEndpoints(endpoints =>
         {
-            endpoints.AddMemcachedSyncEndpoint<string>(builder.Configuration);
-            endpoints.AddMemcachedSyncEndpoint<ComplexModel>(builder.Configuration);
-            endpoints.AddMemcachedSyncEndpoint<List<string>>(builder.Configuration);
-            endpoints.AddMemcachedSyncEndpoint<Dictionary<string, string>>(builder.Configuration);
+            endpoints.AddMemcachedSyncEndpoint(builder.Configuration);
             endpoints.AddMemcachedEndpoints(builder.Configuration);
             endpoints.MapControllers();
         });

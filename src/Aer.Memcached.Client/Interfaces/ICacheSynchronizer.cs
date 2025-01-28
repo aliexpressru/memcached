@@ -15,7 +15,7 @@ public interface ICacheSynchronizer
     /// </summary>
     /// <param name="model">Data to sync.</param>
     /// <param name="token">Cancellation token.</param>
-    Task<bool> TrySyncCacheAsync<T>(CacheSyncModel<T> model, CancellationToken token);
+    Task<bool> TrySyncCacheAsync(CacheSyncModel model, CancellationToken token);
 
     /// <summary>
     /// Deletes data on the servers that are specified in <see cref="MemcachedConfiguration.SynchronizationSettings"/>.

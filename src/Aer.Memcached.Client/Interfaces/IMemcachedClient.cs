@@ -65,6 +65,19 @@ public interface IMemcachedClient
 		uint replicationFactor = 0);
 
 	/// <summary>
+	/// Stores multiple values of sync data.
+	/// </summary>
+	/// <param name="keyValues">Values by keys.</param>
+	/// <param name="flags">Flags for the data.</param>
+	/// <param name="expirationTime">Expiration time.</param>
+	/// <param name="token">Cancellation token.</param>
+	Task<MemcachedClientResult> MultiStoreSynchronizeDataAsync(
+		IDictionary<string, byte[]> keyValues,
+		uint flags,
+		DateTimeOffset? expirationTime,
+		CancellationToken token);
+
+	/// <summary>
 	/// Gets one value by key.
 	/// </summary>
 	/// <param name="key">Key.</param>
