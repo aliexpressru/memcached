@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using Aer.ConsistentHash.Abstractions;
+using Aer.ConsistentHash.Config;
 using Aer.ConsistentHash.Infrastructure;
+using Microsoft.Extensions.Options;
 
 namespace Aer.ConsistentHash;
 
@@ -15,24 +17,32 @@ public class HashRing<TNode> : INodeLocator<TNode>
 
     private readonly IHashCalculator _hashCalculator;
     private readonly int _numberOfVirtualNodes;
+    private readonly int _maxDegreeOfParallelismForGettingNodes;
 
     private readonly ConcurrentDictionary<ulong, TNode> _hashToNodeMap = new();
     private readonly ConcurrentDictionary<ulong, ulong[]> _nodeHashToVirtualNodeHashesMap = new();
-    
+
     // since we are only writing to this collection from inside the writer lock,
     // we can safely use with non-thread-safe version 
     private readonly HashSet<TNode> _deadNodes = new();
-    
+
     private ulong[] _sortedNodeHashKeys;
 
     /// <param name="hashCalculator">Calculates hash for nodes and keys</param>
-    /// <param name="numberOfVirtualNodes">Number of virtual nodes by one physical node</param>
-    public HashRing(IHashCalculator hashCalculator, int numberOfVirtualNodes = 256)
+    /// <param name="settings">HashRing settings</param>
+    public HashRing(IHashCalculator hashCalculator, IOptions<HashRingSettings> settings = null)
     {
         _locker = new ReaderWriterLockSlim();
 
         _hashCalculator = hashCalculator;
-        _numberOfVirtualNodes = numberOfVirtualNodes;
+        _numberOfVirtualNodes = settings?.Value == null
+            ? HashRingSettings.DefaultNumberOfVirtualNodes
+            : settings.Value.NumberOfVirtualNodes == 0
+                ? HashRingSettings.DefaultNumberOfVirtualNodes
+                : settings.Value.NumberOfVirtualNodes;
+        _maxDegreeOfParallelismForGettingNodes = settings?.Value == null
+            ? Environment.ProcessorCount
+            : settings.Value.MaxDegreeOfParallelismForGettingNodes ?? Environment.ProcessorCount;
     }
 
     public TNode GetNode(string key)
@@ -48,6 +58,7 @@ public class HashRing<TNode> : INodeLocator<TNode>
             }
 
             var node = GetNodeInternal(key);
+
             return node;
         }
         finally
@@ -75,7 +86,7 @@ public class HashRing<TNode> : INodeLocator<TNode>
 
             Parallel.ForEach(
                 keys,
-                new ParallelOptions {MaxDegreeOfParallelism = Environment.ProcessorCount},
+                new ParallelOptions { MaxDegreeOfParallelism = _maxDegreeOfParallelismForGettingNodes },
                 key =>
                 {
                     var replicatedNode = GetReplicatedNodeInternal(key, replicationFactor);
@@ -137,7 +148,7 @@ public class HashRing<TNode> : INodeLocator<TNode>
 
     public void AddNodes(params TNode[] nodes)
     {
-        AddNodes((IEnumerable<TNode>) nodes);
+        AddNodes((IEnumerable<TNode>)nodes);
     }
 
     public void RemoveNode(TNode node)
@@ -202,22 +213,22 @@ public class HashRing<TNode> : INodeLocator<TNode>
             _locker.ExitWriteLock();
         }
     }
-    
+
     public IReadOnlyCollection<TNode> DrainDeadNodes()
     {
         try
         {
             _locker.EnterWriteLock();
-            
+
             // return defensive copy
             var currentDeadNodes = _deadNodes.ToArray();
-            
+
             _deadNodes.Clear();
 
             return currentDeadNodes;
         }
         finally
-        { 
+        {
             _locker.ExitWriteLock();
         }
     }
@@ -249,7 +260,7 @@ public class HashRing<TNode> : INodeLocator<TNode>
             // means that replication factor is greater than total nodes count
             // return all other nodes as replicas
 
-            var replicaNodes = _hashToNodeMap.Values.Except(new[] {primaryNode});
+            var replicaNodes = _hashToNodeMap.Values.Except(new[] { primaryNode });
 
             foreach (var replicaNode in replicaNodes)
             {
@@ -270,6 +281,7 @@ public class HashRing<TNode> : INodeLocator<TNode>
             {
                 // this is our primary node - start getting replica nodes from this one 
                 startingNodeFound = true;
+
                 continue;
             }
 
@@ -365,7 +377,7 @@ public class HashRing<TNode> : INodeLocator<TNode>
 
         _hashToNodeMap.GetOrAdd(nodeHash, node);
         _nodeHashToVirtualNodeHashesMap.GetOrAdd(nodeHash, virtualNodeHashes);
-        
+
         foreach (var virtualNodeHash in virtualNodeHashes)
         {
             _hashToNodeMap.GetOrAdd(virtualNodeHash, node);

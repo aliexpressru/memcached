@@ -284,20 +284,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             {
                 _locker.ExitReadLock();
             }
-
-            var parallelDeadNodesCheckTask = Parallel.ForEachAsync(
-                nodesInLocator,
-                new ParallelOptions {MaxDegreeOfParallelism = Environment.ProcessorCount},
-                async (node, _) =>
-                {
-                    // pass no cancellation token since the caller method is synchronous 
-                    if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
-                    {
-                        _deadNodes.Add(node);
-                    }
-                });
             
-            parallelDeadNodesCheckTask.GetAwaiter().GetResult();
+            Task.WhenAll(nodesInLocator.Select(CheckNode)).GetAwaiter().GetResult();
 
             if (!_deadNodes.IsEmpty)
             {
@@ -326,5 +314,14 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     {
         _nodeRebuildingTimer?.Dispose();
         _nodeHealthCheckTimer?.Dispose();
+    }
+
+    private async Task CheckNode(TNode node)
+    {
+        // pass no cancellation token since the caller method is synchronous 
+        if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
+        {
+            _deadNodes.Add(node);
+        }
     }
 }

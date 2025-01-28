@@ -60,39 +60,15 @@ internal class CacheSynchronizer : ICacheSynchronizer
             var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
             var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
             var utcNow = DateTimeOffset.UtcNow;
-            
+
             if (model.KeyValues.Count == 0)
             {
                 return true;
             }
 
-            await Parallel.ForEachAsync(
-                _syncServers,
-                new ParallelOptions()
-                {
-                    MaxDegreeOfParallelism = Environment.ProcessorCount,
-                    CancellationToken = syncCancellationTokenSource.Token
-                }, async (syncServer, cancellationToken) =>
-                {
-                    var serverKey = syncServer.Address;
-
-                    try
-                    {
-                        if (_serverBySwitchOffTime.TryGetValue(serverKey, out var switchOffTime) &&
-                            switchOffTime > utcNow)
-                        {
-                            return;
-                        }
-
-                        await _cacheSyncClient.SyncAsync(syncServer, model, cancellationToken);
-                    }
-                    catch (Exception)
-                    {
-                        await CheckCircuitBreaker(serverKey, utcNow);
-
-                        throw;
-                    }
-                });
+            await Task.WhenAll(_syncServers
+                .Select(syncServer =>
+                    SyncData(syncServer, model, utcNow, syncCancellationTokenSource.Token)));
         }
         catch (Exception)
         {
@@ -103,7 +79,7 @@ internal class CacheSynchronizer : ICacheSynchronizer
 
         return true;
     }
-    
+
     public async Task<bool> TryDeleteCacheAsync(
         IEnumerable<string> keys,
         CancellationToken token)
@@ -123,34 +99,10 @@ internal class CacheSynchronizer : ICacheSynchronizer
             var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
             var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
             var utcNow = DateTimeOffset.UtcNow;
-
-            await Parallel.ForEachAsync(
-                _syncServers,
-                new ParallelOptions()
-                {
-                    MaxDegreeOfParallelism = Environment.ProcessorCount,
-                    CancellationToken = syncCancellationTokenSource.Token
-                }, async (syncServer, cancellationToken) =>
-                {
-                    var serverKey = syncServer.Address;
-
-                    try
-                    {
-                        if (_serverBySwitchOffTime.TryGetValue(serverKey, out var switchOffTime) &&
-                            switchOffTime > utcNow)
-                        {
-                            return;
-                        }
-
-                        await _cacheSyncClient.DeleteAsync(syncServer, keys, cancellationToken);
-                    }
-                    catch (Exception)
-                    {
-                        await CheckCircuitBreaker(serverKey, utcNow);
-
-                        throw;
-                    }
-                });
+            
+            await Task.WhenAll(_syncServers
+                .Select(syncServer =>
+                    SyncDelete(syncServer, keys, utcNow, syncCancellationTokenSource.Token)));
         }
         catch (Exception)
         {
@@ -194,6 +146,58 @@ internal class CacheSynchronizer : ICacheSynchronizer
                     _serverBySwitchOffTime[serverKey]
                 );
             }
+        }
+    }
+
+    private async Task SyncData(
+        MemcachedConfiguration.SyncServer syncServer,
+        CacheSyncModel model,
+        DateTimeOffset utcNow,
+        CancellationToken token)
+    {
+        var serverKey = syncServer.Address;
+
+        try
+        {
+            if (_serverBySwitchOffTime.TryGetValue(serverKey, out var switchOffTime) &&
+                switchOffTime > utcNow)
+            {
+                return;
+            }
+
+            await _cacheSyncClient.SyncAsync(syncServer, model, token);
+        }
+        catch (Exception)
+        {
+            await CheckCircuitBreaker(serverKey, utcNow);
+
+            throw;
+        }
+    }
+    
+    private async Task SyncDelete(
+        MemcachedConfiguration.SyncServer syncServer,
+        IEnumerable<string> keys,
+        DateTimeOffset utcNow,
+        CancellationToken token)
+    {
+        var serverKey = syncServer.Address;
+
+        try
+        {
+            if (_serverBySwitchOffTime.TryGetValue(serverKey, out var switchOffTime) &&
+                switchOffTime > utcNow)
+            {
+                return;
+            }
+
+            await _cacheSyncClient.DeleteAsync(syncServer, keys, token);
+        }
+        catch (Exception)
+        {
+            await CheckCircuitBreaker(serverKey, utcNow);
+
+            throw;
         }
     }
 }

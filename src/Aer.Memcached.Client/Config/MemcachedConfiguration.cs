@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Aer.ConsistentHash.Abstractions;
+using Aer.ConsistentHash.Config;
 using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.Config;
@@ -100,6 +101,8 @@ public class MemcachedConfiguration
     /// If set to <c>true</c>, external cancellations will be logged in terse manner - only as operation name.
     /// </summary>
     public bool IsTerseCancellationLogging { get; set; }
+    
+    public HashRingSettings HashRing { get; set; }
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.

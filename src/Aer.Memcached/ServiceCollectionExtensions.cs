@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Aer.ConsistentHash;
 using Aer.ConsistentHash.Abstractions;
+using Aer.ConsistentHash.Config;
 using Aer.Memcached.Abstractions;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
@@ -35,6 +36,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.Configure<MemcachedConfiguration>(configuration.GetSection(nameof(MemcachedConfiguration)));
+        services.Configure<HashRingSettings>(configuration.GetSection($"{nameof(MemcachedConfiguration)}:{nameof(MemcachedConfiguration.HashRing)}"));
         services.AddSingleton<IHashCalculator, HashCalculator>();
         services.AddSingleton<INodeProvider<Pod>, HeadlessServiceDnsLookupNodeProvider>();
         services.AddSingleton<INodeLocator<Pod>, HashRing<Pod>>();
