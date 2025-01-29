@@ -35,6 +35,11 @@ public class MemcachedConfiguration
     public const string DefaultFlushEndpoint = "/memcached/flush";
     
     /// <summary>
+    /// The default get endpoint.
+    /// </summary>
+    public const string DefaultGetEndpoint = "/memcached/multi-get-typed";
+    
+    /// <summary>
     /// List of servers with hosted memcached.
     /// </summary>
     public Server[] Servers { get; set; }
@@ -304,6 +309,11 @@ public class MemcachedConfiguration
         /// Endpoint that is created by current service to allow other services to flush data.
         /// </summary>
         public string FlushEndpoint { get; set; } = DefaultFlushEndpoint;
+        
+        /// <summary>
+        /// Endpoint that is created by current service to allow other services to get data.
+        /// </summary>
+        public string GetEndpoint { get; set; } = DefaultGetEndpoint;
         
         /// <summary>
         /// Name of environment variable to get current cluster name.
