@@ -212,8 +212,6 @@ public class BinarySerializer
 
     private static byte[] GetBytes(short value)
     {
-        byte[] bytes = new byte[sizeof(short)];
-        Unsafe.As<byte, short>(ref bytes[0]) = value;
-        return bytes;
+        return BitConverter.GetBytes(value);
     }
 }
