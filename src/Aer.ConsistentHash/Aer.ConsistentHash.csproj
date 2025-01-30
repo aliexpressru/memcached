@@ -19,11 +19,5 @@
         <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.1" />
         <PackageReference Include="Standart.Hash.xxHash" Version="4.0.5" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Reference Include="Microsoft.Extensions.Options">
-        <HintPath>..\..\..\..\..\..\..\usr\local\share\dotnet\shared\Microsoft.AspNetCore.App\8.0.0\Microsoft.Extensions.Options.dll</HintPath>
-      </Reference>
-    </ItemGroup>
     
 </Project>

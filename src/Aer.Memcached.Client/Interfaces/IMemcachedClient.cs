@@ -65,7 +65,8 @@ public interface IMemcachedClient
 		uint replicationFactor = 0);
 
 	/// <summary>
-	/// Stores multiple values of sync data.
+	/// Lean version of MultiStore method to synchronize cache data
+	/// keyValues must have already serialized data in values
 	/// </summary>
 	/// <param name="keyValues">Values by keys.</param>
 	/// <param name="flags">Flags for the data.</param>

@@ -209,8 +209,8 @@ public class BinarySerializer
     {
         return (uint) ((int) code | TypeCodeSerializationMask);
     }
-    
-    public static byte[] GetBytes(short value)
+
+    private static byte[] GetBytes(short value)
     {
         byte[] bytes = new byte[sizeof(short)];
         Unsafe.As<byte, short>(ref bytes[0]) = value;

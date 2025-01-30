@@ -19,11 +19,5 @@
       <ProjectReference Include="..\..\src\Aer.ConsistentHash\Aer.ConsistentHash.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Reference Include="Microsoft.Extensions.Options">
-        <HintPath>..\..\..\..\..\..\..\usr\local\share\dotnet\shared\Microsoft.AspNetCore.App\8.0.0\Microsoft.Extensions.Options.dll</HintPath>
-      </Reference>
-    </ItemGroup>
-
 
 </Project>
