@@ -45,9 +45,9 @@ internal class CacheSyncClient: ICacheSyncClient
     }
 
     /// <inheritdoc />
-    public async Task SyncAsync<T>(
+    public async Task SyncAsync(
         MemcachedConfiguration.SyncServer syncServer,
-        CacheSyncModel<T> data, 
+        CacheSyncModel data, 
         CancellationToken token)
     {
         try
@@ -58,7 +58,7 @@ internal class CacheSyncClient: ICacheSyncClient
                 MediaTypeNames.Application.Json);
             
             var baseUri = new Uri(syncServer.Address);
-            var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>());
+            var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<byte>());
 
             await RequestAsync(content, endpointUri, token);
         }
@@ -69,7 +69,7 @@ internal class CacheSyncClient: ICacheSyncClient
             throw;
         }
     }
-    
+
     /// <inheritdoc />
     public async Task DeleteAsync(
         MemcachedConfiguration.SyncServer syncServer,

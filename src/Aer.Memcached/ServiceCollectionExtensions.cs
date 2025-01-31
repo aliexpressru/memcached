@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Aer.ConsistentHash;
 using Aer.ConsistentHash.Abstractions;
+using Aer.ConsistentHash.Config;
 using Aer.Memcached.Abstractions;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
@@ -15,6 +16,7 @@ using Aer.Memcached.Diagnostics;
 using Aer.Memcached.Diagnostics.Listeners;
 using Aer.Memcached.Infrastructure;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -35,6 +37,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.Configure<MemcachedConfiguration>(configuration.GetSection(nameof(MemcachedConfiguration)));
+        services.Configure<HashRingSettings>(configuration.GetSection($"{nameof(MemcachedConfiguration)}:{nameof(MemcachedConfiguration.HashRing)}"));
         services.AddSingleton<IHashCalculator, HashCalculator>();
         services.AddSingleton<INodeProvider<Pod>, HeadlessServiceDnsLookupNodeProvider>();
         services.AddSingleton<INodeLocator<Pod>, HashRing<Pod>>();
@@ -129,31 +132,6 @@ public static class ServiceCollectionExtensions
         return applicationBuilder;
     }
 
-    public static void AddMemcachedSyncEndpoint<T>(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
-    {
-        var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
-
-        if (config.SyncSettings != null)
-        {
-            endpoints.MapPost(
-                config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<T>(),
-                async (
-                    [FromBody] CacheSyncModel<T> model,
-                    IMemcachedClient memcachedClient,
-                    CancellationToken token) =>
-                {
-                    await memcachedClient.MultiStoreAsync(
-                        model.KeyValues,
-                        model.ExpirationTime,
-                        token,
-                        cacheSyncOptions: new CacheSyncOptions
-                        {
-                            IsManualSyncOn = false
-                        });
-                });
-        }
-    }
-
     public static void AddMemcachedEndpoints(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
@@ -163,6 +141,9 @@ public static class ServiceCollectionExtensions
         var flushEndpoint = config.SyncSettings == null
             ? MemcachedConfiguration.DefaultFlushEndpoint
             : config.SyncSettings.FlushEndpoint;
+        var getEndpoint = config.SyncSettings == null
+            ? MemcachedConfiguration.DefaultGetEndpoint
+            : config.SyncSettings.GetEndpoint;
 
         endpoints.MapPost(
             deleteEndpoint,
@@ -186,5 +167,66 @@ public static class ServiceCollectionExtensions
             {
                 await memcachedClient.FlushAsync(token);
             });
+        
+        if (config.SyncSettings != null)
+        {
+            endpoints.MapPost(
+                config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<byte>(),
+                async (
+                    [FromBody] CacheSyncModel model,
+                    IMemcachedClient memcachedClient,
+                    CancellationToken token) =>
+                {
+                    await memcachedClient.MultiStoreSynchronizeDataAsync(
+                        model.KeyValues,
+                        model.Flags,
+                        model.ExpirationTime,
+                        token);
+                });
+        }
+        
+        endpoints.MapPost(
+            getEndpoint,
+             (MultiGetTypedRequest request, IMemcachedClient memcachedClient, CancellationToken token) =>
+            {
+                try
+                {
+                    var resolvedType = Type.GetType(request.Type);
+                    if (resolvedType == null)
+                    {
+                        return Results.Ok(
+                            $"Type is not found. Try {typeof(string).FullName} or {typeof(object).FullName}");
+                    }
+                
+                    var method = typeof(MemcachedClient<Pod>).GetMethod(nameof(MemcachedClient<Pod>.MultiGetAsync));
+                    if (method == null)
+                    {
+                        return Results.Ok($"Method for the type {resolvedType} is not found");
+                    }
+                
+                    var genericMethod = method.MakeGenericMethod(resolvedType);
+        
+                    var task = genericMethod.Invoke(memcachedClient, parameters: [request.Keys, token, null, (uint)0]) as Task;
+                    if (task == null)
+                    {
+                        return Results.Ok($"Method for the type {resolvedType} is not found");   
+                    }
+                
+                    var result = task.GetType().GetProperty("Result")?.GetValue(task);
+                
+                    return Results.Ok(Newtonsoft.Json.JsonConvert.SerializeObject(result));
+                }
+                catch (Exception e)
+                {
+                    return Results.BadRequest(e);
+                }
+            });
+    }
+
+    private class MultiGetTypedRequest
+    {
+        public string[] Keys { get; set; }
+        
+        public string Type { get; set; }
     }
 }

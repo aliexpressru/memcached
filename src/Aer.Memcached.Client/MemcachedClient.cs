@@ -98,12 +98,13 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 if (IsCacheSyncEnabledInternal(cacheSyncOptions))
                 {
                     syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
-                        new CacheSyncModel<T>
+                        new CacheSyncModel
                         {
-                            KeyValues = new Dictionary<string, T>()
+                            KeyValues = new Dictionary<string, byte[]>()
                             {
-                                [key] = value
+                                [key] = cacheItem.Data.Array
                             },
+                            Flags = cacheItem.Flags,
                             ExpirationTime = expirationTime.HasValue
                                 ? utcNow.Add(expirationTime.Value)
                                 : null
@@ -149,15 +150,22 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
 
-            await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
+            var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
+            foreach (var keyValue in keyValues)
+            {
+                serializedKeyValues[keyValue.Key] = _binarySerializer.Serialize(keyValue.Value);
+            }
+            
+            await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token, storeMode, batchingOptions);
 
             var syncSuccess = false;
             if (IsCacheSyncEnabledInternal(cacheSyncOptions))
             {
                 syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
-                    new CacheSyncModel<T>
+                    new CacheSyncModel
                     {
-                        KeyValues = keyValues,
+                        KeyValues = serializedKeyValues.ToDictionary(key => key.Key, value => value.Value.Data.Array),
+                        Flags = serializedKeyValues.First().Value.Flags,
                         ExpirationTime = expirationTime.HasValue
                             ? utcNow.Add(expirationTime.Value)
                             : null
@@ -210,22 +218,80 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return MemcachedClientResult.Unsuccessful(
                     $"Memcached nodes for keys {string.Join(",", keyValues.Keys)} not found");
             }
+            
+            var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
+            foreach (var keyValue in keyValues)
+            {
+                serializedKeyValues[keyValue.Key] = _binarySerializer.Serialize(keyValue.Value);
+            }
 
-            await MultiStoreInternalAsync(nodes, keyToExpirationMap, keyValues, token, storeMode, batchingOptions);
+            await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token, storeMode, batchingOptions);
 
             var syncSuccess = false;
             if (IsCacheSyncEnabledInternal(cacheSyncOptions))
             {
                 syncSuccess = await _cacheSynchronizer.TrySyncCacheAsync(
-                    new CacheSyncModel<T>
+                    new CacheSyncModel
                     {
-                        KeyValues = keyValues,
+                        KeyValues = serializedKeyValues.ToDictionary(key => key.Key, value => value.Value.Data.Array),
+                        Flags = serializedKeyValues.First().Value.Flags,
                         ExpirationTime = expirationTime
                     },
                     token);
             }
 
             return MemcachedClientResult.Successful.WithSyncSuccess(syncSuccess);
+        }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientResult.Cancelled(nameof(MultiStoreAsync));
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientResult.Unsuccessful(
+                $"An exception happened during {nameof(MultiStoreAsync)} execution.\nException details: {e}");
+        }
+    }
+    
+    /// <inheritdoc />
+    public async Task<MemcachedClientResult> MultiStoreSynchronizeDataAsync(
+        IDictionary<string, byte[]> keyValues,
+        uint flags,
+        DateTimeOffset? expirationTime,
+        CancellationToken token)
+    {
+        try
+        {
+            if (keyValues is null or { Count: 0 })
+            {
+                return MemcachedClientResult.Successful;
+            }
+
+            var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
+
+            // this check is first since it shortcuts all the following logic
+            if (keyToExpirationMap is null)
+            {
+                return MemcachedClientResult.Unsuccessful(
+                    $"Expiration date time offset {expirationTime} lies in the past. No keys stored");
+            }
+
+            var nodes = _nodeLocator.GetNodes(keyValues.Keys, 0);
+            if (nodes.Keys.Count == 0)
+            {
+                return MemcachedClientResult.Unsuccessful(
+                    $"Memcached nodes for keys {string.Join(",", keyValues.Keys)} not found");
+            }
+            
+            var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
+            foreach (var keyValue in keyValues)
+            {
+                serializedKeyValues[keyValue.Key] = new CacheItemForRequest(flags, keyValue.Value);
+            }
+
+            await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token);
+
+            return MemcachedClientResult.Successful.WithSyncSuccess(true);
         }
         catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
         {
@@ -643,10 +709,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
         }
     }
 
-    private async Task MultiStoreInternalAsync<T>(
+    private async Task MultiStoreInternalAsync(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         Dictionary<string, uint> keyToExpirationMap,
-        IDictionary<string, T> keyValues,
+        IDictionary<string, CacheItemForRequest> keyValues,
         CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null)
@@ -677,7 +743,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
                 foreach (var key in keys)
                 {
-                    keyValuesToStore[key] = _binarySerializer.Serialize(keyValues[key]);
+                    keyValuesToStore[key] = keyValues[key];
                 }
 
                 var command = new MultiStoreCommand(
@@ -706,9 +772,9 @@ public class MemcachedClient<TNode> : IMemcachedClient
     public bool IsCacheSyncEnabled() => _cacheSynchronizer != null
                                         && _cacheSynchronizer.IsCacheSyncEnabled();
 
-    private async Task MultiStoreBatchedInternalAsync<T>(
+    private async Task MultiStoreBatchedInternalAsync(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
-        IDictionary<string, T> keyValues,
+        IDictionary<string, CacheItemForRequest> keyValues,
         BatchingOptions batchingOptions,
         Dictionary<string, uint> keyToExpirationMap,
         StoreMode storeMode,
@@ -739,7 +805,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                         var keyValuesToStore = new Dictionary<string, CacheItemForRequest>();
                         foreach (var key in keysBatch)
                         {
-                            keyValuesToStore[key] = _binarySerializer.Serialize(keyValues[key]);
+                            keyValuesToStore[key] = keyValues[key];
                         }
 
                         using (var command = new MultiStoreCommand(

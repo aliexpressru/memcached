@@ -612,21 +612,17 @@ By default sync servers are obtained from `SyncServers` array and filtered by na
 - `MaxErrors` maximum number of errors in `Interval` by instance
 - `SwitchOffTime` time of synchronization switch off
 
-Also you must add sync endpoints in `Configure` method of your `Startup` class.
+Also you must add memcached endpoints in `Configure` method of your `Startup` class.
 
 ```c#
 app.UseEndpoints(endpoints =>
         {
-            endpoints.AddMemcachedSyncEndpoint<string>(this.Configuration);
-            endpoints.AddMemcachedSyncEndpoint<ComplexModel>(this.Configuration);
             endpoints.AddMemcachedEndpoints(this.Configuration);
             endpoints.MapControllers();
         });
 ```
 
 `Configuration` argument here is a property on a `Startup` instance
-`AddMemcachedSyncEndpoint` - to store data. The generic parameter type must be the same as in corresponding `GetAsync` / `MultiGetAsync` / `StoreAsync` / `MultiStoreAsync` method calls.
-`AddMemcachedEndpoints` - for delete and flush endpoints
 
 When using cache synchronization feature, the `MemcachedClientResult.SyncSuccess` property can be inspected to determine whether the sync operation succeeded. When cache synchronization is not used this property is set to `false`.
 

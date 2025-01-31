@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Aer.ConsistentHash.Abstractions;
+using Aer.ConsistentHash.Config;
 using Microsoft.Extensions.Logging;
 
 namespace Aer.Memcached.Client.Config;
@@ -32,6 +33,11 @@ public class MemcachedConfiguration
     /// The default flush endpoint.
     /// </summary>
     public const string DefaultFlushEndpoint = "/memcached/flush";
+    
+    /// <summary>
+    /// The default get endpoint.
+    /// </summary>
+    public const string DefaultGetEndpoint = "/memcached/multi-get-typed";
     
     /// <summary>
     /// List of servers with hosted memcached.
@@ -100,6 +106,8 @@ public class MemcachedConfiguration
     /// If set to <c>true</c>, external cancellations will be logged in terse manner - only as operation name.
     /// </summary>
     public bool IsTerseCancellationLogging { get; set; }
+    
+    public HashRingSettings HashRing { get; set; }
 
     /// <summary>
     /// Checks that either <see cref="HeadlessServiceAddress"/> or <see cref="Servers"/> are specified.
@@ -301,6 +309,11 @@ public class MemcachedConfiguration
         /// Endpoint that is created by current service to allow other services to flush data.
         /// </summary>
         public string FlushEndpoint { get; set; } = DefaultFlushEndpoint;
+        
+        /// <summary>
+        /// Endpoint that is created by current service to allow other services to get data.
+        /// </summary>
+        public string GetEndpoint { get; set; } = DefaultGetEndpoint;
         
         /// <summary>
         /// Name of environment variable to get current cluster name.
