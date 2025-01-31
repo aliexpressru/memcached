@@ -238,6 +238,199 @@ public class MemcachedE2ETests
             // ignored
         }
     }
+    
+    [TestMethodWithIgnoreIfSupport]
+    [IgnoreIf(nameof(IsWindows))]
+    public async Task WepApi_E2E_MultiDelete_NonExistentKeys_Success()
+    {
+        var port1 = GeneratePort();
+        var port2 = GeneratePort();
+
+        var httpServerFixture1 = new HttpServerFixture<Program>
+        {
+            Port = port1
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new[]
+                        {
+                            new MemcachedConfiguration.SyncServer
+                            {
+                                Address = $"http://localhost:{port2}",
+                                ClusterName = "test2"
+                            }
+                        },
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
+
+        var httpServerFixture2 = new HttpServerFixture<Samples.WepApiToSync.Program>
+        {
+            Port = port2
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new[]
+                        {
+                            new MemcachedConfiguration.SyncServer
+                            {
+                                Address = $"http://localhost:{port1}",
+                                ClusterName = "test1"
+                            }
+                        },
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
+        ;
+
+        var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
+        var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
+
+        var keyValues = Enumerable.Range(0, 5)
+            .ToDictionary(_ => Guid.NewGuid().ToString(), _ => Guid.NewGuid().ToString());
+
+        var result = await client1.MultiDelete(new MultiDeleteRequest
+        {
+            Keys = keyValues.Keys.ToArray()
+        });
+
+        result.SyncSuccess.Should().BeTrue();
+
+        try
+        {
+            await httpServerFixture1.DisposeAsync();
+            await httpServerFixture2.DisposeAsync();
+        }
+        catch (Exception)
+        {
+            // ignored
+        }
+    }
+    
+    [TestMethodWithIgnoreIfSupport]
+    [IgnoreIf(nameof(IsWindows))]
+    public async Task WepApi_E2E_MultiStore_SameKeysTwice_Success()
+    {
+        var port1 = GeneratePort();
+        var port2 = GeneratePort();
+
+        var httpServerFixture1 = new HttpServerFixture<Program>
+        {
+            Port = port1
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new[]
+                        {
+                            new MemcachedConfiguration.SyncServer
+                            {
+                                Address = $"http://localhost:{port2}",
+                                ClusterName = "test2"
+                            }
+                        },
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
+
+        var httpServerFixture2 = new HttpServerFixture<Samples.WepApiToSync.Program>
+        {
+            Port = port2
+        }.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<MemcachedConfiguration>(configuration =>
+                {
+                    configuration.SyncSettings = new MemcachedConfiguration.SynchronizationSettings
+                    {
+                        SyncServers = new[]
+                        {
+                            new MemcachedConfiguration.SyncServer
+                            {
+                                Address = $"http://localhost:{port1}",
+                                ClusterName = "test1"
+                            }
+                        },
+                        CacheSyncCircuitBreaker = new MemcachedConfiguration.CacheSyncCircuitBreakerSettings
+                        {
+                            Interval = TimeSpan.FromSeconds(2),
+                            SwitchOffTime = TimeSpan.FromSeconds(1),
+                            MaxErrors = 3
+                        }
+                    };
+                });
+            });
+        });
+        ;
+
+        var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
+        var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
+
+        var keyValues = Enumerable.Range(0, 5)
+            .ToDictionary(_ => Guid.NewGuid().ToString(), _ => Guid.NewGuid().ToString());
+
+        var multiStoreResult = await client1.MultiStore(new MultiStoreRequest
+        {
+            KeyValues = keyValues,
+            ExpirationTime = DateTimeOffset.UtcNow.AddMinutes(2)
+        });
+            
+        multiStoreResult.SyncSuccess.Should().BeTrue();
+        
+        multiStoreResult = await client1.MultiStore(new MultiStoreRequest
+        {
+            KeyValues = keyValues,
+            ExpirationTime = DateTimeOffset.UtcNow.AddMinutes(2)
+        });
+            
+        multiStoreResult.SyncSuccess.Should().BeTrue();
+
+        try
+        {
+            await httpServerFixture1.DisposeAsync();
+            await httpServerFixture2.DisposeAsync();
+        }
+        catch (Exception)
+        {
+            // ignored
+        }
+    }
 
     [TestMethodWithIgnoreIfSupport]
     [IgnoreIf(nameof(IsWindows))]
