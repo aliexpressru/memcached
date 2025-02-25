@@ -12,6 +12,8 @@ namespace Aer.Memcached.Client;
 /// </summary>
 public class ExpirationCalculator: IExpirationCalculator
 {
+    private const uint InfiniteExpiration = 0U;
+    
     private readonly IHashCalculator _hashCalculator;
     private readonly MemcachedConfiguration.ExpirationJitterSettings _expirationJitterSettings;
     
@@ -51,11 +53,13 @@ public class ExpirationCalculator: IExpirationCalculator
     }
 
     /// <inheritdoc />
-    public Dictionary<string, uint> GetExpiration(IEnumerable<string> keys, TimeSpan? expirationTime)
+    public Dictionary<string, uint> GetExpiration(
+        IEnumerable<string> keys, 
+        TimeSpan? expirationTime)
     {
         if (IsInfiniteExpiration(expirationTime))
         {
-            return keys.ToDictionary(k => k, _ => 0U);
+            return keys.ToDictionary(k => k, _ => InfiniteExpiration);
         }
 
         Debug.Assert(expirationTime != null, nameof(expirationTime) + " != null");
@@ -70,7 +74,7 @@ public class ExpirationCalculator: IExpirationCalculator
     {
         if (IsInfiniteExpiration(expirationTime))
         {
-            return keys.ToDictionary(k => k, _ => 0U);
+            return keys.ToDictionary(k => k, _ => InfiniteExpiration);
         }
 
         Debug.Assert(expirationTime != null, nameof(expirationTime) + " != null");
@@ -86,6 +90,49 @@ public class ExpirationCalculator: IExpirationCalculator
         var timeSpan = expirationTime.Value.Subtract(utcNow);
 
         return GetExpirationInternal(keys, utcNow, timeSpan);
+    }
+
+    /// <inheritdoc />
+    public Dictionary<string, uint> GetExpiration(IDictionary<string, TimeSpan?> expirationMap)
+    {
+        var utcNow = DateTimeOffset.UtcNow;
+
+        return expirationMap.ToDictionary(key => key.Key,
+            value =>
+            {
+                var expirationTime = expirationMap[value.Key];
+                if (IsInfiniteExpiration(expirationTime))
+                {
+                    return InfiniteExpiration;
+                }
+                
+                return GetExpirationTimeInUnixTimeSeconds(utcNow, expirationTime!.Value);
+            });
+    }
+    
+    /// <inheritdoc />
+    public Dictionary<string, uint> GetExpiration(IDictionary<string, DateTimeOffset?> expirationMap)
+    {
+        var utcNow = DateTimeOffset.UtcNow;
+
+        return expirationMap.ToDictionary(key => key.Key,
+            value =>
+            {
+                var expirationTime = expirationMap[value.Key];
+                if (IsInfiniteExpiration(expirationTime))
+                {
+                    return InfiniteExpiration;
+                }
+                
+                if (expirationTime <= utcNow)
+                {
+                    return GetExpirationTimeInUnixTimeSeconds(utcNow, TimeSpan.Zero);
+                }
+
+                var timeSpan = expirationTime!.Value.Subtract(utcNow);
+                
+                return GetExpirationTimeInUnixTimeSeconds(utcNow, timeSpan);
+            });
     }
     
     private Dictionary<string, uint> GetExpirationInternal(

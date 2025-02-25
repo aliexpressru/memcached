@@ -36,6 +36,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal key-values batching.</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync.</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data.</param>
+	/// <param name="expirationMap">Individual key expirations that will be used instead expirationTime if provided.</param>
 	Task<MemcachedClientResult> MultiStoreAsync<T>(
 		IDictionary<string, T> keyValues, 
 		TimeSpan? expirationTime, 
@@ -43,7 +44,8 @@ public interface IMemcachedClient
 		StoreMode storeMode = StoreMode.Set,
 		BatchingOptions batchingOptions = null,
 		CacheSyncOptions cacheSyncOptions = null,
-		uint replicationFactor = 0);
+		uint replicationFactor = 0,
+		IDictionary<string, TimeSpan?> expirationMap = null);
 
 	/// <summary>
 	/// Stores multiple values.
@@ -55,6 +57,7 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal key-values batching.</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync.</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data.</param>
+	/// <param name="expirationMap">Individual key expirations that will be used instead expirationTime if provided.</param>
 	Task<MemcachedClientResult> MultiStoreAsync<T>(
 		IDictionary<string, T> keyValues,
 		DateTimeOffset? expirationTime,
@@ -62,7 +65,8 @@ public interface IMemcachedClient
 		StoreMode storeMode = StoreMode.Set,
 		BatchingOptions batchingOptions = null,
 		CacheSyncOptions cacheSyncOptions = null,
-		uint replicationFactor = 0);
+		uint replicationFactor = 0,
+		IDictionary<string, DateTimeOffset?> expirationMap = null);
 
 	/// <summary>
 	/// Lean version of MultiStore method to synchronize cache data
@@ -72,11 +76,13 @@ public interface IMemcachedClient
 	/// <param name="flags">Flags for the data.</param>
 	/// <param name="expirationTime">Expiration time.</param>
 	/// <param name="token">Cancellation token.</param>
+	/// <param name="expirationMap">Individual key expirations that will be used instead expirationTime if provided.</param>
 	Task<MemcachedClientResult> MultiStoreSynchronizeDataAsync(
 		IDictionary<string, byte[]> keyValues,
 		uint flags,
 		DateTimeOffset? expirationTime,
-		CancellationToken token);
+		CancellationToken token,
+		IDictionary<string, DateTimeOffset?> expirationMap = null);
 
 	/// <summary>
 	/// Gets one value by key.

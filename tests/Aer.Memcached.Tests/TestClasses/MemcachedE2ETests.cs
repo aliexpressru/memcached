@@ -39,9 +39,11 @@ public class MemcachedE2ETests
     [TestMethodWithIgnoreIfSupport]
     [IgnoreIf(nameof(IsWindows))]
     [DataTestMethod]
-    [DataRow(true)]
-    [DataRow(false)]
-    public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_Success(bool withTimeSpan)
+    [DataRow(true, false)]
+    [DataRow(false, false)]
+    [DataRow(true, true)]
+    [DataRow(false, true)]
+    public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_Success(bool withTimeSpan, bool withExpirationMap)
     {
         var port1 = GeneratePort();
         var port2 = GeneratePort();
@@ -109,7 +111,7 @@ public class MemcachedE2ETests
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
 
-        var keyValues = await StoreAndAssert(client1, withTimeSpan);
+        var keyValues = await StoreAndAssert(client1, withTimeSpan, true, withExpirationMap);
 
         var result2 = await client2.MultiGet(new MultiGetRequest
         {
@@ -543,9 +545,11 @@ public class MemcachedE2ETests
     [TestMethodWithIgnoreIfSupport]
     [IgnoreIf(nameof(IsWindows))]
     [DataTestMethod]
-    [DataRow(true)]
-    [DataRow(false)]
-    public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_CircuitBreaker(bool withTimeSpan)
+    [DataRow(true, false)]
+    [DataRow(false, false)]
+    [DataRow(true, true)]
+    [DataRow(false, true)]
+    public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_CircuitBreaker(bool withTimeSpan, bool withExpirationMap)
     {
         var port1 = GeneratePort();
         var port2 = GeneratePort();
@@ -588,7 +592,7 @@ public class MemcachedE2ETests
         // Store data while second cluster is off
         for (int i = 0; i < maxErrors; i++)
         {
-            keyValues = await StoreAndAssert(client1, withTimeSpan, false);
+            keyValues = await StoreAndAssert(client1, withTimeSpan, false, withExpirationMap);
             keyValuesArray.Add(keyValues);
         }
 
@@ -627,7 +631,7 @@ public class MemcachedE2ETests
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
 
         // store more data while second cluster is still off for synchronizer
-        keyValues = await StoreAndAssert(client1, withTimeSpan);
+        keyValues = await StoreAndAssert(client1, withTimeSpan, true, withExpirationMap);
         keyValuesArray.Add(keyValues);
 
         // no data is stored is second cluster
@@ -645,7 +649,7 @@ public class MemcachedE2ETests
         await Task.Delay(TimeSpan.FromSeconds(1));
 
         // store more data while second cluster is on for synchronizer
-        keyValues = await StoreAndAssert(client1, withTimeSpan);
+        keyValues = await StoreAndAssert(client1, withTimeSpan, true, withExpirationMap);
         keyValuesArray.Add(keyValues);
 
         result2 = await client2.MultiGet(new MultiGetRequest
@@ -668,7 +672,8 @@ public class MemcachedE2ETests
 
     private async Task<Dictionary<string, string>> StoreAndAssert(MemcachedWebApiClient client,
         bool withTimeSpan = false,
-        bool syncSuccessShouldBe = true)
+        bool syncSuccessShouldBe = true,
+        bool withExpirationMap = false)
     {
         var keyValues = Enumerable.Range(0, 5)
             .ToDictionary(_ => Guid.NewGuid().ToString(), _ => Guid.NewGuid().ToString());
@@ -678,17 +683,21 @@ public class MemcachedE2ETests
             var multiStoreResult = await client.MultiStore(new MultiStoreRequest
             {
                 KeyValues = keyValues,
-                TimeSpan = TimeSpan.FromMinutes(2)
+                TimeSpan = TimeSpan.FromMinutes(2),
+                ExpirationMapWithDateTimeSpan = withExpirationMap ? keyValues.ToDictionary(key => key.Key, _ => (TimeSpan?)TimeSpan.FromMinutes(2)) : null
             });
 
             multiStoreResult.SyncSuccess.Should().Be(syncSuccessShouldBe);
         }
         else
         {
+            var utcNow = DateTimeOffset.UtcNow;
+            
             var multiStoreResult = await client.MultiStore(new MultiStoreRequest
             {
                 KeyValues = keyValues,
-                ExpirationTime = DateTimeOffset.UtcNow.AddMinutes(2)
+                ExpirationTime = utcNow.AddMinutes(2),
+                ExpirationMapWithDateTimeOffset = withExpirationMap ? keyValues.ToDictionary(key => key.Key, _ => (DateTimeOffset?)utcNow.AddMinutes(2)) : null
             });
             
             multiStoreResult.SyncSuccess.Should().Be(syncSuccessShouldBe);
