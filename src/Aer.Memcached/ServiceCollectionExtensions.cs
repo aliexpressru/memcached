@@ -181,7 +181,8 @@ public static class ServiceCollectionExtensions
                         model.KeyValues,
                         model.Flags,
                         model.ExpirationTime,
-                        token);
+                        token,
+                        model.ExpirationMap);
                 });
         }
         

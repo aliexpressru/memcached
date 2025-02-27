@@ -46,6 +46,74 @@ public class ExpirationCalculatorTests
         }
     }
     
+    [TestMethod]
+    public void BatchExpiration_WithKeyExpirationMap_WorksAsExpected()
+    {
+        var hashCalculator = new HashCalculator();
+        var config = new MemcachedConfiguration();
+
+        var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
+
+        var expirationMap = new Dictionary<string, TimeSpan?>()
+        {
+            { "test1", TimeSpan.FromSeconds(10) },
+            { "test2", TimeSpan.FromDays(2) },
+            { "test3", null }
+        };
+        var expiration = expirationCalculator.GetExpiration(expirationMap);
+
+        var utcNow = DateTimeOffset.UtcNow;
+        foreach (var keyToExpiration in expiration)
+        {
+            var expirationTime = expirationMap[keyToExpiration.Key];
+            uint expectedExpiration;
+            if (!expirationTime.HasValue)
+            {
+                expectedExpiration = 0U;
+            }
+            else
+            {
+                expectedExpiration = (uint)(utcNow + expirationTime.Value).ToUnixTimeSeconds();
+            }
+
+            keyToExpiration.Value.Should().Be(expectedExpiration);
+        }
+    }
+    
+    [TestMethod]
+    public void BatchExpiration_WithKeyExpirationMap_DateTimeOffset_WorksAsExpected()
+    {
+        var hashCalculator = new HashCalculator();
+        var config = new MemcachedConfiguration();
+
+        var expirationCalculator = new ExpirationCalculator(hashCalculator, new OptionsWrapper<MemcachedConfiguration>(config));
+
+        var utcNow = DateTimeOffset.UtcNow;
+        var expirationMap = new Dictionary<string, DateTimeOffset?>()
+        {
+            { "test1", utcNow.AddSeconds(10) },
+            { "test2", utcNow.AddDays(2) },
+            { "test3", null }
+        };
+        
+        var expiration = expirationCalculator.GetExpiration(expirationMap);
+        foreach (var keyToExpiration in expiration)
+        {
+            var expirationTime = expirationMap[keyToExpiration.Key];
+            uint expectedExpiration;
+            if (!expirationTime.HasValue)
+            {
+                expectedExpiration = 0U;
+            }
+            else
+            {
+                expectedExpiration = (uint)(expirationTime.Value).ToUnixTimeSeconds();
+            }
+
+            keyToExpiration.Value.Should().Be(expectedExpiration);
+        }
+    }
+    
     [DataTestMethod]
     [DataRow(1)]
     [DataRow(10)]

@@ -225,6 +225,87 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         getValue.Count.Should().Be(0);
     }
+    
+    [TestMethod]
+    public async Task MultiStoreAndGet_ExpirationMap_OneValueExpired()
+    {
+        var keyToExpire = Guid.NewGuid().ToString();
+        var expirationMap = new Dictionary<string, TimeSpan?>()
+        {
+            { keyToExpire, TimeSpan.FromSeconds(CacheItemExpirationSeconds) },
+            { Guid.NewGuid().ToString(), TimeSpan.FromDays(2) },
+            { Guid.NewGuid().ToString(), null }
+        };
+
+        var keyValues = expirationMap.ToDictionary(key => key.Key, _ => Fixture.Create<string>());
+
+        await Client.MultiStoreAsync(
+            keyValues,
+            null,
+            CancellationToken.None,
+            expirationMap: expirationMap);
+
+        var getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+        getValue.Count.Should().Be(keyValues.Keys.Count);
+
+        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
+
+        getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+        getValue.Count.Should().Be(keyValues.Keys.Count - 1);
+
+        foreach (var keyValue in expirationMap)
+        {
+            if (keyValue.Key.Equals(keyToExpire))
+            {
+                continue;
+            }
+
+            getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
+        }
+    }
+    
+    [TestMethod]
+    public async Task MultiStoreAndGet_ExpirationMap_DateTimeOffset_OneValueExpired()
+    {
+        var keyToExpire = Guid.NewGuid().ToString();
+        var utcNow = DateTimeOffset.UtcNow;
+        var expirationMap = new Dictionary<string, DateTimeOffset?>()
+        {
+            { keyToExpire, utcNow.AddSeconds(CacheItemExpirationSeconds) },
+            { Guid.NewGuid().ToString(), utcNow.AddDays(2) },
+            { Guid.NewGuid().ToString(), null }
+        };
+
+        var keyValues = expirationMap.ToDictionary(key => key.Key, _ => Fixture.Create<string>());
+
+        await Client.MultiStoreAsync(
+            keyValues,
+            null,
+            CancellationToken.None,
+            expirationMap: expirationMap);
+
+        var getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+        getValue.Count.Should().Be(keyValues.Keys.Count);
+
+        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
+
+        getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+        getValue.Count.Should().Be(keyValues.Keys.Count - 1);
+        
+        foreach (var keyValue in expirationMap)
+        {
+            if (keyValue.Key.Equals(keyToExpire))
+            {
+                continue;
+            }
+
+            getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
+        }
+    }
 
     [TestMethod]
     public async Task StoreAndGet_EmptyString()

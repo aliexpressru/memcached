@@ -1,3 +1,5 @@
+using System.Collections;
+
 namespace Aer.Memcached.Client.Models;
 
 /// <summary>
@@ -19,4 +21,9 @@ public class CacheSyncModel
     /// Gets or sets the key-value items expiration time.
     /// </summary>
     public DateTimeOffset? ExpirationTime { get; set; }
+    
+    /// <summary>
+    /// Individual key expirations that will be used instead ExpirationTime if provided.
+    /// </summary>
+    public IDictionary<string, DateTimeOffset?> ExpirationMap { get; set; }
 }

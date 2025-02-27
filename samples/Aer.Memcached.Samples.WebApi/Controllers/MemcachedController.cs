@@ -17,24 +17,26 @@ public class MemcachedController : ControllerBase
     }
 
     [HttpPost("multi-store")]
-    public async Task<ActionResult<MultiStoreResponse>> Get(MultiStoreRequest request)
+    public async Task<ActionResult<MultiStoreResponse>> MultiStore(MultiStoreRequest request)
     {
-        var syncSuccess = false;
-        if (request.TimeSpan.HasValue)
+        if (request.ExpirationTime == null)
         {
-            var result = await _memcachedClient.MultiStoreAsync(request.KeyValues, request.TimeSpan, CancellationToken.None);
-            syncSuccess = result.SyncSuccess;
+            var result = await _memcachedClient.MultiStoreAsync(request.KeyValues, request.TimeSpan, CancellationToken.None, expirationMap: request.ExpirationMapWithDateTimeSpan);
+            
+            return Ok(new MultiStoreResponse
+            {
+                SyncSuccess = result.SyncSuccess
+            });
         }
         else
         {
-            var result = await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
-            syncSuccess = result.SyncSuccess;
+            var result = await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None, expirationMap: request.ExpirationMapWithDateTimeOffset);
+            
+            return Ok(new MultiStoreResponse
+            {
+                SyncSuccess = result.SyncSuccess
+            });
         }
-
-        return Ok(new MultiStoreResponse
-        {
-            SyncSuccess = syncSuccess
-        });
     }
     
     [HttpPost("multi-get")]
@@ -49,9 +51,9 @@ public class MemcachedController : ControllerBase
     }
     
     [HttpPost("multi-store-complex")]
-    public async Task<ActionResult<MultiStoreResponse>> Get(MultiStoreComplexRequest request)
+    public async Task<ActionResult<MultiStoreResponse>> MultiStoreComplex(MultiStoreComplexRequest request)
     {
-        var result = await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None);
+        var result = await _memcachedClient.MultiStoreAsync(request.KeyValues, request.ExpirationTime, CancellationToken.None, expirationMap: request.ExpirationMapWithDateTimeOffset);
 
         return Ok(new MultiStoreComplexResponse
         {

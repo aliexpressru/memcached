@@ -135,7 +135,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null,
         CacheSyncOptions cacheSyncOptions = null,
-        uint replicationFactor = 0)
+        uint replicationFactor = 0,
+        IDictionary<string, TimeSpan?> expirationMap = null)
     {
         try
         {
@@ -148,7 +149,9 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var utcNow = DateTimeOffset.UtcNow;
 
-            var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
+            var keyToExpirationMap = expirationMap == null 
+                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime) 
+                : _expirationCalculator.GetExpiration(expirationMap);
 
             var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
             foreach (var keyValue in keyValues)
@@ -168,7 +171,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                         Flags = serializedKeyValues.First().Value.Flags,
                         ExpirationTime = expirationTime.HasValue
                             ? utcNow.Add(expirationTime.Value)
-                            : null
+                            : null,
+                        ExpirationMap = expirationMap?.ToDictionary(key => key.Key, value => value.Value.HasValue ? utcNow.Add(value.Value.Value) : (DateTimeOffset?)null)
                     },
                     token);
             }
@@ -194,7 +198,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         StoreMode storeMode = StoreMode.Set,
         BatchingOptions batchingOptions = null,
         CacheSyncOptions cacheSyncOptions = null,
-        uint replicationFactor = 0)
+        uint replicationFactor = 0,
+        IDictionary<string, DateTimeOffset?> expirationMap = null)
     {
         try
         {
@@ -203,7 +208,9 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return MemcachedClientResult.Successful;
             }
 
-            var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
+            var keyToExpirationMap = expirationMap == null 
+                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime) 
+                : _expirationCalculator.GetExpiration(expirationMap);
 
             // this check is first since it shortcuts all the following logic
             if (keyToExpirationMap is null)
@@ -235,7 +242,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     {
                         KeyValues = serializedKeyValues.ToDictionary(key => key.Key, value => value.Value.Data.Array),
                         Flags = serializedKeyValues.First().Value.Flags,
-                        ExpirationTime = expirationTime
+                        ExpirationTime = expirationTime,
+                        ExpirationMap = expirationMap
                     },
                     token);
             }
@@ -258,7 +266,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         IDictionary<string, byte[]> keyValues,
         uint flags,
         DateTimeOffset? expirationTime,
-        CancellationToken token)
+        CancellationToken token,
+        IDictionary<string, DateTimeOffset?> expirationMap = null)
     {
         try
         {
@@ -267,7 +276,9 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return MemcachedClientResult.Successful;
             }
 
-            var keyToExpirationMap = _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime);
+            var keyToExpirationMap = expirationMap == null 
+                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime) 
+                : _expirationCalculator.GetExpiration(expirationMap);
 
             // this check is first since it shortcuts all the following logic
             if (keyToExpirationMap is null)
