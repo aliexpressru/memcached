@@ -128,7 +128,8 @@ Task MultiStoreAsync<T>(
    TimeSpan? expirationTime,
    CancellationToken token,
    StoreMode storeMode = StoreMode.Set,
-   BatchingOptions batchingOptions = null);
+   BatchingOptions batchingOptions = null,
+   IDictionary<string, TimeSpan?> expirationMap = null);
 ```
 
 - `keyValues` : the entry key-value pairs to store
@@ -136,6 +137,7 @@ Task MultiStoreAsync<T>(
 - `token` : the cancellation token
 - `storeMode` : the mode under which the store operation is performed
 - `batchingOptions` : optional batching options. The batching will be covered in the later part of this documentation
+- `expirationMap` : individual key expirations that will be used instead expirationTime if provided
 
 ### Get
 
