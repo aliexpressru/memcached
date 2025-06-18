@@ -6,6 +6,7 @@ using Aer.Memcached.Client.Commands;
 using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Enums;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Extensions;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
@@ -82,7 +83,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var utcNow = DateTimeOffset.UtcNow;
 
-            var cacheItem = _binarySerializer.Serialize(value);
+            var cacheItem = Serialize(value);
             var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
 
             using (var command = new StoreCommand(
@@ -156,7 +157,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
             var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
             foreach (var keyValue in keyValues)
             {
-                serializedKeyValues[keyValue.Key] = _binarySerializer.Serialize(keyValue.Value);
+                serializedKeyValues[keyValue.Key] = Serialize(keyValue.Value);
             }
             
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token, storeMode, batchingOptions);
@@ -229,7 +230,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
             var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
             foreach (var keyValue in keyValues)
             {
-                serializedKeyValues[keyValue.Key] = _binarySerializer.Serialize(keyValue.Value);
+                serializedKeyValues[keyValue.Key] = Serialize(keyValue.Value);
             }
 
             await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token, storeMode, batchingOptions);
@@ -953,5 +954,20 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 key,
                 deleteResult.ErrorMessage);
         }
+    }
+
+    private CacheItemForRequest Serialize<T>(T value)
+    {
+        var result = _binarySerializer.Serialize(value);
+        
+        if (MemcachedDiagnosticSource.Instance.IsEnabled())
+        {
+            if (result.Data.Count >= 1_048_576) // 1MB
+            {
+                MemcachedDiagnosticSource.Instance.Write(MemcachedDiagnosticSource.ValueExceedsDefaultSizeDiagnosticName, null);    
+            }
+        }
+        
+        return result;
     }
 }

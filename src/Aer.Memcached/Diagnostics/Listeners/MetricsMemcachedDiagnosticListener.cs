@@ -48,4 +48,15 @@ internal class MetricsMemcachedDiagnosticListener
         
         _metricsProvider.ObserveSocketPoolUsedSocketsCount(enpointAddress, usedSocketCount);
     }
+    
+    [DiagnosticName(MemcachedDiagnosticSource.ValueExceedsDefaultSizeDiagnosticName)]
+    public void ObserveValueExceedsDefaultSize()
+    {
+        if (_config.Diagnostics.DisableDiagnostics)
+        {
+            return;
+        }
+        
+        _metricsProvider.ObserveExceededValueDefaultSize();
+    }
 }

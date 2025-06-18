@@ -14,15 +14,18 @@ internal class MemcachedMetricsProvider
     private readonly Histogram<double> _commandDurationSecondsOtel;
     private readonly Histogram<int> _socketPoolUsedSocketsCountsOtel;
     private readonly Counter<int> _commandsTotalOtel;
+    private readonly Counter<int> _valueExceedsDefaultSizeCounterOtel;
 
     // Prometheus metrics
     private readonly IMetricFamily<IHistogram> _commandDurationSeconds;
     private readonly IMetricFamily<IHistogram> _socketPoolUsedSocketsCounts;
     private readonly IMetricFamily<ICounter> _commandsTotal;
+    private readonly IMetricFamily<ICounter> _valueExceedsDefaultSizeCounter;
 
     private const string CommandDurationSecondsMetricName = "memcached_command_duration_seconds";
     private const string SocketPoolUsedSocketsCountsMetricName = "memecached_socket_pool_used_sockets";
     private const string CommandsTotalOtelMetricName = "memcached_commands_total";
+    private const string ValueExceedDefaultSizeMetricName = "memcached_value_exceeds_default_size";
 
     public static readonly Dictionary<string, double[]> MetricsBuckets = new()
     {
@@ -68,6 +71,12 @@ internal class MemcachedMetricsProvider
                 unit: null,
                 description: "Number of total executed memcached commands");
 
+            _valueExceedsDefaultSizeCounterOtel = meter.CreateCounter<int>(
+                name: ValueExceedDefaultSizeMetricName,
+                unit: null,
+                description: "Number of values exceed default size"
+            );
+
             return;
         }
 
@@ -91,6 +100,11 @@ internal class MemcachedMetricsProvider
             CommandsTotalOtelMetricName,
             "",
             labelNames: new[] {CommandNameLabel, IsSuccessfulLabel});
+        
+        _valueExceedsDefaultSizeCounter = metricFactory.CreateCounter(
+            ValueExceedDefaultSizeMetricName,
+            "",
+            labelNames: []);
     }
 
     /// <summary>
@@ -142,5 +156,16 @@ internal class MemcachedMetricsProvider
         _socketPoolUsedSocketsCounts
             ?.WithLabels(endpointAddress)
             ?.Observe(usedSocketCount);
+    }
+    
+    /// <summary>
+    /// Observes a value that exceeds default size.
+    /// </summary>
+    public void ObserveExceededValueDefaultSize()
+    {
+        _valueExceedsDefaultSizeCounterOtel?.Add(1);
+
+        _valueExceedsDefaultSizeCounter
+            ?.Inc();
     }
 }

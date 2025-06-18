@@ -82,4 +82,16 @@ public class MemcachedController : ControllerBase
             SyncSuccess = result.SyncSuccess
         });
     }
+    
+    [HttpPost("delete-client")]
+    public async Task<ActionResult<DeleteResponse>> Delete(DeleteRequest request)
+    {
+        var result = await _memcachedClient.DeleteAsync(request.Key, CancellationToken.None);
+
+        return Ok(new DeleteResponse()
+        {
+            SyncSuccess = result.SyncSuccess,
+            Success = result.Success
+        });
+    }
 }

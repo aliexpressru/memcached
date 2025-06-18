@@ -367,6 +367,42 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
             getValues[keyValue.Key].Should().BeNull();
         }
     }
+    
+    [TestMethod]
+    public async Task MultiStoreAndGet_Twice_DifferentValues()
+    {
+        var keyValues = new Dictionary<string, string>();
+
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            keyValues[Guid.NewGuid().ToString()] = "test";
+        }
+
+        await Client.MultiStoreAsync(
+            keyValues,
+            TimeSpan.FromSeconds(60),
+            CancellationToken.None);
+
+        var getValues = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+        foreach (var keyValue in keyValues)
+        {
+            getValues[keyValue.Key].Should().Be(keyValue.Value);
+        }
+
+        var keyValues2 = keyValues.ToDictionary(key => key.Key, value => "test2");
+        await Client.MultiStoreAsync(
+            keyValues2,
+            TimeSpan.FromSeconds(60),
+            CancellationToken.None);
+        
+        getValues = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+        foreach (var keyValue in keyValues2)
+        {
+            getValues[keyValue.Key].Should().Be(keyValue.Value);
+        }
+    }
 
     [TestMethod]
     public async Task StoreAndGet_NullExpiration()
@@ -1153,6 +1189,19 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         
         incrValue.Success.Should().BeTrue();
         incrValue.Result.Should().Be(0);
+    }
+    
+    [TestMethod]
+    public async Task Store_Get_DifferentClasses_Success_False()
+    {
+        var key = Guid.NewGuid().ToString();
+        var value = Fixture.Create<double>();
+
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+
+        var getValue = await Client.GetAsync<DateTimeOffset>(key, CancellationToken.None);
+
+        getValue.Success.Should().BeFalse();
     }
 
     private async Task<string[]> MultiStoreAndGetKeys()
