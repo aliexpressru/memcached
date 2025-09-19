@@ -21,7 +21,7 @@ internal class MemcachedMetricsProvider
     private readonly IMetricFamily<ICounter> _commandsTotal;
 
     private const string CommandDurationSecondsMetricName = "memcached_command_duration_seconds";
-    private const string SocketPoolUsedSocketsCountsMetricName = "memecached_socket_pool_used_sockets";
+    private const string SocketPoolUsedSocketsCountsMetricName = "memcached_socket_pool_used_sockets";
     private const string CommandsTotalOtelMetricName = "memcached_commands_total";
 
     public static readonly Dictionary<string, double[]> MetricsBuckets = new()
