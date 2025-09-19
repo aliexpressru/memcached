@@ -467,7 +467,7 @@ You can select which metrics provider will be used by setting `MetricsProviderNa
 This library exposes the following memcached metrics
 
 - `memcached_command_duration_seconds` - memcached command duration in seconds per command
-- `memecached_socket_pool_used_sockets` - number of used socket pool sockets per endpoint
+- `memcached_socket_pool_used_sockets` - number of used socket pool sockets per endpoint
 - `memcached_commands_total` - total executed memcached commands number
 
 #### Disagnostic information

@@ -19,7 +19,7 @@ public class PooledSocket : IDisposable
     private NetworkStream _inputStream;
     
     /// <summary>
-    /// The ID of this instance. Used by the memecached server to identify the instance in its inner lists.
+    /// The ID of this instance. Used by the memcached server to identify the instance in its inner lists.
     /// </summary>
     public readonly Guid InstanceId = Guid.NewGuid();
 
