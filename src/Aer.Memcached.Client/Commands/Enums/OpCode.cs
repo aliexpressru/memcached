@@ -37,6 +37,7 @@ public enum OpCode: byte
     AppendQ = 0x19,
     PrependQ = 0x1A,
     Touch = 0x1C,
+    GetAndTouch = 0x1D,
 
     // SASL authentication op-codes
     SaslList = 0x20,
