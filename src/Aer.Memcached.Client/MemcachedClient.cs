@@ -393,8 +393,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
                 try
                 {
-                    var deserializationResult =
-                        _binarySerializer.Deserialize<T>(commandExecutionResult.GetCommandAs<GetCommand>().Result);
+                     var deserializationResult =
+                        _binarySerializer.Deserialize<T>(commandExecutionResult.GetCommandAs<GetAndTouchCommand>().Result);
 
                     return MemcachedClientValueResult<T>.Successful(
                         deserializationResult.Result,
