@@ -341,6 +341,11 @@ public class MemcachedConfiguration
         /// Settings of circuit breaker.
         /// </summary>
         public CacheSyncCircuitBreakerSettings CacheSyncCircuitBreaker { get; set; }
+
+        /// <summary>
+        /// If set to <c>true</c> allows anonymous access to cache sync endpoints.
+        /// </summary>
+        public bool SyncEndpointsAuthAllowAnonymous { get; set; }
     }
 
     public class SyncServer

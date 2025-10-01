@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Aer.Memcached.Diagnostics.Listeners;
 
-public class LoggingMemcachedDiagnosticListener
+internal class LoggingMemcachedDiagnosticListener
 {
     private readonly ILogger<LoggingMemcachedDiagnosticListener> _logger;
     private readonly MemcachedConfiguration _config;

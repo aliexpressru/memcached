@@ -51,7 +51,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         await StoreAndGet_CheckType<Dictionary<string, int>>();
         await StoreAndGet_CheckType<SimpleRecord>();
 
-        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        if (BinarySerializerType != ObjectBinarySerializerType.Bson)
         {
             // BSON serializer can't serialize dictionaries with non-primitive objects as keys
             await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
@@ -82,7 +82,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         await MultiStoreAndGet_CheckType<Dictionary<string, int>>(withReplicas);
         await MultiStoreAndGet_CheckType<SimpleRecord>(withReplicas);
 
-        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        if (BinarySerializerType != ObjectBinarySerializerType.Bson)
         {
             // BSON serializer can't serialize dictionaries with non-primitive objects as keys
             await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
@@ -121,7 +121,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         await Get_CheckType<Dictionary<string, int>>();
         await Get_CheckType<SimpleRecord>();
 
-        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        if (BinarySerializerType != ObjectBinarySerializerType.Bson)
         {
             // BSON serializer can't serialize dictionaries with non-primitive objects as keys
             await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
@@ -151,7 +151,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         await MultiGet_CheckType<SimpleObject>(withReplicas);
         await MultiGet_CheckType<Dictionary<string, int>>(withReplicas);
 
-        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        if (BinarySerializerType != ObjectBinarySerializerType.Bson)
         {
             // BSON serializer can't serialize dictionaries with non-primitive objects as keys
             await StoreAndGet_CheckType<Dictionary<KeyObject, SimpleObject>>();
@@ -715,7 +715,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task StoreAndGet_ObjectWithNested_IgnoreReferenceLoopHandling()
     {
-        if (BinarySerizerType != ObjectBinarySerializerType.Bson)
+        if (BinarySerializerType != ObjectBinarySerializerType.Bson)
         { 
             // only BSON serializer can ignore reference loops
             return;

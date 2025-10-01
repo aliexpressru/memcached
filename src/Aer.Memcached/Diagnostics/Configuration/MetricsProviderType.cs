@@ -2,6 +2,6 @@
 
 internal enum MetricsProviderType
 {
-	Prometheus,
-	OpenTelemetry
+    Prometheus,
+    OpenTelemetry
 }

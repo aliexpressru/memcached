@@ -202,7 +202,7 @@ public class PooledSocket : IDisposable
     /// <summary>
     /// Releases all resources used by this instance and shuts down the inner <see cref="Socket"/>. This instance will not be usable anymore.
     /// </summary>
-    /// <remarks>Use the <see cref="Dispose"/> method if you want to release this instance back into the pool.</remarks>
+    /// <remarks>Use the <see cref="PooledSocket.Dispose(bool)"/> method if you want to release this instance back into the pool.</remarks>
     public void Destroy()
     {
         Dispose(true);

@@ -10,7 +10,9 @@ internal class MetricsMemcachedDiagnosticListener
     private readonly MemcachedMetricsProvider _metricsProvider;
     private readonly MemcachedConfiguration _config;
 
-    public MetricsMemcachedDiagnosticListener(MemcachedMetricsProvider metricsProvider, IOptions<MemcachedConfiguration> config)
+    public MetricsMemcachedDiagnosticListener(
+        MemcachedMetricsProvider metricsProvider,
+        IOptions<MemcachedConfiguration> config)
     {
         _metricsProvider = metricsProvider;
         _config = config.Value;
@@ -23,10 +25,10 @@ internal class MetricsMemcachedDiagnosticListener
         {
             return;
         }
-        
+
         _metricsProvider.ObserveCommandDurationSeconds(commandName, duration);
     }
-    
+
     [DiagnosticName(MemcachedDiagnosticSource.CommandsTotalDiagnosticName)]
     public void ObserveCommandsTotal(string commandName, string isSuccessful)
     {
@@ -34,7 +36,7 @@ internal class MetricsMemcachedDiagnosticListener
         {
             return;
         }
-        
+
         _metricsProvider.ObserveExecutedCommand(commandName, isSuccessful);
     }
 
@@ -45,7 +47,7 @@ internal class MetricsMemcachedDiagnosticListener
         {
             return;
         }
-        
+
         _metricsProvider.ObserveSocketPoolUsedSocketsCount(enpointAddress, usedSocketCount);
     }
 }

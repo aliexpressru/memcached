@@ -26,8 +26,8 @@ internal class MemcachedMetricsProvider
 
     public static readonly Dictionary<string, double[]> MetricsBuckets = new()
     {
-        [CommandDurationSecondsMetricName] = new[] {0.0005, 0.001, 0.005, 0.007, 0.015, 0.05, 0.2, 0.5, 1},
-        [SocketPoolUsedSocketsCountsMetricName] = new[] {0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0}
+        [CommandDurationSecondsMetricName] = [0.0005, 0.001, 0.005, 0.007, 0.015, 0.05, 0.2, 0.5, 1],
+        [SocketPoolUsedSocketsCountsMetricName] = [0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0]
     };
     
     private const string CommandNameLabel = "command_name";
@@ -79,18 +79,18 @@ internal class MemcachedMetricsProvider
             CommandDurationSecondsMetricName,
             "",
             MetricsBuckets[CommandDurationSecondsMetricName],
-            labelNames: new[] {CommandNameLabel});
+            labelNames: [CommandNameLabel]);
 
         _socketPoolUsedSocketsCounts = metricFactory.CreateHistogram(
             SocketPoolUsedSocketsCountsMetricName,
             "",
             MetricsBuckets[SocketPoolUsedSocketsCountsMetricName],
-            labelNames: new[] {SocketPoolEndpointAddressLabel});
+            labelNames: [SocketPoolEndpointAddressLabel]);
 
         _commandsTotal = metricFactory.CreateCounter(
             CommandsTotalOtelMetricName,
             "",
-            labelNames: new[] {CommandNameLabel, IsSuccessfulLabel});
+            labelNames: [CommandNameLabel, IsSuccessfulLabel]);
     }
 
     /// <summary>
@@ -129,7 +129,7 @@ internal class MemcachedMetricsProvider
     /// <summary>
     /// Observes specified endpoint socket pool used sockets count.
     /// </summary>
-    /// <param name="endpointAddress">The address of an endpoint to obeserve socket pool state for.</param>
+    /// <param name="endpointAddress">The address of an endpoint to observe socket pool state for.</param>
     /// <param name="usedSocketCount">The number of currently used sockets for the specified pool.</param>
     public void ObserveSocketPoolUsedSocketsCount(string endpointAddress, int usedSocketCount)
     {
