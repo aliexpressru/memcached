@@ -83,6 +83,7 @@ public class MemcachedClientValueResult<T>
     /// <summary>
     /// Creates an instance of <see cref="MemcachedClientValueResult{T}"/> that indicates request cancellation.
     /// </summary>
+    /// <param name="operationName">The memcached operation that was cancelled.</param>
     /// <param name="defaultResultValue">The default value for <see cref="Result"/> property.</param>
     internal static MemcachedClientValueResult<T> Cancelled(string operationName, T defaultResultValue)
         => new(

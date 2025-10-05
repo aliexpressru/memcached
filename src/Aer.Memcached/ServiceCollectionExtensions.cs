@@ -14,6 +14,7 @@ using Aer.Memcached.Client.Models;
 using Aer.Memcached.Client.Serializers;
 using Aer.Memcached.Diagnostics;
 using Aer.Memcached.Diagnostics.Listeners;
+using Aer.Memcached.Helpers;
 using Aer.Memcached.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -28,8 +29,16 @@ using OpenTelemetry.Metrics;
 
 namespace Aer.Memcached;
 
+/// <summary>
+/// The extension methods for setting up Memcached services in an <see cref="IServiceCollection" />.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Adds Memcached services to the <see cref="IServiceCollection"/> with settings from app configuration.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The application configuration.</param>
     public static IServiceCollection AddMemcached(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -108,6 +117,11 @@ public static class ServiceCollectionExtensions
             });
     }
 
+    /// <summary>
+    /// Enables Memcached diagnostics listeners for metrics and logging.
+    /// </summary>
+    /// <param name="applicationBuilder">The application builder instance.</param>
+    /// <param name="configuration">The application configuration.</param>
     public static IApplicationBuilder EnableMemcachedDiagnostics(
         this IApplicationBuilder applicationBuilder,
         IConfiguration configuration)
@@ -132,15 +146,27 @@ public static class ServiceCollectionExtensions
         return applicationBuilder;
     }
 
-    public static void AddMemcachedEndpoints(this IEndpointRouteBuilder endpoints, IConfiguration configuration)
+    /// <summary>
+    /// Adds endpoints for internode synchronization to the <see cref="IEndpointRouteBuilder"/> with settings from app configuration.
+    /// </summary>
+    /// <param name="endpoints">The service endpoints route builder instance.</param>
+    /// <param name="configuration">The application configuration.</param>
+    public static void AddMemcachedEndpoints(
+        this IEndpointRouteBuilder endpoints,
+        IConfiguration configuration)
     {
-        var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
+        var config = configuration
+            .GetSection(nameof(MemcachedConfiguration))
+            .Get<MemcachedConfiguration>();
+
         var deleteEndpoint = config.SyncSettings == null
             ? MemcachedConfiguration.DefaultDeleteEndpoint
             : config.SyncSettings.DeleteEndpoint;
+
         var flushEndpoint = config.SyncSettings == null
             ? MemcachedConfiguration.DefaultFlushEndpoint
             : config.SyncSettings.FlushEndpoint;
+
         var getEndpoint = config.SyncSettings == null
             ? MemcachedConfiguration.DefaultGetEndpoint
             : config.SyncSettings.GetEndpoint;
@@ -159,15 +185,17 @@ public static class ServiceCollectionExtensions
                     {
                         IsManualSyncOn = false
                     });
-            });
+            }
+        ).AllowAnonymousIfConfigured(config);
 
         endpoints.MapPost(
             flushEndpoint,
             async (IMemcachedClient memcachedClient, CancellationToken token) =>
             {
                 await memcachedClient.FlushAsync(token);
-            });
-        
+            }
+        ).AllowAnonymousIfConfigured(config);
+
         if (config.SyncSettings != null)
         {
             endpoints.MapPost(
@@ -183,12 +211,13 @@ public static class ServiceCollectionExtensions
                         model.ExpirationTime,
                         token,
                         model.ExpirationMap);
-                });
+                }
+            ).AllowAnonymousIfConfigured(config);
         }
-        
+
         endpoints.MapPost(
             getEndpoint,
-             (MultiGetTypedRequest request, IMemcachedClient memcachedClient, CancellationToken token) =>
+            (MultiGetTypedRequest request, IMemcachedClient memcachedClient, CancellationToken token) =>
             {
                 try
                 {
@@ -198,30 +227,34 @@ public static class ServiceCollectionExtensions
                         return Results.Ok(
                             $"Type is not found. Try {typeof(string).FullName} or {typeof(object).FullName}");
                     }
-                
+
                     var method = typeof(MemcachedClient<Pod>).GetMethod(nameof(MemcachedClient<Pod>.MultiGetAsync));
                     if (method == null)
                     {
                         return Results.Ok($"Method for the type {resolvedType} is not found");
                     }
-                
+
                     var genericMethod = method.MakeGenericMethod(resolvedType);
-        
-                    var task = genericMethod.Invoke(memcachedClient, parameters: [request.Keys, token, null, (uint)0]) as Task;
+
+                    var task =
+                        genericMethod.Invoke(
+                            memcachedClient,
+                            parameters: [request.Keys, token, null, (uint) 0]) as Task;
                     if (task == null)
                     {
-                        return Results.Ok($"Method for the type {resolvedType} is not found");   
+                        return Results.Ok($"Method for the type {resolvedType} is not found");
                     }
-                
+
                     var result = task.GetType().GetProperty("Result")?.GetValue(task);
-                
+
                     return Results.Ok(Newtonsoft.Json.JsonConvert.SerializeObject(result));
                 }
                 catch (Exception e)
                 {
                     return Results.BadRequest(e);
                 }
-            });
+            }
+        ).AllowAnonymousIfConfigured(config);
     }
 
     private class MultiGetTypedRequest

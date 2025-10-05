@@ -24,7 +24,7 @@ public abstract class MemcachedClientTestsBase
 	
 	protected readonly Fixture Fixture;
 
-	protected readonly ObjectBinarySerializerType BinarySerizerType;
+	protected readonly ObjectBinarySerializerType BinarySerializerType;
 
 	protected readonly ServiceProvider ServiceProvider;
 	
@@ -33,7 +33,7 @@ public abstract class MemcachedClientTestsBase
 		ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson,
 		bool isAllowLongKeys = false)
 	{
-		BinarySerizerType = binarySerializerType;
+		BinarySerializerType = binarySerializerType;
 		
 		var hashCalculator = new HashCalculator();
 		
@@ -70,7 +70,10 @@ public abstract class MemcachedClientTestsBase
 				SocketPoolDiagnosticsLoggingEventLevel = LogLevel.Information
 			},
 			BinarySerializerType = binarySerializerType,
-			IsAllowLongKeys = isAllowLongKeys
+			IsAllowLongKeys = isAllowLongKeys,
+            SyncSettings = new (){
+                SyncEndpointsAuthAllowAnonymous = false
+            }
 		};
 		
 		var authProvider = new DefaultAuthenticationProvider(

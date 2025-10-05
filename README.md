@@ -595,7 +595,8 @@ In case you need consistent cache across clusters or data centers you can use ca
                 "Interval": "00:01:00",
                 "MaxErrors": 50,
                 "SwitchOffTime": "00:02:00"
-            }
+            },
+            "SyncEndpointsAuthAllowAnonymous": false
         }
     }
 }
@@ -625,6 +626,8 @@ app.UseEndpoints(endpoints =>
 ```
 
 `Configuration` argument here is a property on a `Startup` instance
+
+If you have implicit authorization configured for your service you can allow anonymous access to sync endpoints by setting `MemcachedConfiguration.SyncSettings.SyncEndpointsAuthAllowAnonymous` to `true`.
 
 When using cache synchronization feature, the `MemcachedClientResult.SyncSuccess` property can be inspected to determine whether the sync operation succeeded. When cache synchronization is not used this property is set to `false`.
 
