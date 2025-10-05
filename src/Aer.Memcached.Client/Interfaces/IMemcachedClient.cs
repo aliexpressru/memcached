@@ -96,6 +96,18 @@ public interface IMemcachedClient
 	Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token);
 
 	/// <summary>
+	/// Gets one value by key. and updates the TTL of the cached item.
+	/// </summary>
+	/// <param name="key">Key.</param>
+	/// <param name="expirationTime">Expiration time.</param>
+	/// <param name="token">Cancellation token.</param>
+	/// <returns>
+	/// Value by key and if operation was successful or not.
+	/// If operation was unsuccessful default value is returned.
+	/// </returns>
+	Task<MemcachedClientValueResult<T>> GetAndTouchAsync<T>(string key, TimeSpan? expirationTime, CancellationToken token);
+
+	/// <summary>
 	/// Gets multiple values by keys.
 	/// </summary>
 	/// <param name="keys">Keys.</param>

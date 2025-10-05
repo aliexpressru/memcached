@@ -164,6 +164,21 @@ Task<IDictionary<string, T>> MultiGetAsync<T>(
 - `token` : the cancellation token
 - `batchingOptions` : optional batching options. The batching will be covered in the later part of this documentation
 
+### GetAndTouch
+
+Gets the value for the specified key and updates the expiration time of the entry stored in the cache. If value is not found by the key - `IsEmptyResult` is `true`
+
+```c#
+Task<MemcachedClientGetResult<T>> GetAndTouchAsync<T>(
+    string key,
+    TimeSpan? expirationTime,
+    CancellationToken token);
+```
+
+- `key` : the key to get the value for
+- `expirationTime` : the absolute expiration time for the key-value entry. If not set or set to `TimeSpan.Zero` or `TimeSpan.MaxValue`, cached value never expires
+- `token` : the cancellation token
+
 ### Delete
 
 Deletes the value for the specified key or set of keys from cache.
