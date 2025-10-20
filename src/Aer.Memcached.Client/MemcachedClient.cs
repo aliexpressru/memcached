@@ -369,6 +369,60 @@ public class MemcachedClient<TNode> : IMemcachedClient
     }
 
     /// <inheritdoc />
+    public async Task<MemcachedClientValueResult<T>> GetAndTouchAsync<T>(string key, TimeSpan? expirationTime, CancellationToken token)
+    {
+        try
+        {
+            var node = _nodeLocator.GetNode(key);
+            if (node == null)
+            {
+                return MemcachedClientValueResult<T>.Unsuccessful($"Memcached node for key {key} is not found");
+            }
+
+            var expiration = _expirationCalculator.GetExpiration(key, expirationTime);
+
+            using (var command = new GetAndTouchCommand(key, expiration, _memcachedConfiguration.IsAllowLongKeys))
+            {
+                using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+
+                if (!commandExecutionResult.Success)
+                {
+                    return MemcachedClientValueResult<T>.Unsuccessful(
+                        $"Error occured during {nameof(GetAndTouchAsync)} execution");
+                }
+
+                try
+                {
+                     var deserializationResult =
+                        _binarySerializer.Deserialize<T>(commandExecutionResult.GetCommandAs<GetAndTouchCommand>().Result);
+
+                    return MemcachedClientValueResult<T>.Successful(
+                        deserializationResult.Result,
+                        deserializationResult.IsEmpty);
+                }
+                catch (Exception) when (_memcachedConfiguration.IsDeleteMemcachedKeyOnDeserializationFail)
+                {
+                    // means exception on deserialization happened
+                    // assuming serializer change - remove this key from memcached to refresh data
+
+                    await DeleteUndeserializableKey(key, token);
+
+                    return MemcachedClientValueResult<T>.Unsuccessful(
+                        $"Undeserializable key {key} found. Assuming binary serializer change. Key deleted from memcached.");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
+        {
+            return MemcachedClientValueResult<T>.Cancelled(nameof(GetAndTouchAsync));
+        }
+        catch (Exception e)
+        {
+            return MemcachedClientValueResult<T>.Unsuccessful(
+                $"An exception happened during {nameof(GetAndTouchAsync)} execution.\nException details: {e}");
+        }
+    }
+    /// <inheritdoc />
     public async Task<MemcachedClientValueResult<IDictionary<string, T>>> MultiGetSafeAsync<T>(
         IEnumerable<string> keys,
         CancellationToken token,
