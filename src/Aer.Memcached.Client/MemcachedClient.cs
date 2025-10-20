@@ -414,7 +414,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         }
         catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
         {
-            return MemcachedClientValueResult<T>.Cancelled(nameof(GetAsync));
+            return MemcachedClientValueResult<T>.Cancelled(nameof(GetAndTouchAsync));
         }
         catch (Exception e)
         {
