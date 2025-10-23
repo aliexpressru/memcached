@@ -945,7 +945,30 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Should().BeEmpty();
     }
-    
+
+    [TestMethod]
+    public async Task Delete_NoKeysPresent()
+    {
+        var key = "Non-existent-key";
+        var deleteResult = await Client.DeleteAsync(key, CancellationToken.None);
+
+        deleteResult.Success.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task MultiDelete_SomeKeysNotPresent()
+    {
+        var key = "test";
+        var value = Fixture.Create<SimpleObject>();
+
+        await Client.StoreAsync(key, value, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+
+        var deleteResult = await Client.MultiDeleteAsync([key, "non-existent-key"], CancellationToken.None);
+        
+        deleteResult.Success.Should().BeTrue();
+        deleteResult.SyncSuccess.Should().BeFalse(); // Multi-node cache sync is off
+    }
+
     [TestMethod]
     public async Task Delete_Successful()
     {
