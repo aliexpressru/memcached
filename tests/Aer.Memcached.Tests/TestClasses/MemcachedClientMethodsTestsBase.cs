@@ -317,7 +317,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         var getValue = await Client.GetAsync<string>(key, CancellationToken.None);
 
-        getValue.Result.Should().BeNull(value);
+        getValue.Result.Should().Be(string.Empty);
         getValue.Success.Should().BeTrue();
         getValue.IsEmptyResult.Should().BeFalse();
     }
@@ -364,8 +364,36 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         foreach (var keyValue in keyValues)
         {
-            getValues[keyValue.Key].Should().BeNull();
+            getValues[keyValue.Key].Should().Be(string.Empty);
         }
+    }
+
+    [TestMethod]
+    public async Task StoreAndGet_DifferentiateBetweenNullAndEmptyString()
+    {
+        var keyForNull = Guid.NewGuid().ToString();
+        var keyForEmpty = Guid.NewGuid().ToString();
+        string nullValue = null;
+        string emptyValue = string.Empty;
+
+        // Store null
+        await Client.StoreAsync(keyForNull, nullValue, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+        
+        // Store string.Empty
+        await Client.StoreAsync(keyForEmpty, emptyValue, TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
+
+        // Get null value
+        var getNullValue = await Client.GetAsync<string>(keyForNull, CancellationToken.None);
+        getNullValue.Result.Should().BeNull();
+        getNullValue.Success.Should().BeTrue();
+        getNullValue.IsEmptyResult.Should().BeFalse();
+
+        // Get empty string value
+        var getEmptyValue = await Client.GetAsync<string>(keyForEmpty, CancellationToken.None);
+        getEmptyValue.Result.Should().Be(string.Empty);
+        getEmptyValue.Result.Should().NotBeNull();
+        getEmptyValue.Success.Should().BeTrue();
+        getEmptyValue.IsEmptyResult.Should().BeFalse();
     }
 
     [TestMethod]
@@ -532,6 +560,10 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGetBatched()
     {
+        // Flush memcached to avoid conflicts with data from other tests
+        // Also possible eviction problems
+        await Client.FlushAsync(CancellationToken.None);
+        
         var keyValues = new Dictionary<string, string>();
 
         foreach (var _ in Enumerable.Range(0, 10_000))

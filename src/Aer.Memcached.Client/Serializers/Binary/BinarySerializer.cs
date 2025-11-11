@@ -49,7 +49,8 @@ public class BinarySerializer
                 data = new ArraySegment<byte>(Array.Empty<byte>());
                 break;
             case TypeCode.String:
-                data = new ArraySegment<byte>(BinaryConverter.Encode(value.ToString()) ?? Array.Empty<byte>());
+                var encodedString = BinaryConverter.Encode((string)value);
+                data = new ArraySegment<byte>(encodedString ?? Array.Empty<byte>());
                 break;
             case TypeCode.Boolean:
                 data = new ArraySegment<byte>(BitConverter.GetBytes((bool) value));
@@ -107,31 +108,33 @@ public class BinarySerializer
     internal DeserializationResult<T> Deserialize<T>(
         CacheItemResult item)
     {
-        var data = item.Data;
-        if (data.IsEmpty)
+        var typeCode = (TypeCode) (item.Flags & TypeCodeDeserializationMask);
+        if (typeCode == TypeCode.Empty)
         {
+            // TypeCode.Empty means we explicitly stored a null value
+            // This is different from a missing key (which would return DeserializationResult<T>.Empty)
+            // We check item.Data to distinguish:
+            // - If Data has the "Not found" bytes, the key doesn't exist -> return Empty
+            // - Otherwise, it's an explicitly stored null value -> return null with IsEmpty = false
+            
+            // Check if this is a "Not found" response from memcached
+            // "Not found" is represented as: 0x4E, 0x6F, 0x74, 0x20, 0x66, 0x6F, 0x75, 0x6E, 0x64
+            var data = item.Data;
+            if (data.Length == 9 && 
+                data.Span[0] == 0x4E && data.Span[1] == 0x6F && data.Span[2] == 0x74 &&
+                data.Span[3] == 0x20 && data.Span[4] == 0x66 && data.Span[5] == 0x6F &&
+                data.Span[6] == 0x75 && data.Span[7] == 0x6E && data.Span[8] == 0x64)
+            {
+                // Key not found in cache
+                return DeserializationResult<T>.Empty;
+            }
+            
+            // Explicitly stored null value
             return new DeserializationResult<T>
             {
                 Result = default,
                 IsEmpty = false
             };
-        }
-
-        var typeCode = (TypeCode) (item.Flags & TypeCodeDeserializationMask);
-        if (typeCode == TypeCode.Empty)
-        {
-            // the flags value is set during item serialization
-            // it stores the cache item System.Runtime.TypeCode
-            // if it is not set -> Flags == 0 or Flags contain some unknown value 
-            // then the item is considered empty
-            // The Data property for such empty items though
-            // will contain ASCII bytes for "Not found" string
-            // 0x4E, 0x6F, 0x74, 0x20, 0x66, 0x6F, 0x75, 0x6E, 0x64
-            // we don't check them since typeCode absence already tells us that the item is empty
-            // it does, though impede using this library for reading existing
-            // memcached keys that were written not using this library
-            // since they may set Flags to some arbitrary value which we interpret 
-            return DeserializationResult<T>.Empty;
         }
 
         var type = typeof(T);
@@ -141,11 +144,7 @@ public class BinarySerializer
         {
             // deserialization for primitive types
             var value = DeserializePrimitive(item, typeCode);
-            if (value == null)
-            {
-                return default;
-            }
-
+            
             return new DeserializationResult<T>
             {
                 Result = (T) value,
@@ -176,7 +175,7 @@ public class BinarySerializer
         {
             TypeCode.Empty => null,
             TypeCode.DBNull => null,
-            TypeCode.String => DecodeData(data.Span),
+            TypeCode.String => DecodeStringData(data.Span),
             TypeCode.Boolean => BitConverter.ToBoolean(data.Span),
             TypeCode.Int16 => BitConverter.ToInt16(data.Span),
             TypeCode.Int32 => BitConverter.ToInt32(data.Span),
@@ -194,12 +193,11 @@ public class BinarySerializer
         };
     }
 
-    private static string DecodeData(ReadOnlySpan<byte> data)
+    private static string DecodeStringData(ReadOnlySpan<byte> data)
     {
-        if (data == null
-            || data.Length == 0)
+        if (data.Length == 0)
         {
-            return null;
+            return string.Empty;
         }
 
         return Encoding.UTF8.GetString(data);

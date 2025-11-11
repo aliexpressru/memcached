@@ -68,8 +68,13 @@ internal static class BinaryConverter
 
     public static byte[] Encode(string value)
     {
-        return string.IsNullOrEmpty(value)
-            ? null
+        if (value == null)
+        {
+            return null;
+        }
+        
+        return value.Length == 0
+            ? Array.Empty<byte>()
             : Encoding.UTF8.GetBytes(value);
     }
 }
