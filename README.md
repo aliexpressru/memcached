@@ -487,11 +487,9 @@ This library exposes the following memcached metrics
 
 #### Distributed Tracing
 
-Distributed tracing support using OpenTelemetry provides visibility into memcached operations across your system.
+OpenTelemetry distributed tracing provides visibility into memcached operations. Tracing is disabled by default.
 
-**Configuration:**
-
-Tracing is disabled by default. Enable it in `appsettings.json`:
+**Enable tracing in `appsettings.json`:**
 
 ```json
 {
@@ -503,13 +501,13 @@ Tracing is disabled by default. Enable it in `appsettings.json`:
 }
 ```
 
-**Setup:**
+**Configure OpenTelemetry exporter:**
 
 ```csharp
 builder.Services.AddMemcached(builder.Configuration);
 
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService("YourServiceName"))
+    .ConfigureResource(resource => resource.AddService("your-service-name"))
     .WithTracing(tracing =>
     {
         tracing
@@ -519,22 +517,12 @@ builder.Services.AddOpenTelemetry()
                 options.Endpoint = new Uri("http://localhost:4317");
             });
     });
-
-var app = builder.Build();
-app.EnableMemcachedDiagnostics(builder.Configuration);
 ```
 
 **Features:**
-
 - Follows OpenTelemetry semantic conventions for database operations
-- Automatic trace context propagation via W3C traceparent headers
-- Traces all memcached commands (Get, Set, Delete, etc.)
-- Replicated operation visibility
-- Zero overhead when disabled
-
-**Supported Backends:**
-
-Jaeger, Zipkin, Seq, Azure Application Insights, AWS X-Ray, Google Cloud Trace, and any OTLP-compatible collector.
+- Traces all memcached commands with operation name, server address, and replica information
+- Works with Jaeger, Zipkin, Azure Application Insights, AWS X-Ray, and other OTLP-compatible backends
 
 #### Disagnostic information
 

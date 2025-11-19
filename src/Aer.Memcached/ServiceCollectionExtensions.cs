@@ -74,14 +74,10 @@ public static class ServiceCollectionExtensions
 
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
         
-        // Register DiagnosticSource if diagnostics or tracing is enabled
-        if (!config.Diagnostics.DisableDiagnostics || config.Diagnostics.EnableTracing)
-        {
-            services.AddSingleton(MemcachedDiagnosticSource.Instance);
-        }
-        
         if (!config.Diagnostics.DisableDiagnostics)
         {
+            services.AddSingleton(MemcachedDiagnosticSource.Instance);
+            
             var metricFactory = Prometheus.Client.Metrics.DefaultFactory;
             var collectorRegistry = Prometheus.Client.Metrics.DefaultCollectorRegistry;
 
@@ -105,13 +101,10 @@ public static class ServiceCollectionExtensions
             var activitySourceName = typeof(ServiceCollectionExtensions).Assembly.GetName().Name!;
             services.AddOpenTelemetryTracing(activitySourceName);
             
-            // Register Tracer for Observer pattern (like Platform.Tracing)
+            // Register Tracer that will be injected into CommandExecutor
             var serviceName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name 
                               ?? activitySourceName;
             services.TryAddSingleton(TracerProvider.Default.GetTracer(serviceName));
-            
-            // Register Observer
-            services.AddSingleton<Diagnostics.Observers.MemcachedObserver>();
         }
 
         return services;
@@ -163,15 +156,10 @@ public static class ServiceCollectionExtensions
     {
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
 
-        // Get DiagnosticSource if diagnostics or tracing is enabled
-        DiagnosticListener diagnosticSource = null;
-        if (!config.Diagnostics.DisableDiagnostics || config.Diagnostics.EnableTracing)
-        {
-            diagnosticSource = applicationBuilder.ApplicationServices.GetRequiredService<MemcachedDiagnosticSource>();
-        }
-
         if (!config.Diagnostics.DisableDiagnostics)
         {
+            var diagnosticSource = applicationBuilder.ApplicationServices.GetRequiredService<MemcachedDiagnosticSource>();
+            
             var metricsListener =
                 applicationBuilder.ApplicationServices.GetRequiredService<MetricsMemcachedDiagnosticListener>();
 
@@ -180,14 +168,6 @@ public static class ServiceCollectionExtensions
 
             diagnosticSource.SubscribeWithAdapter(metricsListener);
             diagnosticSource.SubscribeWithAdapter(loggingListener);
-        }
-        
-        // Subscribe tracing observer independently from other diagnostics
-        if (config.Diagnostics.EnableTracing)
-        {
-            var tracingObserver = applicationBuilder.ApplicationServices
-                .GetRequiredService<Diagnostics.Observers.MemcachedObserver>();
-            diagnosticSource.SubscribeWithAdapter(tracingObserver);
         }
 
         return applicationBuilder;
