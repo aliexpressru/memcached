@@ -8,6 +8,7 @@ using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Helpers;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.ConnectionPool;
+using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Microsoft.Extensions.Logging;
@@ -148,11 +149,17 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         MemcachedCommandBase command,
         CancellationToken token)
     {
+        // Publish "before" event for tracing
+        PublishCommandExecuteBefore(command, replicatedNode.PrimaryNode, true, replicatedNode.ReplicaNodes.Count);
+
         try
         {
             if (!replicatedNode.HasReplicas)
             {
-                return await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
+                var result = await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
+                
+                PublishCommandExecuteAfter(command, result);
+                return result;
             }
 
             // we preserve initial command to return data through it.
@@ -198,13 +205,20 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             // we don't need to dispose the command, this call is here for symmetry or future changes purposes
             command.Dispose();
 
+            CommandExecutionResult finalResult;
+            
             if (successfulCommand is not null)
             {
-                return CommandExecutionResult.Successful(successfulCommand);
+                finalResult = CommandExecutionResult.Successful(successfulCommand);
+            }
+            else
+            {
+                // means no successful command found
+                finalResult = CommandExecutionResult.Unsuccessful(command, "All commands on all replica nodes failed");
             }
 
-            // means no successful command found
-            return CommandExecutionResult.Unsuccessful(command, "All commands on all replica nodes failed");
+            PublishCommandExecuteAfter(command, finalResult);
+            return finalResult;
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
         {
@@ -221,6 +235,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 replicatedNode.PrimaryNode.GetKey(),
                 replicatedNode.ReplicaNodes.Select(n => n.GetKey()));
 
+            PublishCommandExecuteError(command, e);
             return CommandExecutionResult.Unsuccessful(command, e.Message);
         }
     }
@@ -230,6 +245,9 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         MemcachedCommandBase command,
         CancellationToken token)
     {
+        // Publish "before" event for tracing
+        PublishCommandExecuteBefore(command, node, false, 0);
+
         try
         {
             using var socket = await GetSocketAsync(node, isAuthenticateSocketIfRequired: true, token);
@@ -256,9 +274,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
 
             var readResult = command.ReadResponse(socket);
 
-            return readResult.Success
+            var result = readResult.Success
                 ? CommandExecutionResult.Successful(command)
                 : CommandExecutionResult.Unsuccessful(command, readResult.Message);
+
+            PublishCommandExecuteAfter(command, result);
+            return result;
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
         {
@@ -274,6 +295,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 command.ToString(),
                 node.GetKey());
 
+            PublishCommandExecuteError(command, e);
             return CommandExecutionResult.Unsuccessful(command, e.Message);
         }
     }
@@ -349,5 +371,49 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         }
 
         pooledSocket.Authenticated = true;
+    }
+
+    private static void PublishCommandExecuteBefore(MemcachedCommandBase command, INode node, bool isReplicated, int replicaCount)
+    {
+        if (MemcachedDiagnosticSource.Instance.IsEnabled(MemcachedDiagnosticSource.CommandExecuteBeforeDiagnosticName))
+        {
+            MemcachedDiagnosticSource.Instance.Write(
+                MemcachedDiagnosticSource.CommandExecuteBeforeDiagnosticName,
+                new
+                {
+                    command,
+                    node,
+                    isReplicated,
+                    replicaCount
+                });
+        }
+    }
+
+    private static void PublishCommandExecuteAfter(MemcachedCommandBase command, CommandExecutionResult result)
+    {
+        if (MemcachedDiagnosticSource.Instance.IsEnabled(MemcachedDiagnosticSource.CommandExecuteAfterDiagnosticName))
+        {
+            MemcachedDiagnosticSource.Instance.Write(
+                MemcachedDiagnosticSource.CommandExecuteAfterDiagnosticName,
+                new
+                {
+                    command,
+                    result
+                });
+        }
+    }
+
+    private static void PublishCommandExecuteError(MemcachedCommandBase command, Exception exception)
+    {
+        if (MemcachedDiagnosticSource.Instance.IsEnabled(MemcachedDiagnosticSource.CommandExecuteErrorDiagnosticName))
+        {
+            MemcachedDiagnosticSource.Instance.Write(
+                MemcachedDiagnosticSource.CommandExecuteErrorDiagnosticName,
+                new
+                {
+                    command,
+                    exception
+                });
+        }
     }
 }
