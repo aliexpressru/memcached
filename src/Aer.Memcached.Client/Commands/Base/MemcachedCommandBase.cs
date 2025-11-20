@@ -25,11 +25,6 @@ public abstract class MemcachedCommandBase : IDisposable
     internal OpCode OpCode { get; }
 
     /// <summary>
-    /// Unique identifier for this command operation, used for diagnostics and tracing.
-    /// </summary>
-    internal Guid OperationId { get; } = Guid.NewGuid();
-
-    /// <summary>
     /// Indicates, whether this command has a non-null result.
     /// </summary>
     internal virtual bool HasResult =>
