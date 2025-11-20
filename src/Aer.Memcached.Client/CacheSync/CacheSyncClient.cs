@@ -1,6 +1,7 @@
 using System.Net.Mime;
 using System.Text;
 using Aer.Memcached.Client.Config;
+using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Extensions;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
+using OpenTelemetry.Trace;
 using Polly;
 using Polly.Retry;
 
@@ -29,16 +31,19 @@ internal class CacheSyncClient: ICacheSyncClient
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly MemcachedConfiguration _config;
     private readonly ILogger<CacheSyncClient> _logger;
+    private readonly Tracer _tracer;
     private readonly RetryPolicy _retryPolicy;
 
     public CacheSyncClient(
         IHttpClientFactory httpClientFactory, 
         IOptions<MemcachedConfiguration> config,
-        ILogger<CacheSyncClient> logger)
+        ILogger<CacheSyncClient> logger,
+        Tracer tracer = null)
     {
         _httpClientFactory = httpClientFactory;
         _config = config.Value;
         _logger = logger;
+        _tracer = tracer;
 
         _retryPolicy = Policy.Handle<Exception>()
             .Retry(_config.SyncSettings?.RetryCount ?? 3);
@@ -50,6 +55,12 @@ internal class CacheSyncClient: ICacheSyncClient
         CacheSyncModel data, 
         CancellationToken token)
     {
+        using var tracingScope = MemcachedTracing.CreateCacheSyncScope(
+            _tracer,
+            "cache.sync",
+            syncServer.Address,
+            data?.KeyValues?.Count);
+
         try
         {
             var content = new StringContent(
@@ -61,11 +72,14 @@ internal class CacheSyncClient: ICacheSyncClient
             var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<byte>());
 
             await RequestAsync(content, endpointUri, token);
+            
+            tracingScope?.SetResult(true);
         }
         catch (Exception e)
         {
             _logger.LogError(e, "Unable to sync data to {SyncServerAddress}. Check configured sync server URL and Startup class configuration", syncServer.Address);
 
+            tracingScope?.SetError(e);
             throw;
         }
     }
@@ -76,10 +90,17 @@ internal class CacheSyncClient: ICacheSyncClient
         IEnumerable<string> keys, 
         CancellationToken token)
     {
+        var keysList = keys?.ToList();
+        using var tracingScope = MemcachedTracing.CreateCacheSyncScope(
+            _tracer,
+            "cache.delete",
+            syncServer.Address,
+            keysList?.Count);
+
         try
         {
             var content = new StringContent(
-                JsonConvert.SerializeObject(keys, JsonSettings),
+                JsonConvert.SerializeObject(keysList, JsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
             
@@ -87,11 +108,14 @@ internal class CacheSyncClient: ICacheSyncClient
             var endpointUri = new Uri(baseUri, _config.SyncSettings.DeleteEndpoint);
 
             await RequestAsync(content, endpointUri, token);
+            
+            tracingScope?.SetResult(true);
         }
         catch (Exception e)
         {
             _logger.LogError(e, "Unable to delete data on {SyncServerAddress}", syncServer.Address);
 
+            tracingScope?.SetError(e);
             throw;
         }
     }

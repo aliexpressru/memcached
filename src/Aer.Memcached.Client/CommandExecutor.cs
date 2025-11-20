@@ -167,7 +167,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 var result = await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
                 
-                tracingScope?.SetResult(result);
+                tracingScope?.SetResult(result.Success, result.ErrorMessage);
                 return result;
             }
 
@@ -226,7 +226,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 finalResult = CommandExecutionResult.Unsuccessful(command, "All commands on all replica nodes failed");
             }
 
-            tracingScope?.SetResult(finalResult);
+            tracingScope?.SetResult(finalResult.Success, finalResult.ErrorMessage);
             return finalResult;
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
@@ -263,7 +263,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             if (socket == null)
             {
                 var failureResult = CommandExecutionResult.Unsuccessful(command, "Socket not found");
-                tracingScope?.SetResult(failureResult);
+                tracingScope?.SetResult(false, "Socket not found");
                 return failureResult;
             }
 
@@ -279,8 +279,9 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 _logger.LogError("Write to socket {SocketAddress} timed out", socket.EndPointAddressString);
 
-                var timeoutResult = CommandExecutionResult.Unsuccessful(command, $"Write to socket {socket.EndPointAddressString} timed out");
-                tracingScope?.SetResult(timeoutResult);
+                var errorMessage = $"Write to socket {socket.EndPointAddressString} timed out";
+                var timeoutResult = CommandExecutionResult.Unsuccessful(command, errorMessage);
+                tracingScope?.SetResult(false, errorMessage);
                 return timeoutResult;
             }
 
@@ -290,7 +291,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 ? CommandExecutionResult.Successful(command)
                 : CommandExecutionResult.Unsuccessful(command, readResult.Message);
 
-            tracingScope?.SetResult(result);
+            tracingScope?.SetResult(result.Success, result.ErrorMessage);
             return result;
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
@@ -320,8 +321,8 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         var socketPool = _socketPools.GetOrAdd(
             node,
             valueFactory: static (n, args) =>
-                new SocketPool(n.GetEndpoint(), args.Config.SocketPool, args.Logger),
-            factoryArgument: (Config: _config, Logger: _logger)
+                new SocketPool(n.GetEndpoint(), args.Config.SocketPool, args.Logger, args.Tracer),
+            factoryArgument: (Config: _config, Logger: _logger, Tracer: _tracer)
         );
 
         if (socketPool.IsEndPointBroken)

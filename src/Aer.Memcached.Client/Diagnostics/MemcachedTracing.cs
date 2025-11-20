@@ -19,12 +19,16 @@ internal static class MemcachedTracing
     private const string ServerAddressAttribute = "server.address";
     private const string MemcachedNodeIsReplicatedAttribute = "memcached.node.is_replicated";
     private const string MemcachedReplicaCountAttribute = "memcached.replica.count";
+    private const string SocketPoolMaxSizeAttribute = "memcached.socket_pool.max_size";
+    private const string SocketPoolUsedCountAttribute = "memcached.socket_pool.used_count";
+    private const string CacheSyncServerAttribute = "memcached.cache_sync.server";
+    private const string CacheSyncKeysCountAttribute = "memcached.cache_sync.keys_count";
 
     /// <summary>
     /// Creates a tracing scope for a memcached command.
     /// Returns null if tracing is not enabled.
     /// </summary>
-    public static CommandTracingScope CreateCommandScope(
+    public static TracingScope CreateCommandScope(
         Tracer tracer,
         MemcachedCommandBase command,
         INode node,
@@ -58,11 +62,93 @@ internal static class MemcachedTracing
                 span.SetAttribute(MemcachedReplicaCountAttribute, replicaCount);
             }
 
-            return new CommandTracingScope(span);
+            return new TracingScope(span);
         }
         catch (ObjectDisposedException)
         {
             // Activity source might be disposed if request is already completed
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates a tracing scope for socket pool operations.
+    /// Returns null if tracing is not enabled.
+    /// </summary>
+    public static TracingScope CreateSocketOperationScope(
+        Tracer tracer,
+        string operationName,
+        string serverAddress,
+        int? maxPoolSize = null,
+        int? usedCount = null)
+    {
+        if (tracer == null || Activity.Current == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var span = tracer.StartActiveSpan(
+                    $"{SpanNamePrefix}{operationName}",
+                    SpanKind.Client,
+                    Tracer.CurrentSpan)
+                .SetAttribute(DbSystemAttribute, DbSystemValue)
+                .SetAttribute(DbOperationNameAttribute, operationName)
+                .SetAttribute(ServerAddressAttribute, serverAddress);
+
+            if (maxPoolSize.HasValue)
+            {
+                span.SetAttribute(SocketPoolMaxSizeAttribute, maxPoolSize.Value);
+            }
+
+            if (usedCount.HasValue)
+            {
+                span.SetAttribute(SocketPoolUsedCountAttribute, usedCount.Value);
+            }
+
+            return new TracingScope(span);
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates a tracing scope for cache synchronization operations.
+    /// Returns null if tracing is not enabled.
+    /// </summary>
+    public static TracingScope CreateCacheSyncScope(
+        Tracer tracer,
+        string operationName,
+        string syncServer,
+        int? keysCount = null)
+    {
+        if (tracer == null || Activity.Current == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var span = tracer.StartActiveSpan(
+                    $"{SpanNamePrefix}{operationName}",
+                    SpanKind.Client,
+                    Tracer.CurrentSpan)
+                .SetAttribute(DbSystemAttribute, DbSystemValue)
+                .SetAttribute(DbOperationNameAttribute, operationName)
+                .SetAttribute(CacheSyncServerAttribute, syncServer);
+
+            if (keysCount.HasValue)
+            {
+                span.SetAttribute(CacheSyncKeysCountAttribute, keysCount.Value);
+            }
+
+            return new TracingScope(span);
+        }
+        catch (ObjectDisposedException)
+        {
             return null;
         }
     }

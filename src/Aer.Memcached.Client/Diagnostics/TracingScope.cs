@@ -1,34 +1,35 @@
-using Aer.Memcached.Client.Models;
 using OpenTelemetry.Trace;
 
 namespace Aer.Memcached.Client.Diagnostics;
 
 /// <summary>
-/// Disposable scope that manages the lifecycle of a tracing span for a memcached command.
+/// Disposable scope that manages the lifecycle of a tracing span.
 /// </summary>
-internal sealed class CommandTracingScope : IDisposable
+internal sealed class TracingScope : IDisposable
 {
     private readonly TelemetrySpan _span;
     private bool _disposed;
 
-    internal CommandTracingScope(TelemetrySpan span)
+    internal TracingScope(TelemetrySpan span)
     {
         _span = span ?? throw new ArgumentNullException(nameof(span));
     }
 
     /// <summary>
-    /// Sets the result status on the span based on command execution result.
+    /// Sets the result status on the span.
     /// </summary>
-    public void SetResult(CommandExecutionResult result)
+    /// <param name="success">Whether the operation was successful.</param>
+    /// <param name="errorMessage">Optional error message if operation failed.</param>
+    public void SetResult(bool success, string errorMessage = null)
     {
         if (_disposed)
         {
             return;
         }
 
-        if (!result.Success)
+        if (!success)
         {
-            _span.SetStatus(Status.Error.WithDescription(result.ErrorMessage ?? "Command failed"));
+            _span.SetStatus(Status.Error.WithDescription(errorMessage ?? "Operation failed"));
         }
     }
 
