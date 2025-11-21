@@ -222,11 +222,16 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     /// <param name="timerState">Timer state. Not used.</param>
     private void CheckNodesHealth(object timerState)
     {
+        var totalStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        
         try
         {
             var currentNodes = _nodeProvider.GetNodes();
 
             // recheck nodes considered dead
+            
+            int deadNodesCheckedCount = 0;
+            var recheckDeadNodesStopwatch = System.Diagnostics.Stopwatch.StartNew();
             
             try
             {
@@ -234,6 +239,8 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
 
                 if (!_deadNodes.IsEmpty)
                 {
+                    deadNodesCheckedCount = _deadNodes.Count;
+                    
                     // check dead nodes and allocate checker action block only if dead nodes detected 
                     var recheckDeadNodesActionBlock = new ActionBlock<TNode>(
                         async node =>
@@ -250,7 +257,9 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                         },
                         new ExecutionDataflowBlockOptions
                         {
-                            MaxDegreeOfParallelism = Environment.ProcessorCount
+                            MaxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism == -1 
+                                ? Environment.ProcessorCount 
+                                : _config.MemcachedMaintainer.MaxDegreeOfParallelism
                         });
 
                     // Takes node from bag and returns it back if it is still dead
@@ -266,6 +275,16 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             finally
             {
                 _locker.ExitWriteLock();
+            }
+            
+            recheckDeadNodesStopwatch.Stop();
+            
+            if (deadNodesCheckedCount > 0)
+            {
+                _logger.LogInformation(
+                    "Dead nodes recheck completed in {ElapsedMilliseconds}ms for {NodeCount} nodes", 
+                    recheckDeadNodesStopwatch.ElapsedMilliseconds, 
+                    deadNodesCheckedCount);
             }
 
             // check nodes in locator
@@ -285,7 +304,37 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 _locker.ExitReadLock();
             }
             
-            Task.WhenAll(nodesInLocator.Select(CheckNode)).GetAwaiter().GetResult();
+            var checkNodesStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            
+            var checkNodesActionBlock = new ActionBlock<TNode>(
+                async node =>
+                {
+                    if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
+                    {
+                        _deadNodes.Add(node);
+                    }
+                },
+                new ExecutionDataflowBlockOptions
+                {
+                    MaxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism == -1 
+                        ? Environment.ProcessorCount 
+                        : _config.MemcachedMaintainer.MaxDegreeOfParallelism
+                });
+
+            foreach (var node in nodesInLocator)
+            {
+                checkNodesActionBlock.Post(node);
+            }
+
+            checkNodesActionBlock.Complete();
+            checkNodesActionBlock.Completion.GetAwaiter().GetResult();
+            
+            checkNodesStopwatch.Stop();
+            
+            _logger.LogInformation(
+                "Nodes in locator health check completed in {ElapsedMilliseconds}ms for {NodeCount} nodes", 
+                checkNodesStopwatch.ElapsedMilliseconds, 
+                nodesInLocator.Length);
 
             if (!_deadNodes.IsEmpty)
             {
@@ -293,10 +342,20 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 
                 _nodeLocator.RemoveNodes(_deadNodes);                
             }
+            
+            totalStopwatch.Stop();
+            
+            _logger.LogInformation(
+                "Total health check completed in {ElapsedMilliseconds}ms", 
+                totalStopwatch.ElapsedMilliseconds);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error occured while checking nodes health");
+            totalStopwatch.Stop();
+            
+            _logger.LogError(e, 
+                "Error occured while checking nodes health. Total time before error: {ElapsedMilliseconds}ms",
+                totalStopwatch.ElapsedMilliseconds);
         }
     }
 
@@ -314,14 +373,5 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     {
         _nodeRebuildingTimer?.Dispose();
         _nodeHealthCheckTimer?.Dispose();
-    }
-
-    private async Task CheckNode(TNode node)
-    {
-        // pass no cancellation token since the caller method is synchronous 
-        if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
-        {
-            _deadNodes.Add(node);
-        }
     }
 }

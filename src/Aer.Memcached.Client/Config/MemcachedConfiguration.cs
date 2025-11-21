@@ -232,12 +232,19 @@ public class MemcachedConfiguration
         /// If node is not responded during <see cref="SocketPoolConfiguration.ConnectionTimeout"/> it is marked as dead
         /// and will be deleted from node locator until it is responsive again.
         /// </summary>
-        public TimeSpan? NodesHealthCheckPeriod { get; set; } = TimeSpan.FromSeconds(15);
+        public TimeSpan? NodesHealthCheckPeriod { get; set; } = TimeSpan.FromSeconds(60);
 
         /// <summary>
         /// Enables health check of nodes to remove dead nodes.
         /// </summary>
         public bool NodeHealthCheckEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Maximum degree of parallelism for node health checks.
+        /// Set to -1 to use <see cref="Environment.ProcessorCount"/>.
+        /// Default value is -1.
+        /// </summary>
+        public int MaxDegreeOfParallelism { get; set; } = -1;
 
         /// <summary>
         /// Number of memcached maintainer cycles to close <see cref="NumberOfSocketsToClosePerPool"/> socket connections after.
@@ -262,11 +269,12 @@ public class MemcachedConfiguration
             return new MaintainerConfiguration
             {
                 NodesRebuildingPeriod = TimeSpan.FromSeconds(15),
-                NodesHealthCheckPeriod = TimeSpan.FromSeconds(15),
+                NodesHealthCheckPeriod = TimeSpan.FromSeconds(60),
                 NodeHealthCheckEnabled = true,
                 MaintainerCyclesToCloseSocketAfter = 0,
                 UseSocketPoolForNodeHealthChecks = false,
-                NumberOfSocketsToClosePerPool = 1
+                NumberOfSocketsToClosePerPool = 1,
+                MaxDegreeOfParallelism = -1
             };
         }
     }
