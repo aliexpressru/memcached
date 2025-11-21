@@ -88,27 +88,6 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     }
 
     /// <summary>
-    /// Runs node health check and locator node rebuild tasks once, circumventing internal timers.
-    /// </summary>
-    /// <remarks>Primarily used in unit tests to remove time dependency.</remarks>
-    internal void RunOnce()
-    {
-        if (!_nodeProvider.IsConfigured())
-        {
-            _logger.LogWarning("Memcached is not configured. No maintenance will be performed");
-
-            return;
-        }
-
-        if (_config.MemcachedMaintainer.NodeHealthCheckEnabled)
-        {
-            CheckNodesHealth(null);
-        }
-        
-        RebuildNodes(null);
-    }
-
-    /// <summary>
     /// Runs one cycle of maintenance synchronously for testing purposes.
     /// Waits for async operations to complete.
     /// </summary>
