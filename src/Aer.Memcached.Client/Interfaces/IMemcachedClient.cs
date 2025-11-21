@@ -77,12 +77,14 @@ public interface IMemcachedClient
 	/// <param name="expirationTime">Expiration time.</param>
 	/// <param name="token">Cancellation token.</param>
 	/// <param name="expirationMap">Individual key expirations that will be used instead expirationTime if provided.</param>
+	/// <param name="batchingOptions">Batching options for splitting key-values into batches.</param>
 	Task<MemcachedClientResult> MultiStoreSynchronizeDataAsync(
 		IDictionary<string, byte[]> keyValues,
 		uint flags,
 		DateTimeOffset? expirationTime,
 		CancellationToken token,
-		IDictionary<string, DateTimeOffset?> expirationMap = null);
+		IDictionary<string, DateTimeOffset?> expirationMap = null,
+		BatchingOptions batchingOptions = null);
 
 	/// <summary>
 	/// Gets one value by key.
