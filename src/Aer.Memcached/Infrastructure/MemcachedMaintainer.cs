@@ -223,6 +223,9 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     private void CheckNodesHealth(object timerState)
     {
         var totalStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var maxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism == -1
+            ? Environment.ProcessorCount
+            : _config.MemcachedMaintainer.MaxDegreeOfParallelism;
         
         try
         {
@@ -257,9 +260,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                         },
                         new ExecutionDataflowBlockOptions
                         {
-                            MaxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism == -1 
-                                ? Environment.ProcessorCount 
-                                : _config.MemcachedMaintainer.MaxDegreeOfParallelism
+                            MaxDegreeOfParallelism = maxDegreeOfParallelism
                         });
 
                     // Takes node from bag and returns it back if it is still dead
@@ -316,9 +317,7 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
                 },
                 new ExecutionDataflowBlockOptions
                 {
-                    MaxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism == -1 
-                        ? Environment.ProcessorCount 
-                        : _config.MemcachedMaintainer.MaxDegreeOfParallelism
+                    MaxDegreeOfParallelism = maxDegreeOfParallelism
                 });
 
             foreach (var node in nodesInLocator)
