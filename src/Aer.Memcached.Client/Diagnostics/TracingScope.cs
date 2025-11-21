@@ -27,10 +27,7 @@ internal sealed class TracingScope : IDisposable
             return;
         }
 
-        if (!success)
-        {
-            _span.SetStatus(Status.Error.WithDescription(errorMessage ?? "Operation failed"));
-        }
+        _span.SetStatus(success ? Status.Ok : Status.Error.WithDescription(errorMessage ?? "Operation failed"));
     }
 
     /// <summary>
@@ -61,4 +58,3 @@ internal sealed class TracingScope : IDisposable
         _disposed = true;
     }
 }
-
