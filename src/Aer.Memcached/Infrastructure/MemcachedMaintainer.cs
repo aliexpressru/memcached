@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Threading.Tasks.Dataflow;
 using Aer.ConsistentHash.Abstractions;
 using Aer.ConsistentHash.Infrastructure;
 using Aer.Memcached.Abstractions;
@@ -22,10 +21,12 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     private readonly MemcachedConfiguration _config;
     private readonly ILogger<MemcachedMaintainer<TNode>> _logger;
 
-    private readonly ReaderWriterLockSlim _locker;
+    private readonly SemaphoreSlim _locker;
     private readonly ConcurrentBag<TNode> _deadNodes;
 
     private int _maintainerCyclesToCloseSocketAfterLeft;
+    private int _isCheckingNodesHealth; // 0 = not running, 1 = running
+    private readonly int _maxDegreeOfParallelism;
 
     private Timer _nodeRebuildingTimer;
     private Timer _nodeHealthCheckTimer;
@@ -45,9 +46,12 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
         _config = config.Value;
         _logger = logger;
 
-        _locker = new ReaderWriterLockSlim();
+        _locker = new SemaphoreSlim(1, 1);
         _deadNodes = new ConcurrentBag<TNode>();
         _maintainerCyclesToCloseSocketAfterLeft = _config.MemcachedMaintainer.MaintainerCyclesToCloseSocketAfter;
+        _maxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism == -1
+            ? Environment.ProcessorCount
+            : _config.MemcachedMaintainer.MaxDegreeOfParallelism;
     }
 
     public Task StartAsync(CancellationToken stoppingToken)
@@ -105,6 +109,27 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     }
 
     /// <summary>
+    /// Runs one cycle of maintenance synchronously for testing purposes.
+    /// Waits for async operations to complete.
+    /// </summary>
+    internal async Task RunOnceAsync()
+    {
+        if (!_nodeProvider.IsConfigured())
+        {
+            _logger.LogWarning("Memcached is not configured. No maintenance will be performed");
+
+            return;
+        }
+
+        if (_config.MemcachedMaintainer.NodeHealthCheckEnabled)
+        {
+            await CheckNodesHealthAsync();
+        }
+        
+        RebuildNodes(null);
+    }
+
+    /// <summary>
     /// Rebuilds the nodes in node locator using freshly discovered and statically configured nodes. 
     /// </summary>
     /// <param name="timerState">Timer state. Not used.</param>
@@ -116,18 +141,19 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             var nodesInLocator = _nodeLocator.GetAllNodes();
             var deadNodesInLocator = _nodeLocator.DrainDeadNodes();
 
+            // Lock to prevent race condition with CheckNodesHealthAsync
+            // which may TryTake nodes while we're reading
+            _locker.Wait();
             try
             {
-                _locker.EnterReadLock();
-                
-                // remove globally discovered dead nodes as well as nodes considered dead in locator
+                // Remove globally discovered dead nodes as well as nodes considered dead in locator
                 currentNodes = currentNodes
                     .Except(_deadNodes.Concat(deadNodesInLocator), NodeEqualityComparer<TNode>.Instance)
                     .ToArray();
             }
             finally
             {
-                _locker.ExitReadLock();
+                _locker.Release();
             }
 
             // add currently discovered nodes except the ones that are already added
@@ -217,130 +243,39 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     }
 
     /// <summary>
-    /// Checks the freshly discovered and statically configured nodes health. 
+    /// Timer callback wrapper for health check. Starts async health check without blocking.
     /// </summary>
     /// <param name="timerState">Timer state. Not used.</param>
     private void CheckNodesHealth(object timerState)
     {
+        // Fire-and-forget pattern for Timer callback
+        // The async method handles its own error handling and completion tracking
+        _ = CheckNodesHealthAsync();
+    }
+
+    /// <summary>
+    /// Checks the freshly discovered and statically configured nodes health. 
+    /// </summary>
+    private async Task CheckNodesHealthAsync()
+    {
+        // Prevent overlapping executions - if already running, skip this cycle
+        if (Interlocked.CompareExchange(ref _isCheckingNodesHealth, 1, 0) != 0)
+        {
+            _logger.LogWarning("Skipping node health check - previous check is still running");
+            return;
+        }
+        
         var totalStopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var maxDegreeOfParallelism = _config.MemcachedMaintainer.MaxDegreeOfParallelism == -1
-            ? Environment.ProcessorCount
-            : _config.MemcachedMaintainer.MaxDegreeOfParallelism;
         
         try
         {
             var currentNodes = _nodeProvider.GetNodes();
 
-            // recheck nodes considered dead
-            
-            int deadNodesCheckedCount = 0;
-            var recheckDeadNodesStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            
-            try
-            {
-                _locker.EnterWriteLock();
+            // Recheck nodes considered dead
+            await RecheckDeadNodesAsync(currentNodes);
 
-                if (!_deadNodes.IsEmpty)
-                {
-                    deadNodesCheckedCount = _deadNodes.Count;
-                    
-                    // check dead nodes and allocate checker action block only if dead nodes detected 
-                    var recheckDeadNodesActionBlock = new ActionBlock<TNode>(
-                        async node =>
-                        {
-                            if (!currentNodes.Contains(node, NodeEqualityComparer<TNode>.Instance))
-                            {
-                                return;
-                            }
-
-                            if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
-                            {
-                                _deadNodes.Add(node);
-                            }
-                        },
-                        new ExecutionDataflowBlockOptions
-                        {
-                            MaxDegreeOfParallelism = maxDegreeOfParallelism
-                        });
-
-                    // Takes node from bag and returns it back if it is still dead
-                    while (_deadNodes.TryTake(out var node))
-                    {
-                        recheckDeadNodesActionBlock.Post(node);
-                    }
-
-                    recheckDeadNodesActionBlock.Complete();
-                    recheckDeadNodesActionBlock.Completion.GetAwaiter().GetResult();
-                }
-            }
-            finally
-            {
-                _locker.ExitWriteLock();
-            }
-            
-            recheckDeadNodesStopwatch.Stop();
-            
-            if (deadNodesCheckedCount > 0)
-            {
-                _logger.LogInformation(
-                    "Dead nodes recheck completed in {ElapsedMilliseconds}ms for {NodeCount} nodes", 
-                    recheckDeadNodesStopwatch.ElapsedMilliseconds, 
-                    deadNodesCheckedCount);
-            }
-
-            // check nodes in locator
-            
-            var nodesInLocator = _nodeLocator.GetAllNodes();
-
-            try
-            {
-                _locker.EnterReadLock();
-                
-                nodesInLocator = nodesInLocator
-                    .Except(_deadNodes, NodeEqualityComparer<TNode>.Instance)
-                    .ToArray();
-            }
-            finally
-            {
-                _locker.ExitReadLock();
-            }
-            
-            var checkNodesStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            
-            var checkNodesActionBlock = new ActionBlock<TNode>(
-                async node =>
-                {
-                    if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
-                    {
-                        _deadNodes.Add(node);
-                    }
-                },
-                new ExecutionDataflowBlockOptions
-                {
-                    MaxDegreeOfParallelism = maxDegreeOfParallelism
-                });
-
-            foreach (var node in nodesInLocator)
-            {
-                checkNodesActionBlock.Post(node);
-            }
-
-            checkNodesActionBlock.Complete();
-            checkNodesActionBlock.Completion.GetAwaiter().GetResult();
-            
-            checkNodesStopwatch.Stop();
-            
-            _logger.LogInformation(
-                "Nodes in locator health check completed in {ElapsedMilliseconds}ms for {NodeCount} nodes", 
-                checkNodesStopwatch.ElapsedMilliseconds, 
-                nodesInLocator.Length);
-
-            if (!_deadNodes.IsEmpty)
-            {
-                _logger.LogInformation("Dead nodes: [{DeadNodes}]", _deadNodes.Select(n => n.GetKey()));
-                
-                _nodeLocator.RemoveNodes(_deadNodes);                
-            }
+            // Check nodes in locator
+            await CheckNodesInLocatorAsync();
             
             totalStopwatch.Stop();
             
@@ -355,6 +290,126 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
             _logger.LogError(e, 
                 "Error occured while checking nodes health. Total time before error: {ElapsedMilliseconds}ms",
                 totalStopwatch.ElapsedMilliseconds);
+        }
+        finally
+        {
+            // Reset the flag to allow next execution
+            Interlocked.Exchange(ref _isCheckingNodesHealth, 0);
+        }
+    }
+
+    /// <summary>
+    /// Rechecks nodes that were previously marked as dead.
+    /// </summary>
+    private async Task RecheckDeadNodesAsync(ICollection<TNode> currentNodes)
+    {
+        if (_deadNodes.IsEmpty)
+        {
+            return;
+        }
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        
+        // Lock to atomically extract all dead nodes
+        // Prevents race with RebuildNodes reading _deadNodes
+        await _locker.WaitAsync();
+        var nodesToRecheck = new List<TNode>();
+        try
+        {
+            while (_deadNodes.TryTake(out var node))
+            {
+                nodesToRecheck.Add(node);
+            }
+        }
+        finally
+        {
+            _locker.Release();
+        }
+        
+        var deadNodesCount = nodesToRecheck.Count;
+        
+        if (deadNodesCount == 0)
+        {
+            return;
+        }
+
+        // Execute with controlled parallelism (no lock needed - ConcurrentBag.Add is thread-safe)
+        await Parallel.ForEachAsync(
+            nodesToRecheck,
+            new ParallelOptions { MaxDegreeOfParallelism = _maxDegreeOfParallelism },
+            async (node, _) =>
+            {
+                if (!currentNodes.Contains(node, NodeEqualityComparer<TNode>.Instance))
+                {
+                    return;
+                }
+
+                if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
+                {
+                    _deadNodes.Add(node); // ConcurrentBag.Add is thread-safe
+                }
+            });
+        
+        stopwatch.Stop();
+        
+        _logger.LogInformation(
+            "Dead nodes recheck completed in {ElapsedMilliseconds}ms for {NodeCount} nodes", 
+            stopwatch.ElapsedMilliseconds, 
+            deadNodesCount);
+    }
+
+    /// <summary>
+    /// Checks health of all nodes currently in locator.
+    /// </summary>
+    private async Task CheckNodesInLocatorAsync()
+    {
+        var nodesInLocator = _nodeLocator.GetAllNodes();
+
+        // Lock to get consistent snapshot of _deadNodes
+        // Prevents race with RebuildNodes and RecheckDeadNodesAsync
+        await _locker.WaitAsync();
+        try
+        {
+            nodesInLocator = nodesInLocator
+                .Except(_deadNodes, NodeEqualityComparer<TNode>.Instance)
+                .ToArray();
+        }
+        finally
+        {
+            _locker.Release();
+        }
+        
+        if (nodesInLocator.Length == 0)
+        {
+            return;
+        }
+        
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        
+        // Execute with controlled parallelism
+        await Parallel.ForEachAsync(
+            nodesInLocator,
+            new ParallelOptions { MaxDegreeOfParallelism = _maxDegreeOfParallelism },
+            async (node, _) =>
+            {
+                if (await _nodeHealthChecker.CheckNodeIsDeadAsync(node))
+                {
+                    _deadNodes.Add(node);
+                }
+            });
+        
+        stopwatch.Stop();
+        
+        _logger.LogInformation(
+            "Nodes in locator health check completed in {ElapsedMilliseconds}ms for {NodeCount} nodes", 
+            stopwatch.ElapsedMilliseconds, 
+            nodesInLocator.Length);
+
+        if (!_deadNodes.IsEmpty)
+        {
+            _logger.LogInformation("Dead nodes: [{DeadNodes}]", _deadNodes.Select(n => n.GetKey()));
+            
+            _nodeLocator.RemoveNodes(_deadNodes);                
         }
     }
 
@@ -372,5 +427,6 @@ internal class MemcachedMaintainer<TNode> : IHostedService, IDisposable where TN
     {
         _nodeRebuildingTimer?.Dispose();
         _nodeHealthCheckTimer?.Dispose();
+        _locker?.Dispose();
     }
 }
