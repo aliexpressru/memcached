@@ -94,7 +94,10 @@ internal sealed class HttpServerFixture<T> : WebApplicationFactory<T> where T : 
 
     private void EnsureServer()
     {
-        // This forces WebApplicationFactory to bootstrap the server
-        using var _ = CreateDefaultClient();
+        if (_host == null)
+        {
+            // This forces WebApplicationFactory to bootstrap the server
+            using var _ = CreateDefaultClient();
+        }
     }
 }
