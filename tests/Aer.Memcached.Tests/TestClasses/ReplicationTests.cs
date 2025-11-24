@@ -14,35 +14,38 @@ public class ReplicationTests : MemcachedClientTestsBase
 		BatchSize = 2
 	};
 
-	private readonly Dictionary<string, string> _testItems = new()
+	/// <summary>
+	/// Generates unique test items for each test invocation to avoid conflicts between parallel tests
+	/// </summary>
+	private static Dictionary<string, string> GenerateTestItems()
 	{
-		["test_key_1"] = "test value 1",
-		["test_key_2"] = "test value 2",
-		["test_key_3"] = "test value 3",
-		["test_key_4"] = "test value 4",
-		["test_key_5"] = "test value 5",
-		["test_key_6"] = "test value 6",
-		["test_key_7"] = "test value 7",
-		["test_key_8"] = "test value 8",
-		["test_key_9"] = "test value 9",
-		["test_key_10"] = "test value 10",
-	};
+		var guid = Guid.NewGuid().ToString("N");
+		return new Dictionary<string, string>
+		{
+			[$"{guid}_key_1"] = "test value 1",
+			[$"{guid}_key_2"] = "test value 2",
+			[$"{guid}_key_3"] = "test value 3",
+			[$"{guid}_key_4"] = "test value 4",
+			[$"{guid}_key_5"] = "test value 5",
+			[$"{guid}_key_6"] = "test value 6",
+			[$"{guid}_key_7"] = "test value 7",
+			[$"{guid}_key_8"] = "test value 8",
+			[$"{guid}_key_9"] = "test value 9",
+			[$"{guid}_key_10"] = "test value 10",
+		};
+	}
 	
 	public ReplicationTests() : base(isSingleNodeCluster: false)
 	{ }
 
-	[TestInitialize]
-	public async Task SetUp()
-	{
-		// Use lock to prevent conflicts with other tests that use Flush
-		await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
-	}
 
 	[TestMethod]
 	public async Task MultiGet_WithoutStore_WithReplication()
 	{
+		var testItems = GenerateTestItems();
+		
 		var getValues = await Client.MultiGetAsync<string>(
-			_testItems.Keys,
+			testItems.Keys,
 			CancellationToken.None,
 			replicationFactor: 3);
 
@@ -55,20 +58,22 @@ public class ReplicationTests : MemcachedClientTestsBase
 	[DataRow(5U)] // more than entire cluster size
 	public async Task MultiStore_WithoutReplication_Get_WithReplication(uint replicationFactor)
 	{
+		var testItems = GenerateTestItems();
+		
 		await Client.MultiStoreAsync(
-			_testItems,
+			testItems,
 			TimeSpan.FromSeconds(CacheItemExpirationSeconds),
 			CancellationToken.None,
 			replicationFactor: 0); // explicitly set replication factor to 0
 
 		var getValues = await Client.MultiGetAsync<string>(
-			_testItems.Keys,
+			testItems.Keys,
 			CancellationToken.None,
 			replicationFactor: replicationFactor);
 
-		getValues.Count.Should().Be(_testItems.Count);
+		getValues.Count.Should().Be(testItems.Count);
 
-		foreach (var (expectedKey, expectedValue) in _testItems)
+		foreach (var (expectedKey, expectedValue) in testItems)
 		{
 			getValues[expectedKey].Should().Be(expectedValue);
 		}
@@ -83,8 +88,10 @@ public class ReplicationTests : MemcachedClientTestsBase
 	[DataRow(5U, true)] // more than entire cluster size
 	public async Task MultiStoreAndGet_WithReplication(uint replicationFactor, bool isUseBatching)
 	{
+		var testItems = GenerateTestItems();
+		
 		await Client.MultiStoreAsync(
-			_testItems,
+			testItems,
 			TimeSpan.FromSeconds(CacheItemExpirationSeconds),
 			CancellationToken.None,
 			replicationFactor: replicationFactor);
@@ -94,7 +101,7 @@ public class ReplicationTests : MemcachedClientTestsBase
 		if (isUseBatching)
 		{
 			getValues = await Client.MultiGetAsync<string>(
-				_testItems.Keys,
+				testItems.Keys,
 				CancellationToken.None,
 				batchingOptions : _batchingOptions,
 				replicationFactor: replicationFactor);
@@ -102,15 +109,15 @@ public class ReplicationTests : MemcachedClientTestsBase
 		else
 		{
 			getValues = await Client.MultiGetAsync<string>(
-				_testItems.Keys,
+				testItems.Keys,
 				CancellationToken.None,
 				batchingOptions: null,
 				replicationFactor: replicationFactor);
 		}
 
-		getValues.Count.Should().Be(_testItems.Count);
+		getValues.Count.Should().Be(testItems.Count);
 		
-		foreach (var (expectedKey, expectedValue) in _testItems)
+		foreach (var (expectedKey, expectedValue) in testItems)
 		{
 			getValues[expectedKey].Should().Be(expectedValue);
 		}
@@ -125,7 +132,7 @@ public class ReplicationTests : MemcachedClientTestsBase
 
 		var itemsToStore = new Dictionary<string, string>()
 		{
-			["test_key"] = "test_value"
+			[Guid.NewGuid().ToString()] = "test_value"
 		};
 
 		await Client.MultiStoreAsync(

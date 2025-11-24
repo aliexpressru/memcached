@@ -174,50 +174,6 @@ public abstract class MemcachedClientTestsBase
 		throw new InvalidOperationException("Unexpected: failed to acquire lock");
 	}
 
-	/// <summary>
-	/// Acquires expiration test lock and flushes the cache to ensure clean state.
-	/// Returns an AsyncLockHandle that should be disposed to release the lock.
-	/// </summary>
-	protected async Task<AsyncLockHandle> AcquireExpirationTestLockAndFlushAsync()
-	{
-		var lockFile = AcquireExpirationTestLock();
-		try
-		{
-			await Client.FlushAsync(CancellationToken.None);
-			return new AsyncLockHandle(lockFile);
-		}
-		catch
-		{
-			// If flush fails, release the lock
-			lockFile.Dispose();
-			throw;
-		}
-	}
-
-	/// <summary>
-	/// Wrapper for FileStream that implements IAsyncDisposable for proper async disposal.
-	/// </summary>
-	protected sealed class AsyncLockHandle : IAsyncDisposable, IDisposable
-	{
-		private readonly FileStream _lockFile;
-
-		public AsyncLockHandle(FileStream lockFile)
-		{
-			_lockFile = lockFile ?? throw new ArgumentNullException(nameof(lockFile));
-		}
-
-		public ValueTask DisposeAsync()
-		{
-			_lockFile.Dispose();
-			return ValueTask.CompletedTask;
-		}
-
-		public void Dispose()
-		{
-			_lockFile.Dispose();
-		}
-	}
-
 	protected string GetTooLongKey()
 	{
 		var uniquePart = Guid.NewGuid().ToString();
