@@ -21,11 +21,11 @@ public abstract class MemcachedClientTestsBase
 	protected const int CacheItemExpirationSeconds = 3;
 	
 	/// <summary>
-	/// Named semaphore to ensure expiration tests run sequentially across all test processes
+	/// File-based lock to ensure expiration tests run sequentially across all test processes
 	/// This prevents race conditions when running tests in parallel on different frameworks (net8.0, net10.0)
-	/// Using named semaphore allows synchronization across different processes
+	/// Using file lock is cross-platform (works on Windows, Linux, macOS)
 	/// </summary>
-	protected static readonly Semaphore ExpirationTestLock = new(1, 1, "Global\\MemcachedExpirationTestLock");
+	private static readonly string LockFilePath = Path.Combine(Path.GetTempPath(), "memcached_expiration_test.lock");
 	
 	protected readonly MemcachedClient<Pod> Client;
 	
@@ -127,6 +127,36 @@ public abstract class MemcachedClientTestsBase
 			memcachedOptions);
 		
 		diagnosticSource.SubscribeWithAdapter(loggingListener);
+	}
+
+	/// <summary>
+	/// Acquires a file-based lock for cross-process synchronization of expiration tests.
+	/// Returns a FileStream that should be disposed to release the lock.
+	/// </summary>
+	protected static FileStream AcquireExpirationTestLock()
+	{
+		// Retry logic in case file is being created by another process
+		for (int i = 0; i < 10; i++)
+		{
+			try
+			{
+				// FileShare.None ensures exclusive access across processes
+				return new FileStream(
+					LockFilePath,
+					FileMode.OpenOrCreate,
+					FileAccess.ReadWrite,
+					FileShare.None,
+					bufferSize: 1,
+					FileOptions.DeleteOnClose);
+			}
+			catch (IOException) when (i < 9)
+			{
+				// Another process holds the lock, wait and retry
+				Thread.Sleep(100);
+			}
+		}
+		
+		throw new InvalidOperationException("Failed to acquire expiration test lock after 10 retries");
 	}
 
 	protected string GetTooLongKey()
