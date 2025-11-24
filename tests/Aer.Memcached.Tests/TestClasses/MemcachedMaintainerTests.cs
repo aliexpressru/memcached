@@ -102,13 +102,13 @@ public class MemcachedMaintainerTests
 	}
 
 	[TestMethod]
-	public void RunMaintainer_UseSocketPoolForNodeHealthChecks()
+	public async Task RunMaintainer_UseSocketPoolForNodeHealthChecks()
 	{
 		var (maintainer, maintainerLogger, healthCheckerLogger) =
 			GetMaintainerAndLoggers(useSocketPoolForNodeHealthChecks: true);
 
-		maintainer.RunOnce();
-		maintainer.RunOnce();
+		await maintainer.RunOnceAsync();
+		await maintainer.RunOnceAsync();
 
 		maintainerLogger.LoggedMessages.Count(
 				m => m.Contains(
@@ -123,13 +123,13 @@ public class MemcachedMaintainerTests
 	}
 
 	[TestMethod]
-	public void RunMaintainer_DontUseSocketPoolForNodeHealthChecks()
+	public async Task RunMaintainer_DontUseSocketPoolForNodeHealthChecks()
 	{
 		var (maintainer, maintainerLogger, healthCheckerLogger) =
 			GetMaintainerAndLoggers(useSocketPoolForNodeHealthChecks: false);
 
-		maintainer.RunOnce();
-		maintainer.RunOnce();
+		await maintainer.RunOnceAsync();
+		await maintainer.RunOnceAsync();
 
 		maintainerLogger.LoggedMessages.Count(
 				m => m.Contains(
@@ -144,7 +144,7 @@ public class MemcachedMaintainerTests
 	}
 
 	[TestMethod]
-	public void SocketClosesAfterMaintainerCycles_DontCloseSockets()
+	public async Task SocketClosesAfterMaintainerCycles_DontCloseSockets()
 	{
 		var numbeOfSocketsToDestroy = 2;
 		
@@ -154,7 +154,7 @@ public class MemcachedMaintainerTests
 				numberOfMaintainerCyclesToCloseSocketAfter: 2,
 				numberOfSocketsToClosePerPool: numbeOfSocketsToDestroy);
 
-		maintainer.RunOnce();
+		await maintainer.RunOnceAsync();
 
 		maintainerLogger.LoggedMessages
 			.All(m => m.Contains($"Going to destroy {numbeOfSocketsToDestroy} pooled sockets"))
@@ -165,7 +165,7 @@ public class MemcachedMaintainerTests
 	}
 
 	[TestMethod]
-	public void SocketClosesAfterMaintainerCycles_ShouldCloseSpecifiedNumberOfSockets()
+	public async Task SocketClosesAfterMaintainerCycles_ShouldCloseSpecifiedNumberOfSockets()
 	{
 		var numberOfDestructionCycles = 2;
 		var numbeOfSocketsToDestroy = 2;
@@ -179,7 +179,7 @@ public class MemcachedMaintainerTests
 
 		for (int i = 0; i <= numbeOfSocketsToDestroy * numberOfDestructionCycles + 1; i++)
 		{
-			maintainer.RunOnce();
+			await maintainer.RunOnceAsync();
 		}
 		
 		maintainerLogger.LoggedMessages.Count(
