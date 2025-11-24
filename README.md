@@ -485,6 +485,45 @@ This library exposes the following memcached metrics
 - `memcached_socket_pool_used_sockets` - number of used socket pool sockets per endpoint
 - `memcached_commands_total` - total executed memcached commands number
 
+#### Distributed Tracing
+
+OpenTelemetry distributed tracing provides visibility into memcached operations. Tracing is disabled by default.
+
+**Enable tracing in `appsettings.json`:**
+
+```json
+{
+  "MemcachedConfiguration": {
+    "Diagnostics": {
+      "EnableTracing": true
+    }
+  }
+}
+```
+
+**Configure OpenTelemetry exporter:**
+
+```csharp
+builder.Services.AddMemcached(builder.Configuration);
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("your-service-name"))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri("http://localhost:4317");
+            });
+    });
+```
+
+**Features:**
+- Follows OpenTelemetry semantic conventions for database operations
+- Traces all memcached commands with operation name, server address, and replica information
+- Works with Jaeger, Zipkin, Azure Application Insights, AWS X-Ray, and other OTLP-compatible backends
+
 #### Disagnostic information
 
 `MemcachedClient` writes memcached nodes rebuild process state to diagnostics. This state includes the nodes that are currently in use and socket pools statistics. To disable this data logging specify:
@@ -550,8 +589,9 @@ If you need to tune it, add the following sections in config:
   "MemcachedConfiguration": {
     "MemcachedMaintainer": {
       "NodesRebuildingPeriod": "00:00:15",
-      "NodesHealthCheckPeriod": "00:00:15",
+      "NodesHealthCheckPeriod": "00:01:00",
       "NodeHealthCheckEnabled": true,
+      "MaxDegreeOfParallelism": -1,
       "UseSocketPoolForNodeHealthChecks" : true,
       "MaintainerCyclesToCloseSocketAfter" : 2,
       "NumberOfSocketsToClosePerPool" : 2
@@ -563,7 +603,9 @@ If you need to tune it, add the following sections in config:
 **`MemcachedMaintainer` settings**
 
 - `NodesRebuildingPeriod`: Period to rebuild nodes using dns lookup by Headless Service
-- `NodesHealthCheckPeriod`: Period to check if nodes are responsive. If node is not responded during `SocketPool.ConnectionTimeout` it is marked as dead and will be deleted from memcached nodes until it is responsive again
+- `NodesHealthCheckPeriod`: Period to check if nodes are responsive. If node is not responded during `SocketPool.ConnectionTimeout` it is marked as dead and will be deleted from memcached nodes until it is responsive again. Default value is `00:01:00` (1 minute)
+- `NodeHealthCheckEnabled`: Enables health check of nodes to remove dead nodes. Default value is `true`
+- `MaxDegreeOfParallelism`: Maximum degree of parallelism for node health checks. Set to `-1` to use `Environment.ProcessorCount`, or specify a positive number to set a fixed thread count. Default value is `-1`
 - `UseSocketPoolForNodeHealthChecks`: If set to `true` node health checker mechanism should use socket pool to obtain sockets for nodes health checks. If set to `false`, new non-pooled socket will be created for each node health check
 - `MaintainerCyclesToCloseSocketAfter`: Number of memcached maintainer cycles to close `NumberOfSocketsToClosePerPool` (see later) socket connections after. The sockets are going to be destroyed on the next maintainer cycle after the specified number
 - `NumberOfSocketsToClosePerPool`: Number of sockets to close per pool on each `MaintainerCyclesToCloseSocketAfter`

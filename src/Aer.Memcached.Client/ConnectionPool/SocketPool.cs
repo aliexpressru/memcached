@@ -4,6 +4,7 @@ using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Extensions;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry.Trace;
 
 namespace Aer.Memcached.Client.ConnectionPool;
 
@@ -23,6 +24,7 @@ internal class SocketPool : IDisposable
     private readonly EndPoint _endPoint;
     private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
     private readonly ILogger _logger;
+    private readonly Tracer _tracer;
 
     // this semaphore is used to count the available number of sockets in this pool
     // each time the socket is created - ths semaphore gets decremented
@@ -46,45 +48,66 @@ internal class SocketPool : IDisposable
     /// </summary>
     public bool IsEndPointBroken => _isEndPointBroken;
 
-    public SocketPool(EndPoint endPoint, MemcachedConfiguration.SocketPoolConfiguration config, ILogger logger)
+    public SocketPool(EndPoint endPoint, MemcachedConfiguration.SocketPoolConfiguration config, ILogger logger, Tracer tracer = null)
     {
         config.Validate();
 
         _endPoint = endPoint ?? throw new ArgumentNullException(nameof(endPoint));
         _config = config;
         _logger = logger;
+        _tracer = tracer;
         _remainingPoolCapacityCounter = new SemaphoreSlim(_config.MaxPoolSize, _config.MaxPoolSize);
     }
 
     public async Task<PooledSocket> GetSocketAsync(CancellationToken token)
     {
-        var result = await TryGetAvailableSocket(token);
+        var endPointAddressString = _endPoint.GetEndPointString();
         
-        if (result.AvailableSocket != null)
+        using var tracingScope = MemcachedTracing.CreateSocketOperationScope(
+            _tracer,
+            "socket.acquire",
+            endPointAddressString,
+            _config.MaxPoolSize,
+            UsedSocketsCount);
+
+        try
         {
-            return result.AvailableSocket;
-        }
+            var result = await TryGetAvailableSocket(token);
+            
+            if (result.AvailableSocket != null)
+            {
+                tracingScope?.SetResult(true);
+                return result.AvailableSocket;
+            }
 
-        if (!result.CanCreateSocket)
+            if (!result.CanCreateSocket)
+            {
+                // means socket pool is full or disposed
+                tracingScope?.SetResult(false, "Socket pool is full or disposed");
+                return null;
+            }
+
+            var createdSocket = await CreateSocketAsync(token);
+
+            if (createdSocket is not null && MemcachedDiagnosticSource.Instance.IsEnabled())
+            {
+                MemcachedDiagnosticSource.Instance.Write(
+                    MemcachedDiagnosticSource.SocketPoolUsedSocketCountDiagnosticName,
+                    new
+                    {
+                        enpointAddress = createdSocket.EndPointAddressString,
+                        usedSocketCount = UsedSocketsCount
+                    });
+            }
+
+            tracingScope?.SetResult(createdSocket != null, createdSocket == null ? "Failed to create socket" : null);
+            return createdSocket;
+        }
+        catch (Exception ex)
         {
-            // means socket pool is full or disposed
-            return null;
+            tracingScope?.SetError(ex);
+            throw;
         }
-
-        var createdSocket = await CreateSocketAsync(token);
-
-        if (createdSocket is not null && MemcachedDiagnosticSource.Instance.IsEnabled())
-        {
-            MemcachedDiagnosticSource.Instance.Write(
-                MemcachedDiagnosticSource.SocketPoolUsedSocketCountDiagnosticName,
-                new
-                {
-                    enpointAddress = createdSocket.EndPointAddressString,
-                    usedSocketCount = UsedSocketsCount
-                });
-        }
-
-        return createdSocket;
     }
 
     public bool DestroyPooledSocket()
@@ -236,7 +259,7 @@ internal class SocketPool : IDisposable
         catch (Exception ex)
         {
             var endPointAddressString = _endPoint.GetEndPointString();
-            
+
             _logger.LogDebug(
                 "Failed to create socket for endpoint {EndPoint}. Attempt {AttemptNumber}. Error message : {Reason}",
                 endPointAddressString,

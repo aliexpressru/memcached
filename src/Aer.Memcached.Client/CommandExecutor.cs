@@ -8,10 +8,12 @@ using Aer.Memcached.Client.Commands.Base;
 using Aer.Memcached.Client.Commands.Helpers;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.ConnectionPool;
+using Aer.Memcached.Client.Diagnostics;
 using Aer.Memcached.Client.Interfaces;
 using Aer.Memcached.Client.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Trace;
 
 namespace Aer.Memcached.Client;
 
@@ -29,6 +31,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     private readonly ILogger<CommandExecutor<TNode>> _logger;
     private readonly ConcurrentDictionary<TNode, SocketPool> _socketPools;
     private readonly INodeLocator<TNode> _nodeLocator;
+    private readonly Tracer _tracer;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommandExecutor{TNode}"/> class.
@@ -37,16 +40,19 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     /// <param name="authenticationProvider">The memcached authentication provider.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="nodeLocator">The memcached node locator.</param>
+    /// <param name="tracer">The OpenTelemetry tracer (optional).</param>
     public CommandExecutor(
         IOptions<MemcachedConfiguration> config,
         IAuthenticationProvider authenticationProvider,
         ILogger<CommandExecutor<TNode>> logger,
-        INodeLocator<TNode> nodeLocator)
+        INodeLocator<TNode> nodeLocator,
+        Tracer tracer = null)
     {
         _config = config.Value;
         _authenticationProvider = authenticationProvider;
         _logger = logger;
         _nodeLocator = nodeLocator;
+        _tracer = tracer;
         _socketPools = new ConcurrentDictionary<TNode, SocketPool>(NodeEqualityComparer<TNode>.Instance);
     }
 
@@ -148,11 +154,21 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         MemcachedCommandBase command,
         CancellationToken token)
     {
+        using var tracingScope = MemcachedTracing.CreateCommandScope(
+            _tracer, 
+            command, 
+            replicatedNode.PrimaryNode, 
+            true, 
+            replicatedNode.ReplicaNodes.Count);
+
         try
         {
             if (!replicatedNode.HasReplicas)
             {
-                return await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
+                var result = await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
+                
+                tracingScope?.SetResult(result.Success, result.ErrorMessage);
+                return result;
             }
 
             // we preserve initial command to return data through it.
@@ -198,13 +214,20 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             // we don't need to dispose the command, this call is here for symmetry or future changes purposes
             command.Dispose();
 
+            CommandExecutionResult finalResult;
+            
             if (successfulCommand is not null)
             {
-                return CommandExecutionResult.Successful(successfulCommand);
+                finalResult = CommandExecutionResult.Successful(successfulCommand);
+            }
+            else
+            {
+                // means no successful command found
+                finalResult = CommandExecutionResult.Unsuccessful(command, "All commands on all replica nodes failed");
             }
 
-            // means no successful command found
-            return CommandExecutionResult.Unsuccessful(command, "All commands on all replica nodes failed");
+            tracingScope?.SetResult(finalResult.Success, finalResult.ErrorMessage);
+            return finalResult;
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
         {
@@ -221,6 +244,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 replicatedNode.PrimaryNode.GetKey(),
                 replicatedNode.ReplicaNodes.Select(n => n.GetKey()));
 
+            tracingScope?.SetError(e);
             return CommandExecutionResult.Unsuccessful(command, e.Message);
         }
     }
@@ -230,13 +254,17 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         MemcachedCommandBase command,
         CancellationToken token)
     {
+        using var tracingScope = MemcachedTracing.CreateCommandScope(_tracer, command, node, false, 0);
+
         try
         {
             using var socket = await GetSocketAsync(node, isAuthenticateSocketIfRequired: true, token);
 
             if (socket == null)
             {
-                return CommandExecutionResult.Unsuccessful(command, "Socket not found");
+                var failureResult = CommandExecutionResult.Unsuccessful(command, "Socket not found");
+                tracingScope?.SetResult(false, "Socket not found");
+                return failureResult;
             }
 
             var buffer = command.GetBuffer();
@@ -251,14 +279,20 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 _logger.LogError("Write to socket {SocketAddress} timed out", socket.EndPointAddressString);
 
-                return CommandExecutionResult.Unsuccessful(command, $"Write to socket {socket.EndPointAddressString} timed out");
+                var errorMessage = $"Write to socket {socket.EndPointAddressString} timed out";
+                var timeoutResult = CommandExecutionResult.Unsuccessful(command, errorMessage);
+                tracingScope?.SetResult(false, errorMessage);
+                return timeoutResult;
             }
 
             var readResult = command.ReadResponse(socket);
 
-            return readResult.Success
+            var result = readResult.Success
                 ? CommandExecutionResult.Successful(command)
                 : CommandExecutionResult.Unsuccessful(command, readResult.Message);
+
+            tracingScope?.SetResult(result.Success, result.ErrorMessage);
+            return result;
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
         {
@@ -274,6 +308,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 command.ToString(),
                 node.GetKey());
 
+            tracingScope?.SetError(e);
             return CommandExecutionResult.Unsuccessful(command, e.Message);
         }
     }
@@ -286,8 +321,8 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         var socketPool = _socketPools.GetOrAdd(
             node,
             valueFactory: static (n, args) =>
-                new SocketPool(n.GetEndpoint(), args.Config.SocketPool, args.Logger),
-            factoryArgument: (Config: _config, Logger: _logger)
+                new SocketPool(n.GetEndpoint(), args.Config.SocketPool, args.Logger, args.Tracer),
+            factoryArgument: (Config: _config, Logger: _logger, Tracer: _tracer)
         );
 
         if (socketPool.IsEndPointBroken)
@@ -350,4 +385,5 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
 
         pooledSocket.Authenticated = true;
     }
+
 }

@@ -41,7 +41,7 @@ public class NodeLocatorMaintainerTests
     }
     
     [TestMethod]
-    public void NotConfigured_NoNodesInLocator()
+    public async Task NotConfigured_NoNodesInLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -55,7 +55,7 @@ public class NodeLocatorMaintainerTests
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
         
         var nodes = nodeLocator.GetAllNodes();
 
@@ -63,7 +63,7 @@ public class NodeLocatorMaintainerTests
     }
     
     [TestMethod]
-    public void Configured_AllProvidedNodesInLocator()
+    public async Task Configured_AllProvidedNodesInLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -76,7 +76,7 @@ public class NodeLocatorMaintainerTests
 
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -89,7 +89,7 @@ public class NodeLocatorMaintainerTests
     }
     
     [TestMethod]
-    public void Configured_AddMoreNodes_AllProvidedNodesInLocator()
+    public async Task Configured_AddMoreNodes_AllProvidedNodesInLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -104,7 +104,7 @@ public class NodeLocatorMaintainerTests
 
         // first maintainer run
 
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
         
         var nodes = nodeLocator.GetAllNodes();
 
@@ -119,7 +119,7 @@ public class NodeLocatorMaintainerTests
 
         // second maintainer run
 
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -131,7 +131,7 @@ public class NodeLocatorMaintainerTests
     }
 
     [TestMethod]
-    public void Configured_AddAndRemoveNodes_AllProvidedNodesInLocator()
+    public async Task Configured_AddAndRemoveNodes_AllProvidedNodesInLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -145,7 +145,7 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -160,7 +160,7 @@ public class NodeLocatorMaintainerTests
         
         // second maintainer run
 
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -173,7 +173,7 @@ public class NodeLocatorMaintainerTests
     }
 
     [TestMethod]
-    public void Configured_DeadNode_RemovedDeadNodeFromLocator()
+    public async Task Configured_DeadNode_RemovedDeadNodeFromLocator()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -191,7 +191,7 @@ public class NodeLocatorMaintainerTests
 
         // first maintainer run
         
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -203,7 +203,7 @@ public class NodeLocatorMaintainerTests
         }
 
         // second maintainer run
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
 
         nodes = nodeLocator.GetAllNodes();
 
@@ -218,7 +218,7 @@ public class NodeLocatorMaintainerTests
     }
 
     [TestMethod]
-    public void Configured_ResurrectedNode_RemovedDeadAndAddAgainNode()
+    public async Task Configured_ResurrectedNode_RemovedDeadAndAddAgainNode()
     {
         var nodesToProvide = Enumerable.Range(0, 5)
             .Select(i => new TestHashRingNode())
@@ -239,7 +239,7 @@ public class NodeLocatorMaintainerTests
         var maintainer = GetMemcachedMaintainer(nodeLocator);
 
         // first maintainer run
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
 
         var nodes = nodeLocator.GetAllNodes();
 
@@ -251,7 +251,7 @@ public class NodeLocatorMaintainerTests
         }
 
         // second maintainer run
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
         
         nodes = nodeLocator.GetAllNodes();
 
@@ -267,7 +267,7 @@ public class NodeLocatorMaintainerTests
         deadNodes.Remove(deadNodes[0]);
 
         // third maintainer run
-        maintainer.RunOnce();
+        await maintainer.RunOnceAsync();
         
         nodes = nodeLocator.GetAllNodes();
         
