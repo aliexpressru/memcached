@@ -8,6 +8,7 @@
 - **High Performance:** Efficiently handles large amounts of data with low latency.
 - **Scalability:** Seamlessly increase cache capacity as your application grows.
 - **Ease of Use:** Simple setup and configuration.
+- **Multi-Target Support:** Supports both .NET 8.0 and .NET 10.0.
 
 ---
 
