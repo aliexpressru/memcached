@@ -232,6 +232,9 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
         using var lockFile = AcquireExpirationTestLock();
         
+        // Clear all cache to ensure clean state
+        await Client.FlushAsync(CancellationToken.None);
+        
         var keyToExpire = Guid.NewGuid().ToString();
         var expirationMap = new Dictionary<string, TimeSpan?>()
         {
@@ -278,6 +281,9 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     {
         // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
         using var lockFile = AcquireExpirationTestLock();
+        
+        // Clear all cache to ensure clean state
+        await Client.FlushAsync(CancellationToken.None);
         
         var keyToExpire = Guid.NewGuid().ToString();
         var utcNow = DateTimeOffset.UtcNow;
