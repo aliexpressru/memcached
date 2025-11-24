@@ -237,7 +237,8 @@ public static class ServiceCollectionExtensions
                         model.Flags,
                         model.ExpirationTime,
                         token,
-                        model.ExpirationMap);
+                        model.ExpirationMap,
+                        model.BatchingOptions);
                 }
             ).AllowAnonymousIfConfigured(config);
         }
