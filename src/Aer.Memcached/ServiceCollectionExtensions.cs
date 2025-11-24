@@ -22,7 +22,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 // ReSharper disable UnusedType.Global
 // ReSharper disable UnusedMember.Global
@@ -71,8 +73,11 @@ public static class ServiceCollectionExtensions
             configuration.GetSection(nameof(MemcachedConfiguration.MemcachedAuth)));
 
         var config = configuration.GetSection(nameof(MemcachedConfiguration)).Get<MemcachedConfiguration>();
+        
         if (!config.Diagnostics.DisableDiagnostics)
         {
+            services.AddSingleton(MemcachedDiagnosticSource.Instance);
+            
             var metricFactory = Prometheus.Client.Metrics.DefaultFactory;
             var collectorRegistry = Prometheus.Client.Metrics.DefaultCollectorRegistry;
 
@@ -87,7 +92,19 @@ public static class ServiceCollectionExtensions
             
             services.AddSingleton<MetricsMemcachedDiagnosticListener>();
             services.AddSingleton<LoggingMemcachedDiagnosticListener>();
-            services.AddSingleton(MemcachedDiagnosticSource.Instance);
+        }
+        
+        // Tracing can be enabled independently from other diagnostics
+        if (config.Diagnostics.EnableTracing)
+        {
+            // Get ActivitySource name from assembly
+            var activitySourceName = typeof(ServiceCollectionExtensions).Assembly.GetName().Name!;
+            services.AddOpenTelemetryTracing(activitySourceName);
+            
+            // Register Tracer that will be injected into CommandExecutor
+            var serviceName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name 
+                              ?? activitySourceName;
+            services.TryAddSingleton(TracerProvider.Default.GetTracer(serviceName));
         }
 
         return services;
@@ -117,6 +134,17 @@ public static class ServiceCollectionExtensions
             });
     }
 
+    private static void AddOpenTelemetryTracing(this IServiceCollection services, string activitySourceName)
+    {
+        ArgumentNullException.ThrowIfNull(activitySourceName);
+
+        services.AddOpenTelemetry().WithTracing(
+            builder =>
+            {
+                builder.AddSource(activitySourceName);
+            });
+    }
+
     /// <summary>
     /// Enables Memcached diagnostics listeners for metrics and logging.
     /// </summary>
@@ -130,9 +158,8 @@ public static class ServiceCollectionExtensions
 
         if (!config.Diagnostics.DisableDiagnostics)
         {
-            DiagnosticListener diagnosticSource =
-                applicationBuilder.ApplicationServices.GetRequiredService<MemcachedDiagnosticSource>();
-
+            var diagnosticSource = applicationBuilder.ApplicationServices.GetRequiredService<MemcachedDiagnosticSource>();
+            
             var metricsListener =
                 applicationBuilder.ApplicationServices.GetRequiredService<MetricsMemcachedDiagnosticListener>();
 

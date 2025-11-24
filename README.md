@@ -485,6 +485,45 @@ This library exposes the following memcached metrics
 - `memcached_socket_pool_used_sockets` - number of used socket pool sockets per endpoint
 - `memcached_commands_total` - total executed memcached commands number
 
+#### Distributed Tracing
+
+OpenTelemetry distributed tracing provides visibility into memcached operations. Tracing is disabled by default.
+
+**Enable tracing in `appsettings.json`:**
+
+```json
+{
+  "MemcachedConfiguration": {
+    "Diagnostics": {
+      "EnableTracing": true
+    }
+  }
+}
+```
+
+**Configure OpenTelemetry exporter:**
+
+```csharp
+builder.Services.AddMemcached(builder.Configuration);
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("your-service-name"))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri("http://localhost:4317");
+            });
+    });
+```
+
+**Features:**
+- Follows OpenTelemetry semantic conventions for database operations
+- Traces all memcached commands with operation name, server address, and replica information
+- Works with Jaeger, Zipkin, Azure Application Insights, AWS X-Ray, and other OTLP-compatible backends
+
 #### Disagnostic information
 
 `MemcachedClient` writes memcached nodes rebuild process state to diagnostics. This state includes the nodes that are currently in use and socket pools statistics. To disable this data logging specify:

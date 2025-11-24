@@ -147,6 +147,13 @@ public class MemcachedConfiguration
         /// If not set - default value of <c>Prometheus</c> is used.
         /// </summary>
         public string MetricsProviderName { get; set; }
+
+        /// <summary>
+        /// Determines whether distributed tracing should be enabled for memcached operations.
+        /// Default value is <c>false</c> (tracing is disabled by default).
+        /// Set to <c>true</c> to enable OpenTelemetry distributed tracing.
+        /// </summary>
+        public bool EnableTracing { get; set; } = false;
     }
     
     public class Server
