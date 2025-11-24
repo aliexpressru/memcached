@@ -651,6 +651,26 @@ When using cache synchronization feature, the `MemcachedClientResult.SyncSuccess
 
 To check whether the cache synchronization is configured and enabled call the `IMemcachedClient.IsCacheSyncEnabled` method.
 
+#### BatchingOptions support in cache sync
+
+Cache synchronization now supports `BatchingOptions` for `MultiStoreAsync` operations. When `BatchingOptions` is specified, it will be passed to the remote cluster where the actual batching will occur during the `MultiStoreAsync` execution on the target cluster.
+
+This is particularly useful when syncing large numbers of key-value pairs across clusters, as it allows the target cluster to process the data in optimized batches.
+
+```c#
+await _client.MultiStoreAsync(
+    keyValues,
+    TimeSpan.FromSeconds(10),
+    CancellationToken.None,
+    batchingOptions: new BatchingOptions
+    {
+        BatchSize = 100,
+        MaxDegreeOfParallelism = 4
+    });
+```
+
+The `BatchingOptions` are automatically included in the `CacheSyncModel` and will be used by the receiving cluster for efficient batch processing.
+
 ### Long keys support
 
 Memcached has a by-design restriction on the key length - 250 bytes (or in most cases 250 characters).
