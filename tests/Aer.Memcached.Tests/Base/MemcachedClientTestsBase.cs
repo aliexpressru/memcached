@@ -135,8 +135,11 @@ public abstract class MemcachedClientTestsBase
 	/// </summary>
 	protected static FileStream AcquireExpirationTestLock()
 	{
-		// Retry logic in case file is being created by another process
-		for (int i = 0; i < 10; i++)
+		const int maxRetries = 100;
+		const int retryDelayMs = 200;
+		
+		// Retry logic in case file is being used by another process
+		for (int i = 0; i < maxRetries; i++)
 		{
 			try
 			{
@@ -149,14 +152,26 @@ public abstract class MemcachedClientTestsBase
 					bufferSize: 1,
 					FileOptions.DeleteOnClose);
 			}
-			catch (IOException) when (i < 9)
+			catch (IOException)
 			{
 				// Another process holds the lock, wait and retry
-				Thread.Sleep(100);
+				if (i < maxRetries - 1)
+				{
+					Thread.Sleep(retryDelayMs);
+				}
+				else
+				{
+					// Last attempt failed, throw with context
+					throw new InvalidOperationException(
+						$"Failed to acquire expiration test lock after {maxRetries} retries " +
+						$"(waited {maxRetries * retryDelayMs}ms total). " +
+						$"Lock file: {LockFilePath}");
+				}
 			}
 		}
 		
-		throw new InvalidOperationException("Failed to acquire expiration test lock after 10 retries");
+		// This should never be reached due to throw in catch block
+		throw new InvalidOperationException("Unexpected: failed to acquire lock");
 	}
 
 	protected string GetTooLongKey()
