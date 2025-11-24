@@ -172,7 +172,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                         ExpirationTime = expirationTime.HasValue
                             ? utcNow.Add(expirationTime.Value)
                             : null,
-                        ExpirationMap = expirationMap?.ToDictionary(key => key.Key, value => value.Value.HasValue ? utcNow.Add(value.Value.Value) : (DateTimeOffset?)null)
+                        ExpirationMap = expirationMap?.ToDictionary(key => key.Key, value => value.Value.HasValue ? utcNow.Add(value.Value.Value) : (DateTimeOffset?)null),
+                        BatchingOptions = batchingOptions
                     },
                     token);
             }
@@ -267,7 +268,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         uint flags,
         DateTimeOffset? expirationTime,
         CancellationToken token,
-        IDictionary<string, DateTimeOffset?> expirationMap = null)
+        IDictionary<string, DateTimeOffset?> expirationMap = null,
+        BatchingOptions batchingOptions = null)
     {
         try
         {
@@ -300,7 +302,12 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 serializedKeyValues[keyValue.Key] = new CacheItemForRequest(flags, keyValue.Value);
             }
 
-            await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token);
+            await MultiStoreInternalAsync(
+                nodes, 
+                keyToExpirationMap, 
+                serializedKeyValues, 
+                token, 
+                batchingOptions: batchingOptions);
 
             return MemcachedClientResult.Successful.WithSyncSuccess(true);
         }

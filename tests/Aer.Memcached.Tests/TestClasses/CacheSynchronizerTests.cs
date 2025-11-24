@@ -331,6 +331,73 @@ public class CacheSynchronizerTests
             .GetErrorStatisticsAsync(syncServerNotTurnedOff.Address, Arg.Any<long>(), Arg.Any<TimeSpan>());
         syncSuccess.Should().BeFalse();
     }
+    
+    [TestMethod]
+    public async Task Sync_WithBatchingOptions_PassedToSyncClient()
+    {
+        var syncServers = GetSyncServers(2);
+        var batchingOptions = new BatchingOptions
+        {
+            BatchSize = 10,
+            MaxDegreeOfParallelism = 2
+        };
+
+        _syncServersProvider.IsConfigured().Returns(true);
+        _syncServersProvider.GetSyncServers().Returns(syncServers);
+
+        var cacheSynchronizer = GetCacheSynchronizer();
+        
+        var keyValues = _fixture.Create<Dictionary<string, byte[]>>();
+        var expirationTime = _fixture.Create<DateTimeOffset>();
+
+        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel
+        {
+            KeyValues = keyValues,
+            ExpirationTime = expirationTime,
+            BatchingOptions = batchingOptions
+        }, CancellationToken.None);
+
+        await _cacheSyncClient.Received(syncServers.Length).SyncAsync(
+            Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Is<CacheSyncModel>(m => 
+                m.BatchingOptions != null && 
+                m.BatchingOptions.BatchSize == 10 &&
+                m.BatchingOptions.MaxDegreeOfParallelism == 2 &&
+                m.KeyValues == keyValues &&
+                m.ExpirationTime == expirationTime),
+            Arg.Any<CancellationToken>());
+        
+        syncSuccess.Should().BeTrue();
+    }
+    
+    [TestMethod]
+    public async Task Sync_WithoutBatchingOptions_PassedAsNull()
+    {
+        var syncServers = GetSyncServers(2);
+
+        _syncServersProvider.IsConfigured().Returns(true);
+        _syncServersProvider.GetSyncServers().Returns(syncServers);
+
+        var cacheSynchronizer = GetCacheSynchronizer();
+        
+        var keyValues = _fixture.Create<Dictionary<string, byte[]>>();
+
+        var syncSuccess = await cacheSynchronizer.TrySyncCacheAsync(new CacheSyncModel
+        {
+            KeyValues = keyValues,
+            ExpirationTime = _fixture.Create<DateTimeOffset>(),
+            BatchingOptions = null
+        }, CancellationToken.None);
+
+        await _cacheSyncClient.Received(syncServers.Length).SyncAsync(
+            Arg.Any<MemcachedConfiguration.SyncServer>(),
+            Arg.Is<CacheSyncModel>(m => 
+                m.BatchingOptions == null &&
+                m.KeyValues == keyValues),
+            Arg.Any<CancellationToken>());
+        
+        syncSuccess.Should().BeTrue();
+    }
 
     private CacheSynchronizer GetCacheSynchronizer(MemcachedConfiguration config = null)
     {

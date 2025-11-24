@@ -1,5 +1,3 @@
-using System.Collections;
-
 namespace Aer.Memcached.Client.Models;
 
 /// <summary>
@@ -26,4 +24,9 @@ public class CacheSyncModel
     /// Individual key expirations that will be used instead ExpirationTime if provided.
     /// </summary>
     public IDictionary<string, DateTimeOffset?> ExpirationMap { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the batching options for cache sync operations.
+    /// </summary>
+    public BatchingOptions BatchingOptions { get; set; }
 }
