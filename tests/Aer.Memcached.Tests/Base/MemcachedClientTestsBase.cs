@@ -21,10 +21,11 @@ public abstract class MemcachedClientTestsBase
 	protected const int CacheItemExpirationSeconds = 3;
 	
 	/// <summary>
-	/// Static semaphore to ensure expiration tests run sequentially across all test instances
+	/// Named semaphore to ensure expiration tests run sequentially across all test processes
 	/// This prevents race conditions when running tests in parallel on different frameworks (net8.0, net10.0)
+	/// Using named semaphore allows synchronization across different processes
 	/// </summary>
-	protected static readonly SemaphoreSlim ExpirationTestLock = new(1, 1);
+	protected static readonly Semaphore ExpirationTestLock = new(1, 1, "Global\\MemcachedExpirationTestLock");
 	
 	protected readonly MemcachedClient<Pod> Client;
 	

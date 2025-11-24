@@ -229,8 +229,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_OneValueExpired()
     {
-        // Use lock to ensure this test runs sequentially across all test runs (net8.0, net10.0)
-        await ExpirationTestLock.WaitAsync();
+        // Use named semaphore to ensure this test runs sequentially across all test processes (net8.0, net10.0)
+        ExpirationTestLock.WaitOne();
         try
         {
             var keyToExpire = Guid.NewGuid().ToString();
@@ -282,8 +282,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_DateTimeOffset_OneValueExpired()
     {
-        // Use lock to ensure this test runs sequentially across all test runs (net8.0, net10.0)
-        await ExpirationTestLock.WaitAsync();
+        // Use named semaphore to ensure this test runs sequentially across all test processes (net8.0, net10.0)
+        ExpirationTestLock.WaitOne();
         try
         {
             var keyToExpire = Guid.NewGuid().ToString();
