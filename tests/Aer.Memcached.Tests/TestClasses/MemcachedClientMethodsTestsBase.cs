@@ -249,10 +249,13 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         getValue.Count.Should().Be(keyValues.Keys.Count);
 
-        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
+        // Wait for expiration with extra margin for CI environments
+        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2.5 + 1));
 
         getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
 
+        // Check that the expired key is gone
+        getValue.Should().NotContainKey(keyToExpire);
         getValue.Count.Should().Be(keyValues.Keys.Count - 1);
 
         foreach (var keyValue in expirationMap)
@@ -262,6 +265,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
                 continue;
             }
 
+            getValue.Should().ContainKey(keyValue.Key);
             getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
         }
     }
@@ -291,12 +295,13 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         getValue.Count.Should().Be(keyValues.Keys.Count);
 
         // Wait for expiration with extra margin for CI environments
-        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2 + 1));
+        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2.5 + 1));
 
         getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
 
-        // In CI environments timing might vary, so check that at least the expired key is gone
-        getValue.Count.Should().BeLessOrEqualTo(keyValues.Keys.Count - 1);
+        // Check that the expired key is gone
+        getValue.Should().NotContainKey(keyToExpire);
+        getValue.Count.Should().Be(keyValues.Keys.Count - 1);
         
         foreach (var keyValue in expirationMap)
         {
@@ -305,6 +310,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
                 continue;
             }
 
+            getValue.Should().ContainKey(keyValue.Key);
             getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
         }
     }
