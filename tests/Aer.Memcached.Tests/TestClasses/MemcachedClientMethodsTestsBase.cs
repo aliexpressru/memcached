@@ -229,6 +229,9 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_OneValueExpired()
     {
+        // Flush to avoid conflicts with other tests
+        await Client.FlushAsync(CancellationToken.None);
+        
         var keyToExpire = Guid.NewGuid().ToString();
         var expirationMap = new Dictionary<string, TimeSpan?>()
         {
@@ -249,8 +252,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         getValue.Count.Should().Be(keyValues.Keys.Count);
 
-        // Wait for expiration with extra margin for CI environments
-        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2.5 + 1));
+        // Wait for expiration with extra margin for CI environments (3 * 3 + 2 = 11 seconds)
+        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 3 + 2));
 
         getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
 
@@ -273,6 +276,9 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_DateTimeOffset_OneValueExpired()
     {
+        // Flush to avoid conflicts with other tests
+        await Client.FlushAsync(CancellationToken.None);
+        
         var keyToExpire = Guid.NewGuid().ToString();
         var utcNow = DateTimeOffset.UtcNow;
         var expirationMap = new Dictionary<string, DateTimeOffset?>()
@@ -294,8 +300,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         getValue.Count.Should().Be(keyValues.Keys.Count);
 
-        // Wait for expiration with extra margin for CI environments
-        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2.5 + 1));
+        // Wait for expiration with extra margin for CI environments (3 * 3 + 2 = 11 seconds)
+        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 3 + 2));
 
         getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
 
