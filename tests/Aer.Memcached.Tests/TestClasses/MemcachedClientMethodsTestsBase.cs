@@ -580,6 +580,9 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGetBatched()
     {
+        // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
+        await using var lockFile = AcquireExpirationTestLock();
+        
         // Flush memcached to avoid conflicts with data from other tests
         // Also possible eviction problems
         await Client.FlushAsync(CancellationToken.None);
