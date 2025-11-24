@@ -229,6 +229,10 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_OneValueExpired()
     {
+        // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
+        // Also flush cache to ensure clean state
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
+        
         var keyToExpire = Guid.NewGuid().ToString();
         var expirationMap = new Dictionary<string, TimeSpan?>()
         {
@@ -249,10 +253,13 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         getValue.Count.Should().Be(keyValues.Keys.Count);
 
+        // Wait for expiration
         await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
 
         getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
 
+        // Check that the expired key is gone
+        getValue.Should().NotContainKey(keyToExpire);
         getValue.Count.Should().Be(keyValues.Keys.Count - 1);
 
         foreach (var keyValue in expirationMap)
@@ -262,6 +269,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
                 continue;
             }
 
+            getValue.Should().ContainKey(keyValue.Key);
             getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
         }
     }
@@ -269,6 +277,10 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_DateTimeOffset_OneValueExpired()
     {
+        // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
+        // Also flush cache to ensure clean state
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
+        
         var keyToExpire = Guid.NewGuid().ToString();
         var utcNow = DateTimeOffset.UtcNow;
         var expirationMap = new Dictionary<string, DateTimeOffset?>()
@@ -290,10 +302,13 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 
         getValue.Count.Should().Be(keyValues.Keys.Count);
 
+        // Wait for expiration
         await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
 
         getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
 
+        // Check that the expired key is gone
+        getValue.Should().NotContainKey(keyToExpire);
         getValue.Count.Should().Be(keyValues.Keys.Count - 1);
         
         foreach (var keyValue in expirationMap)
@@ -303,6 +318,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
                 continue;
             }
 
+            getValue.Should().ContainKey(keyValue.Key);
             getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
         }
     }
@@ -560,9 +576,9 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGetBatched()
     {
-        // Flush memcached to avoid conflicts with data from other tests
-        // Also possible eviction problems
-        await Client.FlushAsync(CancellationToken.None);
+        // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
+        // Flush memcached to avoid conflicts with data from other tests and possible eviction problems
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
         
         var keyValues = new Dictionary<string, string>();
 
@@ -969,6 +985,9 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task Flush_RemoveAllItems()
     {
+        // Acquire lock first to hold it for entire test duration
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
+        
         var keys = await MultiStoreAndGetKeys();
         var getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Count.Should().Be(keys.Length);

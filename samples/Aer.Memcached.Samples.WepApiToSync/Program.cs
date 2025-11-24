@@ -41,11 +41,8 @@ public class Program
 
         app.UseRouting();
 
-        app.UseEndpoints(endpoints =>
-        {
-            endpoints.AddMemcachedEndpoints(builder.Configuration);
-            endpoints.MapControllers();
-        });
+        app.AddMemcachedEndpoints(builder.Configuration);
+        app.MapControllers();
 
         app.EnableMemcachedDiagnostics(builder.Configuration);
 

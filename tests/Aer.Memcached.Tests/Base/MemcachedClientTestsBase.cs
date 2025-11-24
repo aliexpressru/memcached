@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+﻿﻿using System.Diagnostics;
 using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
@@ -19,6 +19,13 @@ namespace Aer.Memcached.Tests.Base;
 public abstract class MemcachedClientTestsBase
 {
 	protected const int CacheItemExpirationSeconds = 3;
+	
+	/// <summary>
+	/// File-based lock to ensure expiration tests run sequentially across all test processes
+	/// This prevents race conditions when running tests in parallel on different frameworks (net8.0, net10.0)
+	/// Using file lock is cross-platform (works on Windows, Linux, macOS)
+	/// </summary>
+	private static readonly string LockFilePath = Path.Combine(Path.GetTempPath(), "memcached_expiration_test.lock");
 	
 	protected readonly MemcachedClient<Pod> Client;
 	
@@ -120,6 +127,95 @@ public abstract class MemcachedClientTestsBase
 			memcachedOptions);
 		
 		diagnosticSource.SubscribeWithAdapter(loggingListener);
+	}
+
+	/// <summary>
+	/// Acquires a file-based lock for cross-process synchronization of expiration tests.
+	/// Returns a FileStream that should be disposed to release the lock.
+	/// </summary>
+	protected static FileStream AcquireExpirationTestLock()
+	{
+		const int maxRetries = 100;
+		const int retryDelayMs = 200;
+		
+		// Retry logic in case file is being used by another process
+		for (int i = 0; i < maxRetries; i++)
+		{
+			try
+			{
+				// FileShare.None ensures exclusive access across processes
+				return new FileStream(
+					LockFilePath,
+					FileMode.OpenOrCreate,
+					FileAccess.ReadWrite,
+					FileShare.None,
+					bufferSize: 1,
+					FileOptions.DeleteOnClose);
+			}
+			catch (IOException)
+			{
+				// Another process holds the lock, wait and retry
+				if (i < maxRetries - 1)
+				{
+					Thread.Sleep(retryDelayMs);
+				}
+				else
+				{
+					// Last attempt failed, throw with context
+					throw new InvalidOperationException(
+						$"Failed to acquire expiration test lock after {maxRetries} retries " +
+						$"(waited {maxRetries * retryDelayMs}ms total). " +
+						$"Lock file: {LockFilePath}");
+				}
+			}
+		}
+		
+		// This should never be reached due to throw in catch block
+		throw new InvalidOperationException("Unexpected: failed to acquire lock");
+	}
+
+	/// <summary>
+	/// Acquires expiration test lock and flushes the cache to ensure clean state.
+	/// Returns an AsyncLockHandle that should be disposed to release the lock.
+	/// </summary>
+	protected async Task<AsyncLockHandle> AcquireExpirationTestLockAndFlushAsync()
+	{
+		var lockFile = AcquireExpirationTestLock();
+		try
+		{
+			await Client.FlushAsync(CancellationToken.None);
+			return new AsyncLockHandle(lockFile);
+		}
+		catch
+		{
+			// If flush fails, release the lock
+			lockFile.Dispose();
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// Wrapper for FileStream that implements IAsyncDisposable for proper async disposal.
+	/// </summary>
+	protected sealed class AsyncLockHandle : IAsyncDisposable, IDisposable
+	{
+		private readonly FileStream _lockFile;
+
+		public AsyncLockHandle(FileStream lockFile)
+		{
+			_lockFile = lockFile ?? throw new ArgumentNullException(nameof(lockFile));
+		}
+
+		public ValueTask DisposeAsync()
+		{
+			_lockFile.Dispose();
+			return ValueTask.CompletedTask;
+		}
+
+		public void Dispose()
+		{
+			_lockFile.Dispose();
+		}
 	}
 
 	protected string GetTooLongKey()

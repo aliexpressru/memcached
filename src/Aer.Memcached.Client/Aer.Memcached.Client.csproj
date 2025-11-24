@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <LangVersion>latest</LangVersion>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -15,15 +15,16 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageTags>memcached distributed cache</PackageTags>
         <Description>A distributed Memcached client implementation.</Description>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="MessagePack" Version="3.1.2" />
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.1" />
-        <PackageReference Include="morelinq" Version="3.3.2" />
-        <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.2" />
+        <PackageReference Include="MessagePack" Version="3.1.4" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+        <PackageReference Include="morelinq" Version="4.4.0" />
+        <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.3" />
+        <PackageReference Include="Polly" Version="8.6.4" />
         <PackageReference Include="OpenTelemetry.Api" Version="1.14.0" />
-        <PackageReference Include="Polly" Version="8.1.0" />
         <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="10.0.0" />
     </ItemGroup>
 
