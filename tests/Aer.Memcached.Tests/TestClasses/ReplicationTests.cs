@@ -32,9 +32,10 @@ public class ReplicationTests : MemcachedClientTestsBase
 	{ }
 
 	[TestInitialize]
-	public void SetUp()
-	{ 
-		Client.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+	public async Task SetUp()
+	{
+		// Use lock to prevent conflicts with other tests that use Flush
+		await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
 	}
 
 	[TestMethod]

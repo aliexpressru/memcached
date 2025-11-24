@@ -230,10 +230,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     public async Task MultiStoreAndGet_ExpirationMap_OneValueExpired()
     {
         // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
-        await using var lockFile = AcquireExpirationTestLock();
-        
-        // Clear all cache to ensure clean state
-        await Client.FlushAsync(CancellationToken.None);
+        // Also flush cache to ensure clean state
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
         
         var keyToExpire = Guid.NewGuid().ToString();
         var expirationMap = new Dictionary<string, TimeSpan?>()
@@ -280,10 +278,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     public async Task MultiStoreAndGet_ExpirationMap_DateTimeOffset_OneValueExpired()
     {
         // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
-        await using var lockFile = AcquireExpirationTestLock();
-        
-        // Clear all cache to ensure clean state
-        await Client.FlushAsync(CancellationToken.None);
+        // Also flush cache to ensure clean state
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
         
         var keyToExpire = Guid.NewGuid().ToString();
         var utcNow = DateTimeOffset.UtcNow;
@@ -581,11 +577,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     public async Task MultiStoreAndGetBatched()
     {
         // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
-        await using var lockFile = AcquireExpirationTestLock();
-        
-        // Flush memcached to avoid conflicts with data from other tests
-        // Also possible eviction problems
-        await Client.FlushAsync(CancellationToken.None);
+        // Flush memcached to avoid conflicts with data from other tests and possible eviction problems
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
         
         var keyValues = new Dictionary<string, string>();
 
@@ -996,7 +989,8 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
         var getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Count.Should().Be(keys.Length);
         
-        await Client.FlushAsync(CancellationToken.None);
+        // Use lock to prevent conflicts with other tests that use Flush
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
         getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Should().BeEmpty();
     }
