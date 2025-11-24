@@ -985,12 +985,14 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task Flush_RemoveAllItems()
     {
+        // Acquire lock first to hold it for entire test duration
+        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
+        
         var keys = await MultiStoreAndGetKeys();
         var getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Count.Should().Be(keys.Length);
         
-        // Use lock to prevent conflicts with other tests that use Flush
-        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
+        await Client.FlushAsync(CancellationToken.None);
         getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Should().BeEmpty();
     }
