@@ -230,7 +230,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     public async Task MultiStoreAndGet_ExpirationMap_OneValueExpired()
     {
         // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
-        using var lockFile = AcquireExpirationTestLock();
+        await using var lockFile = AcquireExpirationTestLock();
         
         // Clear all cache to ensure clean state
         await Client.FlushAsync(CancellationToken.None);
@@ -280,7 +280,7 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     public async Task MultiStoreAndGet_ExpirationMap_DateTimeOffset_OneValueExpired()
     {
         // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
-        using var lockFile = AcquireExpirationTestLock();
+        await using var lockFile = AcquireExpirationTestLock();
         
         // Clear all cache to ensure clean state
         await Client.FlushAsync(CancellationToken.None);
