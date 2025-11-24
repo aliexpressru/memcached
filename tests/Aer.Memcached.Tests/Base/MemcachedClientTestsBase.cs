@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+﻿﻿using System.Diagnostics;
 using Aer.ConsistentHash;
 using Aer.Memcached.Client;
 using Aer.Memcached.Client.Authentication;
@@ -19,6 +19,12 @@ namespace Aer.Memcached.Tests.Base;
 public abstract class MemcachedClientTestsBase
 {
 	protected const int CacheItemExpirationSeconds = 3;
+	
+	/// <summary>
+	/// Static semaphore to ensure expiration tests run sequentially across all test instances
+	/// This prevents race conditions when running tests in parallel on different frameworks (net8.0, net10.0)
+	/// </summary>
+	protected static readonly SemaphoreSlim ExpirationTestLock = new(1, 1);
 	
 	protected readonly MemcachedClient<Pod> Client;
 	

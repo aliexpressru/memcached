@@ -229,95 +229,107 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_OneValueExpired()
     {
-        // Flush to avoid conflicts with other tests
-        await Client.FlushAsync(CancellationToken.None);
-        
-        var keyToExpire = Guid.NewGuid().ToString();
-        var expirationMap = new Dictionary<string, TimeSpan?>()
+        // Use lock to ensure this test runs sequentially across all test runs (net8.0, net10.0)
+        await ExpirationTestLock.WaitAsync();
+        try
         {
-            { keyToExpire, TimeSpan.FromSeconds(CacheItemExpirationSeconds) },
-            { Guid.NewGuid().ToString(), TimeSpan.FromDays(2) },
-            { Guid.NewGuid().ToString(), null }
-        };
-
-        var keyValues = expirationMap.ToDictionary(key => key.Key, _ => Fixture.Create<string>());
-
-        await Client.MultiStoreAsync(
-            keyValues,
-            null,
-            CancellationToken.None,
-            expirationMap: expirationMap);
-
-        var getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
-
-        getValue.Count.Should().Be(keyValues.Keys.Count);
-
-        // Wait for expiration with extra margin for CI environments (3 * 3 + 2 = 11 seconds)
-        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 3 + 2));
-
-        getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
-
-        // Check that the expired key is gone
-        getValue.Should().NotContainKey(keyToExpire);
-        getValue.Count.Should().Be(keyValues.Keys.Count - 1);
-
-        foreach (var keyValue in expirationMap)
-        {
-            if (keyValue.Key.Equals(keyToExpire))
+            var keyToExpire = Guid.NewGuid().ToString();
+            var expirationMap = new Dictionary<string, TimeSpan?>()
             {
-                continue;
-            }
+                { keyToExpire, TimeSpan.FromSeconds(CacheItemExpirationSeconds) },
+                { Guid.NewGuid().ToString(), TimeSpan.FromDays(2) },
+                { Guid.NewGuid().ToString(), null }
+            };
 
-            getValue.Should().ContainKey(keyValue.Key);
-            getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
+            var keyValues = expirationMap.ToDictionary(key => key.Key, _ => Fixture.Create<string>());
+
+            await Client.MultiStoreAsync(
+                keyValues,
+                null,
+                CancellationToken.None,
+                expirationMap: expirationMap);
+
+            var getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+            getValue.Count.Should().Be(keyValues.Keys.Count);
+
+            // Wait for expiration
+            await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
+
+            getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+            // Check that the expired key is gone
+            getValue.Should().NotContainKey(keyToExpire);
+            getValue.Count.Should().Be(keyValues.Keys.Count - 1);
+
+            foreach (var keyValue in expirationMap)
+            {
+                if (keyValue.Key.Equals(keyToExpire))
+                {
+                    continue;
+                }
+
+                getValue.Should().ContainKey(keyValue.Key);
+                getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
+            }
+        }
+        finally
+        {
+            ExpirationTestLock.Release();
         }
     }
     
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_DateTimeOffset_OneValueExpired()
     {
-        // Flush to avoid conflicts with other tests
-        await Client.FlushAsync(CancellationToken.None);
-        
-        var keyToExpire = Guid.NewGuid().ToString();
-        var utcNow = DateTimeOffset.UtcNow;
-        var expirationMap = new Dictionary<string, DateTimeOffset?>()
+        // Use lock to ensure this test runs sequentially across all test runs (net8.0, net10.0)
+        await ExpirationTestLock.WaitAsync();
+        try
         {
-            { keyToExpire, utcNow.AddSeconds(CacheItemExpirationSeconds) },
-            { Guid.NewGuid().ToString(), utcNow.AddDays(2) },
-            { Guid.NewGuid().ToString(), null }
-        };
-
-        var keyValues = expirationMap.ToDictionary(key => key.Key, _ => Fixture.Create<string>());
-
-        await Client.MultiStoreAsync(
-            keyValues,
-            null,
-            CancellationToken.None,
-            expirationMap: expirationMap);
-
-        var getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
-
-        getValue.Count.Should().Be(keyValues.Keys.Count);
-
-        // Wait for expiration with extra margin for CI environments (3 * 3 + 2 = 11 seconds)
-        await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 3 + 2));
-
-        getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
-
-        // Check that the expired key is gone
-        getValue.Should().NotContainKey(keyToExpire);
-        getValue.Count.Should().Be(keyValues.Keys.Count - 1);
-        
-        foreach (var keyValue in expirationMap)
-        {
-            if (keyValue.Key.Equals(keyToExpire))
+            var keyToExpire = Guid.NewGuid().ToString();
+            var utcNow = DateTimeOffset.UtcNow;
+            var expirationMap = new Dictionary<string, DateTimeOffset?>()
             {
-                continue;
-            }
+                { keyToExpire, utcNow.AddSeconds(CacheItemExpirationSeconds) },
+                { Guid.NewGuid().ToString(), utcNow.AddDays(2) },
+                { Guid.NewGuid().ToString(), null }
+            };
 
-            getValue.Should().ContainKey(keyValue.Key);
-            getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
+            var keyValues = expirationMap.ToDictionary(key => key.Key, _ => Fixture.Create<string>());
+
+            await Client.MultiStoreAsync(
+                keyValues,
+                null,
+                CancellationToken.None,
+                expirationMap: expirationMap);
+
+            var getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+            getValue.Count.Should().Be(keyValues.Keys.Count);
+
+            // Wait for expiration
+            await Task.Delay(TimeSpan.FromSeconds(CacheItemExpirationSeconds * 2));
+
+            getValue = await Client.MultiGetAsync<string>(keyValues.Keys, CancellationToken.None);
+
+            // Check that the expired key is gone
+            getValue.Should().NotContainKey(keyToExpire);
+            getValue.Count.Should().Be(keyValues.Keys.Count - 1);
+            
+            foreach (var keyValue in expirationMap)
+            {
+                if (keyValue.Key.Equals(keyToExpire))
+                {
+                    continue;
+                }
+
+                getValue.Should().ContainKey(keyValue.Key);
+                getValue[keyValue.Key].Should().Be(keyValues[keyValue.Key]);
+            }
+        }
+        finally
+        {
+            ExpirationTestLock.Release();
         }
     }
 
