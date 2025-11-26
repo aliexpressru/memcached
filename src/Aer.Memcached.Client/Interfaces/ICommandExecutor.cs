@@ -14,10 +14,12 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     /// <param name="node">Node to execute a command on</param>
     /// <param name="command">Command to execute</param>
     /// <param name="token">Cancellation token</param>
+    /// <param name="tracingOptions">Optional tracing options to control tracing behavior</param>
     Task<CommandExecutionResult> ExecuteCommandAsync(
         TNode node, 
         MemcachedCommandBase command,
-        CancellationToken token);
+        CancellationToken token,
+        TracingOptions tracingOptions = null);
     
     /// <summary>
     /// Executes command on a replicated node. Executes commands on all replicas in parallel.
@@ -26,10 +28,12 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     /// <param name="node">A replicated node to execute a command on</param>
     /// <param name="command">Command to execute</param>
     /// <param name="token">Cancellation token</param>
+    /// <param name="tracingOptions">Optional tracing options to control tracing behavior</param>
     Task<CommandExecutionResult> ExecuteCommandAsync(
         ReplicatedNode<TNode> node,
         MemcachedCommandBase command,
-        CancellationToken token);
+        CancellationToken token,
+        TracingOptions tracingOptions = null);
 
     /// <summary>
     /// Removes and disposes socket pools for specified nodes
@@ -61,8 +65,10 @@ public interface ICommandExecutor<TNode> where TNode : class, INode
     /// it is required by authentication provider settings.
     /// </param>
     /// <param name="token">The cancellation token.</param>
+    /// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
     Task<PooledSocket> GetSocketForNodeAsync(
         TNode node,
         bool isAuthenticateSocketIfRequired,
-        CancellationToken token);
+        CancellationToken token,
+        TracingOptions tracingOptions = null);
 }

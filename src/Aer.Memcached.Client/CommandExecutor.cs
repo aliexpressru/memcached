@@ -60,11 +60,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     public async Task<CommandExecutionResult> ExecuteCommandAsync(
         ReplicatedNode<TNode> node,
         MemcachedCommandBase command,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         var diagnosticTimer = DiagnosticTimer.StartNew(command);
 
-        var result = await ExecuteCommandInternalAsync(node, command, token);
+        var result = await ExecuteCommandInternalAsync(node, command, token, tracingOptions);
 
         diagnosticTimer.StopAndWriteDiagnostics(result);
 
@@ -75,11 +76,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     public async Task<CommandExecutionResult> ExecuteCommandAsync(
         TNode node,
         MemcachedCommandBase command,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         var diagnosticTimer = DiagnosticTimer.StartNew(command);
 
-        var result = await ExecuteCommandInternalAsync(node, command, token);
+        var result = await ExecuteCommandInternalAsync(node, command, token, tracingOptions);
 
         diagnosticTimer.StopAndWriteDiagnostics(result);
 
@@ -144,28 +146,32 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     public Task<PooledSocket> GetSocketForNodeAsync(
         TNode node,
         bool isAuthenticateSocketIfRequired,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
-        return GetSocketAsync(node, isAuthenticateSocketIfRequired, token);
+        return GetSocketAsync(node, isAuthenticateSocketIfRequired, token, tracingOptions);
     }
 
     private async Task<CommandExecutionResult> ExecuteCommandInternalAsync(
         ReplicatedNode<TNode> replicatedNode,
         MemcachedCommandBase command,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         using var tracingScope = MemcachedTracing.CreateCommandScope(
             _tracer, 
             command, 
             replicatedNode.PrimaryNode, 
             true, 
-            replicatedNode.ReplicaNodes.Count);
+            replicatedNode.ReplicaNodes.Count,
+            _logger,
+            tracingOptions);
 
         try
         {
             if (!replicatedNode.HasReplicas)
             {
-                var result = await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token);
+                var result = await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token, tracingOptions);
                 
                 tracingScope?.SetResult(result.Success, result.ErrorMessage);
                 return result;
@@ -182,7 +188,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 // clone command before passing it for the execution
 
                 var commandClone = command.Clone();
-                var nodeExecutionTask = ExecuteCommandInternalAsync(node, commandClone, token);
+                var nodeExecutionTask = ExecuteCommandInternalAsync(node, commandClone, token, tracingOptions);
 
                 commandExecutionTasks.Add(nodeExecutionTask);
             }
@@ -252,13 +258,21 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     private async Task<CommandExecutionResult> ExecuteCommandInternalAsync(
         TNode node,
         MemcachedCommandBase command,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
-        using var tracingScope = MemcachedTracing.CreateCommandScope(_tracer, command, node, false, 0);
+        using var tracingScope = MemcachedTracing.CreateCommandScope(
+            _tracer, 
+            command, 
+            node, 
+            false, 
+            0, 
+            _logger,
+            tracingOptions);
 
         try
         {
-            using var socket = await GetSocketAsync(node, isAuthenticateSocketIfRequired: true, token);
+            using var socket = await GetSocketAsync(node, isAuthenticateSocketIfRequired: true, token, tracingOptions);
 
             if (socket == null)
             {
@@ -316,7 +330,8 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     private async Task<PooledSocket> GetSocketAsync(
         TNode node,
         bool isAuthenticateSocketIfRequired,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         var socketPool = _socketPools.GetOrAdd(
             node,
@@ -335,7 +350,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             return null;
         }
 
-        var pooledSocket = await socketPool.GetSocketAsync(token);
+        var pooledSocket = await socketPool.GetSocketAsync(token, tracingOptions);
 
         if (pooledSocket == null)
         {
