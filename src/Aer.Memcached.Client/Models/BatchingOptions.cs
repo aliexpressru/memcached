@@ -1,4 +1,4 @@
-﻿﻿using Aer.Memcached.Client.Interfaces;
+﻿using Aer.Memcached.Client.Interfaces;
 
 namespace Aer.Memcached.Client.Models;
 
@@ -6,7 +6,7 @@ namespace Aer.Memcached.Client.Models;
 /// Represents options that configure key or key-value batching during multi-get and multi-store operations.
 /// </summary>
 /// <remarks>
-/// Used by <see cref="IMemcachedClient.MultiGetAsync{T}(IEnumerable{string}, CancellationToken, BatchingOptions, uint)"/> 
+/// Used by <see cref="IMemcachedClient.MultiGetAsync{T}(IEnumerable{string}, CancellationToken, BatchingOptions, uint, TracingOptions)"/> 
 /// and <c>MultiStoreAsync</c> methods to split large requests into smaller batches.
 /// </remarks>
 public class BatchingOptions

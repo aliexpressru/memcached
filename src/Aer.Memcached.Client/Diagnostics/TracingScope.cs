@@ -27,7 +27,15 @@ internal sealed class TracingScope : IDisposable
             return;
         }
 
-        _span.SetStatus(success ? Status.Ok : Status.Error.WithDescription(errorMessage ?? "Operation failed"));
+        try
+        {
+            _span.SetStatus(success ? Status.Ok : Status.Error.WithDescription(errorMessage ?? "Operation failed"));
+        }
+        catch
+        {
+            // Tracing should never break the application
+            // Silently ignore any exceptions from tracing operations
+        }
     }
 
     /// <summary>
@@ -40,8 +48,16 @@ internal sealed class TracingScope : IDisposable
             return;
         }
 
-        _span.RecordException(exception);
-        _span.SetStatus(Status.Error.WithDescription(exception.Message));
+        try
+        {
+            _span.RecordException(exception);
+            _span.SetStatus(Status.Error.WithDescription(exception.Message));
+        }
+        catch
+        {
+            // Tracing should never break the application
+            // Silently ignore any exceptions from tracing operations
+        }
     }
 
     /// <summary>
@@ -54,7 +70,18 @@ internal sealed class TracingScope : IDisposable
             return;
         }
 
-        _span.End();
-        _disposed = true;
+        try
+        {
+            _span.End();
+        }
+        catch
+        {
+            // Tracing should never break the application
+            // Silently ignore any exceptions from tracing operations
+        }
+        finally
+        {
+            _disposed = true;
+        }
     }
 }

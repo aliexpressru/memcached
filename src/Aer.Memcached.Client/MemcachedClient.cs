@@ -70,7 +70,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         TimeSpan? expirationTime,
         CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
-        CacheSyncOptions cacheSyncOptions = null)
+        CacheSyncOptions cacheSyncOptions = null,
+        TracingOptions tracingOptions = null)
     {
         try
         {
@@ -92,7 +93,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                        expiration,
                        _memcachedConfiguration.IsAllowLongKeys))
             {
-                var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+                var result = await _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
                 var syncSuccess = false;
                 if (IsCacheSyncEnabledInternal(cacheSyncOptions))
@@ -136,7 +137,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         BatchingOptions batchingOptions = null,
         CacheSyncOptions cacheSyncOptions = null,
         uint replicationFactor = 0,
-        IDictionary<string, TimeSpan?> expirationMap = null)
+        IDictionary<string, TimeSpan?> expirationMap = null,
+        TracingOptions tracingOptions = null)
     {
         try
         {
@@ -159,7 +161,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 serializedKeyValues[keyValue.Key] = _binarySerializer.Serialize(keyValue.Value);
             }
             
-            await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token, storeMode, batchingOptions);
+            await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token, storeMode, batchingOptions, tracingOptions);
 
             var syncSuccess = false;
             if (IsCacheSyncEnabledInternal(cacheSyncOptions))
@@ -200,7 +202,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         BatchingOptions batchingOptions = null,
         CacheSyncOptions cacheSyncOptions = null,
         uint replicationFactor = 0,
-        IDictionary<string, DateTimeOffset?> expirationMap = null)
+        IDictionary<string, DateTimeOffset?> expirationMap = null,
+        TracingOptions tracingOptions = null)
     {
         try
         {
@@ -233,7 +236,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 serializedKeyValues[keyValue.Key] = _binarySerializer.Serialize(keyValue.Value);
             }
 
-            await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token, storeMode, batchingOptions);
+            await MultiStoreInternalAsync(nodes, keyToExpirationMap, serializedKeyValues, token, storeMode, batchingOptions, tracingOptions);
 
             var syncSuccess = false;
             if (IsCacheSyncEnabledInternal(cacheSyncOptions))
@@ -269,7 +272,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         DateTimeOffset? expirationTime,
         CancellationToken token,
         IDictionary<string, DateTimeOffset?> expirationMap = null,
-        BatchingOptions batchingOptions = null)
+        BatchingOptions batchingOptions = null,
+        TracingOptions tracingOptions = null)
     {
         try
         {
@@ -307,7 +311,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 keyToExpirationMap, 
                 serializedKeyValues, 
                 token, 
-                batchingOptions: batchingOptions);
+                batchingOptions: batchingOptions,
+                tracingOptions: tracingOptions);
 
             return MemcachedClientResult.Successful.WithSyncSuccess(true);
         }
@@ -323,7 +328,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
     }
 
     /// <inheritdoc />
-    public async Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token)
+    public async Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token, TracingOptions tracingOptions = null)
     {
         try
         {
@@ -335,7 +340,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             using (var command = new GetCommand(key, _memcachedConfiguration.IsAllowLongKeys))
             {
-                using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+                using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
                 if (!commandExecutionResult.Success)
                 {
@@ -376,7 +381,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
     }
 
     /// <inheritdoc />
-    public async Task<MemcachedClientValueResult<T>> GetAndTouchAsync<T>(string key, TimeSpan? expirationTime, CancellationToken token)
+    public async Task<MemcachedClientValueResult<T>> GetAndTouchAsync<T>(string key, TimeSpan? expirationTime, CancellationToken token, TracingOptions tracingOptions = null)
     {
         try
         {
@@ -390,7 +395,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             using (var command = new GetAndTouchCommand(key, expiration, _memcachedConfiguration.IsAllowLongKeys))
             {
-                using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+                using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
                 if (!commandExecutionResult.Success)
                 {
@@ -434,11 +439,12 @@ public class MemcachedClient<TNode> : IMemcachedClient
         IEnumerable<string> keys,
         CancellationToken token,
         BatchingOptions batchingOptions = null,
-        uint replicationFactor = 0)
+        uint replicationFactor = 0,
+        TracingOptions tracingOptions = null)
     {
         try
         {
-            var getKeysResult = await MultiGetAsync<T>(keys, token, batchingOptions, replicationFactor);
+            var getKeysResult = await MultiGetAsync<T>(keys, token, batchingOptions, replicationFactor, tracingOptions);
 
             return MemcachedClientValueResult<IDictionary<string, T>>.Successful(
                 getKeysResult,
@@ -465,7 +471,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         IEnumerable<string> keys,
         CancellationToken token,
         BatchingOptions batchingOptions = null,
-        uint replicationFactor = 0)
+        uint replicationFactor = 0,
+        TracingOptions tracingOptions = null)
     {
 
         var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
@@ -477,7 +484,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
         if (batchingOptions is not null)
         {
-            return await MultiGetBatchedInternalAsync<T>(nodes, batchingOptions, token);
+            return await MultiGetBatchedInternalAsync<T>(nodes, batchingOptions, token, tracingOptions);
         }
 
         var getCommandTasks = new List<Task<CommandExecutionResult>>(nodes.Count);
@@ -485,7 +492,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         foreach (var (node, keysToGet) in nodes)
         {
             var command = new MultiGetCommand(keysToGet, keysToGet.Count, _memcachedConfiguration.IsAllowLongKeys);
-            var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+            var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
             getCommandTasks.Add(executeTask);
         }
@@ -540,7 +547,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
     public async Task<MemcachedClientResult> DeleteAsync(
         string key,
         CancellationToken token,
-        CacheSyncOptions cacheSyncOptions = null)
+        CacheSyncOptions cacheSyncOptions = null,
+        TracingOptions tracingOptions = null)
     {
         try
         {
@@ -552,7 +560,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             using (var command = new DeleteCommand(key, _memcachedConfiguration.IsAllowLongKeys))
             {
-                var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+                var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
                 var syncSuccess = false;
                 if (IsCacheSyncEnabledInternal(cacheSyncOptions))
@@ -583,7 +591,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         CancellationToken token,
         BatchingOptions batchingOptions = null,
         CacheSyncOptions cacheSyncOptions = null,
-        uint replicationFactor = 0)
+        uint replicationFactor = 0,
+        TracingOptions tracingOptions = null)
     {
         try
         {
@@ -599,7 +608,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             if (batchingOptions is not null)
             {
-                await MultiDeleteBatchedInternalAsync(nodes, batchingOptions, token);
+                await MultiDeleteBatchedInternalAsync(nodes, batchingOptions, token, tracingOptions);
             }
 
             var deleteTasks = new List<Task>(nodes.Count);
@@ -613,7 +622,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                                keysToDelete.Count,
                                _memcachedConfiguration.IsAllowLongKeys))
                     {
-                        var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+                        var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
                         deleteTasks.Add(executeTask);
                     }
@@ -647,7 +656,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         ulong amountToAdd,
         ulong initialValue,
         TimeSpan? expirationTime,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         try
         {
@@ -667,7 +677,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                        expiration,
                        _memcachedConfiguration.IsAllowLongKeys))
             {
-                using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+                using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
                 return new MemcachedClientValueResult<ulong>(
                     result.Success,
@@ -696,7 +706,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         ulong amountToSubtract,
         ulong initialValue,
         TimeSpan? expirationTime,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         try
         {
@@ -715,7 +726,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                        expiration,
                        _memcachedConfiguration.IsAllowLongKeys))
             {
-                using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token);
+                using var result = await _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
                 return new MemcachedClientValueResult<ulong>(
                     result.Success,
@@ -739,7 +750,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
     }
 
     /// <inheritdoc />
-    public async Task<MemcachedClientResult> FlushAsync(CancellationToken token)
+    public async Task<MemcachedClientResult> FlushAsync(CancellationToken token, TracingOptions tracingOptions = null)
     {
         try
         {
@@ -756,7 +767,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             foreach (var node in nodes)
             {
-                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
                 setTasks.Add(executeTask);
                 commandsToDispose.Add(command);
             }
@@ -787,7 +798,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         IDictionary<string, CacheItemForRequest> keyValues,
         CancellationToken token,
         StoreMode storeMode = StoreMode.Set,
-        BatchingOptions batchingOptions = null)
+        BatchingOptions batchingOptions = null,
+        TracingOptions tracingOptions = null)
     {
         if (batchingOptions is not null)
         {
@@ -797,7 +809,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 batchingOptions,
                 keyToExpirationMap,
                 storeMode,
-                token);
+                token,
+                tracingOptions);
 
             return;
         }
@@ -824,7 +837,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     keyToExpirationMap,
                     _memcachedConfiguration.IsAllowLongKeys);
 
-                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token);
+                var executeTask = _commandExecutor.ExecuteCommandAsync(node, command, token, tracingOptions);
 
                 setTasks.Add(executeTask);
                 commandsToDispose.Add(command);
@@ -850,7 +863,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         BatchingOptions batchingOptions,
         Dictionary<string, uint> keyToExpirationMap,
         StoreMode storeMode,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         if (batchingOptions.BatchSize <= 0)
         {
@@ -886,7 +900,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                                    keyToExpirationMap,
                                    _memcachedConfiguration.IsAllowLongKeys))
                         {
-                            await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken);
+                            await _commandExecutor.ExecuteCommandAsync(node, command, cancellationToken, tracingOptions);
                         }
                     }
                 }
@@ -896,7 +910,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
     private async Task<IDictionary<string, T>> MultiGetBatchedInternalAsync<T>(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         BatchingOptions batchingOptions,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         // means batching is enabled - use separate logic
         if (batchingOptions.BatchSize <= 0)
@@ -931,7 +946,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                     using var commandExecutionResult = await _commandExecutor.ExecuteCommandAsync(
                         node,
                         command,
-                        cancellationToken);
+                        cancellationToken,
+                        tracingOptions);
 
                     if (!commandExecutionResult.Success)
                     {
@@ -956,7 +972,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
     private async Task MultiDeleteBatchedInternalAsync(
         IDictionary<ReplicatedNode<TNode>, ConcurrentBag<string>> nodes,
         BatchingOptions batchingOptions,
-        CancellationToken token)
+        CancellationToken token,
+        TracingOptions tracingOptions = null)
     {
         // means batching is enabled - use separate logic
         if (batchingOptions.BatchSize <= 0)
@@ -988,7 +1005,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
                             await _commandExecutor.ExecuteCommandAsync(
                                 node,
                                 command,
-                                cancellationToken);
+                                cancellationToken,
+                                tracingOptions);
                         }
                     }
                 }

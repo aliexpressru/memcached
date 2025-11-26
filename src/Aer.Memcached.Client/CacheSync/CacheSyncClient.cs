@@ -59,7 +59,8 @@ internal class CacheSyncClient: ICacheSyncClient
             _tracer,
             "cache.sync",
             syncServer.Address,
-            data?.KeyValues?.Count);
+            data?.KeyValues?.Count,
+            _logger);
 
         try
         {
@@ -95,7 +96,8 @@ internal class CacheSyncClient: ICacheSyncClient
             _tracer,
             "cache.delete",
             syncServer.Address,
-            keysList?.Count);
+            keysList?.Count,
+            _logger);
 
         try
         {

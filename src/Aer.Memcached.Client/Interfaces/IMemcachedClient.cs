@@ -17,6 +17,7 @@ public interface IMemcachedClient
 	/// <param name="token">Cancellation token.</param>
 	/// <param name="storeMode">Store mode.</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	/// <returns>Result that shows if operation was successful or not.</returns>
 	Task<MemcachedClientResult> StoreAsync<T>(
 		string key,
@@ -24,7 +25,8 @@ public interface IMemcachedClient
 		TimeSpan? expirationTime,
 		CancellationToken token,
 		StoreMode storeMode = StoreMode.Set,
-		CacheSyncOptions cacheSyncOptions = null);
+		CacheSyncOptions cacheSyncOptions = null,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Stores multiple values.
@@ -37,6 +39,7 @@ public interface IMemcachedClient
 	/// <param name="cacheSyncOptions">The options that configure cache sync.</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data.</param>
 	/// <param name="expirationMap">Individual key expirations that will be used instead expirationTime if provided.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	Task<MemcachedClientResult> MultiStoreAsync<T>(
 		IDictionary<string, T> keyValues, 
 		TimeSpan? expirationTime, 
@@ -45,7 +48,8 @@ public interface IMemcachedClient
 		BatchingOptions batchingOptions = null,
 		CacheSyncOptions cacheSyncOptions = null,
 		uint replicationFactor = 0,
-		IDictionary<string, TimeSpan?> expirationMap = null);
+		IDictionary<string, TimeSpan?> expirationMap = null,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Stores multiple values.
@@ -58,6 +62,7 @@ public interface IMemcachedClient
 	/// <param name="cacheSyncOptions">The options that configure cache sync.</param>
 	/// <param name="replicationFactor">Number of physical nodes replication of data.</param>
 	/// <param name="expirationMap">Individual key expirations that will be used instead expirationTime if provided.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	Task<MemcachedClientResult> MultiStoreAsync<T>(
 		IDictionary<string, T> keyValues,
 		DateTimeOffset? expirationTime,
@@ -66,7 +71,8 @@ public interface IMemcachedClient
 		BatchingOptions batchingOptions = null,
 		CacheSyncOptions cacheSyncOptions = null,
 		uint replicationFactor = 0,
-		IDictionary<string, DateTimeOffset?> expirationMap = null);
+		IDictionary<string, DateTimeOffset?> expirationMap = null,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Lean version of MultiStore method to synchronize cache data
@@ -78,24 +84,27 @@ public interface IMemcachedClient
 	/// <param name="token">Cancellation token.</param>
 	/// <param name="expirationMap">Individual key expirations that will be used instead expirationTime if provided.</param>
 	/// <param name="batchingOptions">Batching options for splitting key-values into batches.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	Task<MemcachedClientResult> MultiStoreSynchronizeDataAsync(
 		IDictionary<string, byte[]> keyValues,
 		uint flags,
 		DateTimeOffset? expirationTime,
 		CancellationToken token,
 		IDictionary<string, DateTimeOffset?> expirationMap = null,
-		BatchingOptions batchingOptions = null);
+		BatchingOptions batchingOptions = null,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Gets one value by key.
 	/// </summary>
 	/// <param name="key">Key.</param>
 	/// <param name="token">Cancellation token.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	/// <returns>
 	/// Value by key and if operation was successful or not.
 	/// If operation was unsuccessful default value is returned.
 	/// </returns>
-	Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token);
+	Task<MemcachedClientValueResult<T>> GetAsync<T>(string key, CancellationToken token, TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Gets one value by key. and updates the TTL of the cached item.
@@ -103,11 +112,12 @@ public interface IMemcachedClient
 	/// <param name="key">Key.</param>
 	/// <param name="expirationTime">Expiration time.</param>
 	/// <param name="token">Cancellation token.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	/// <returns>
 	/// Value by key and if operation was successful or not.
 	/// If operation was unsuccessful default value is returned.
 	/// </returns>
-	Task<MemcachedClientValueResult<T>> GetAndTouchAsync<T>(string key, TimeSpan? expirationTime, CancellationToken token);
+	Task<MemcachedClientValueResult<T>> GetAndTouchAsync<T>(string key, TimeSpan? expirationTime, CancellationToken token, TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Gets multiple values by keys.
@@ -116,11 +126,13 @@ public interface IMemcachedClient
 	/// <param name="token">Cancellation token.</param>
 	/// <param name="batchingOptions">The options that configure internal keys batching.</param>
 	/// <param name="replicationFactor">Number of physical nodes which will be requested to obtain data.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	/// <returns>Values by keys. Only found in memcached keys are returned.</returns>
 	Task<IDictionary<string, T>> MultiGetAsync<T>(IEnumerable<string> keys,
 		CancellationToken token,
 		BatchingOptions batchingOptions = null,
-		uint replicationFactor = 0);
+		uint replicationFactor = 0,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Gets multiple values by keys. Does not throw exceptions and returns a not-null value.
@@ -129,12 +141,14 @@ public interface IMemcachedClient
 	/// <param name="token">Cancellation token.</param>
 	/// <param name="batchingOptions">The options that configure internal keys batching.</param>
 	/// <param name="replicationFactor">Number of physical nodes which will be requested to obtain data.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	/// <returns>Values by keys. Only found in memcached keys are returned.</returns>
 	Task<MemcachedClientValueResult<IDictionary<string, T>>> MultiGetSafeAsync<T>(
 		IEnumerable<string> keys,
 		CancellationToken token,
 		BatchingOptions batchingOptions = null,
-		uint replicationFactor = 0);
+		uint replicationFactor = 0,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Deletes one value by key.
@@ -142,10 +156,12 @@ public interface IMemcachedClient
 	/// <param name="key">Key.</param>
 	/// <param name="token">Cancellation token.</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	Task<MemcachedClientResult> DeleteAsync(
 		string key, 
 		CancellationToken token, 
-		CacheSyncOptions cacheSyncOptions = null);
+		CacheSyncOptions cacheSyncOptions = null,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Deletes multiple values by keys.
@@ -155,12 +171,14 @@ public interface IMemcachedClient
 	/// <param name="batchingOptions">The options that configure internal keys batching.</param>
 	/// <param name="cacheSyncOptions">The options that configure cache sync.</param>
 	/// <param name="replicationFactor">Number of physical nodes to try to delete keys on.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	Task<MemcachedClientResult> MultiDeleteAsync(
 		IEnumerable<string> keys,
 		CancellationToken token,
 		BatchingOptions batchingOptions = null,
 		CacheSyncOptions cacheSyncOptions = null,
-		uint replicationFactor = 0);
+		uint replicationFactor = 0,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Increments value by key.
@@ -170,13 +188,15 @@ public interface IMemcachedClient
 	/// <param name="initialValue">Initial value if key doesn't exist.</param>
 	/// <param name="expirationTime">Expiration time.</param>
 	/// <param name="token">Cancellation token.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	/// <returns>Incremented value.</returns>
 	Task<MemcachedClientValueResult<ulong>> IncrAsync(
 		string key,
 		ulong amountToAdd,
 		ulong initialValue,
 		TimeSpan? expirationTime,
-		CancellationToken token);
+		CancellationToken token,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Increments value by key.
@@ -186,18 +206,22 @@ public interface IMemcachedClient
 	/// <param name="initialValue">Initial value if key doesn't exist.</param>
 	/// <param name="expirationTime">Expiration time.</param>
 	/// <param name="token">Cancellation token.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
 	/// <returns>Decremented value.</returns>
 	Task<MemcachedClientValueResult<ulong>> DecrAsync(
 		string key,
 		ulong amountToSubtract,
 		ulong initialValue,
 		TimeSpan? expirationTime,
-		CancellationToken token);
+		CancellationToken token,
+		TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Delete all key-value items.
 	/// </summary>
-	Task<MemcachedClientResult> FlushAsync(CancellationToken token);
+	/// <param name="token">Cancellation token.</param>
+	/// <param name="tracingOptions">Optional tracing options to control tracing behavior.</param>
+	Task<MemcachedClientResult> FlushAsync(CancellationToken token, TracingOptions tracingOptions = null);
 
 	/// <summary>
 	/// Returns <c>true</c> if cache synchronization is turned on, <c>false</c> otherwise.
