@@ -321,6 +321,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             tracingScope?.SetResult(result.Success, result.ErrorMessage);
             return result;
         }
+        catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
+        {
+            // just rethrow this exception and don't log any details.
+            // it will be handled in MemcachedClient
+            throw;
+        }
         catch (Exception e)
         {
             _logger.LogError(
