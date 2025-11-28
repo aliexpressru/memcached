@@ -159,10 +159,10 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         TracingOptions tracingOptions = null)
     {
         using var tracingScope = MemcachedTracing.CreateCommandScope(
-            _tracer, 
-            command, 
-            replicatedNode.PrimaryNode, 
-            true, 
+            _tracer,
+            command,
+            replicatedNode.PrimaryNode,
+            true,
             replicatedNode.ReplicaNodes.Count,
             _logger,
             tracingOptions);
@@ -172,7 +172,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             if (!replicatedNode.HasReplicas)
             {
                 var result = await ExecuteCommandInternalAsync(replicatedNode.PrimaryNode, command, token, tracingOptions);
-                
+
                 tracingScope?.SetResult(result.Success, result.ErrorMessage);
                 return result;
             }
@@ -221,7 +221,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             command.Dispose();
 
             CommandExecutionResult finalResult;
-            
+
             if (successfulCommand is not null)
             {
                 finalResult = CommandExecutionResult.Successful(successfulCommand);
@@ -262,11 +262,11 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         TracingOptions tracingOptions = null)
     {
         using var tracingScope = MemcachedTracing.CreateCommandScope(
-            _tracer, 
-            command, 
-            node, 
-            false, 
-            0, 
+            _tracer,
+            command,
+            node,
+            false,
+            0,
             _logger,
             tracingOptions);
 
@@ -364,41 +364,67 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             return pooledSocket;
         }
 
-        await AuthenticateAsync(pooledSocket);
+        await AuthenticateAsync(pooledSocket, socketPool);
 
         return pooledSocket;
     }
 
-    private async Task AuthenticateAsync(PooledSocket pooledSocket)
+    private async Task AuthenticateAsync(PooledSocket pooledSocket, SocketPool socketPool, TracingOptions tracingOptions = null)
     {
+        using var tracingScope = MemcachedTracing.CreateSocketOperationScope(
+            _tracer,
+            "socket.authenticate",
+            pooledSocket.EndPointAddressString,
+            _config.SocketPool.MaxPoolSize,
+            socketPool.UsedSocketsCount,
+            _logger,
+            tracingOptions);
+
         var saslStart = new SaslStartCommand(_authenticationProvider.GetAuthData());
         await pooledSocket.WriteAsync(saslStart.GetBuffer());
 
         var startResult = saslStart.ReadResponse(pooledSocket);
         if (startResult.Success)
         {
+            tracingScope?.SetResult(true);
             pooledSocket.Authenticated = true;
             return;
         }
 
-        if (startResult.StatusCode != FURTHER_AUTHENTICATION_STEPS_REQUIRED_STATUS_CODE)
+        try
         {
-            // means that sasl start result is neither a success
-            // nor the one that indicates that additional steps required
-            throw new AuthenticationException();
+            if (startResult.StatusCode != FURTHER_AUTHENTICATION_STEPS_REQUIRED_STATUS_CODE)
+            {
+                // means that sasl start result is neither a success
+                // nor the one that indicates that additional steps required
+                throw new AuthenticationException();
+            }
+
+            // Further authentication steps required
+            var saslStep = new SaslStepCommand(saslStart.Data.ToArray());
+            await pooledSocket.WriteAsync(saslStep.GetBuffer());
+
+            var saslStepResult = saslStep.ReadResponse(pooledSocket);
+            if (!saslStepResult.Success)
+            {
+                throw new AuthenticationException();
+            }
+
+            pooledSocket.Authenticated = true;
         }
-
-        // Further authentication steps required
-        var saslStep = new SaslStepCommand(saslStart.Data.ToArray());
-        await pooledSocket.WriteAsync(saslStep.GetBuffer());
-
-        var saslStepResult = saslStep.ReadResponse(pooledSocket);
-        if (!saslStepResult.Success)
+        catch (Exception e)
         {
-            throw new AuthenticationException();
-        }
+            tracingScope?.SetError(e);
 
-        pooledSocket.Authenticated = true;
+            _logger.LogError(
+                e,
+                "Error occured during socket {SocketAddress} authentication",
+                pooledSocket.EndPointAddressString);
+
+            // in case of any authentication failure - dispose the socket
+            pooledSocket.Dispose();
+
+            throw;
+        }
     }
-
 }
