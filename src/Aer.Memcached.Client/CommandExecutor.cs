@@ -299,7 +299,20 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 return timeoutResult;
             }
 
-            var readResult = command.ReadResponse(socket);
+            CommandResult readResult;
+            try
+            {
+                readResult = await command.ReadResponseAsync(socket, token);
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogError("Read from socket {SocketAddress} timed out", socket.EndPointAddressString);
+
+                var errorMessage = $"Read from socket {socket.EndPointAddressString} timed out";
+                var timeoutResult = CommandExecutionResult.Unsuccessful(command, errorMessage);
+                tracingScope?.SetResult(false, errorMessage);
+                return timeoutResult;
+            }
 
             var result = readResult.Success
                 ? CommandExecutionResult.Successful(command)
@@ -383,7 +396,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         var saslStart = new SaslStartCommand(_authenticationProvider.GetAuthData());
         await pooledSocket.WriteAsync(saslStart.GetBuffer());
 
-        var startResult = saslStart.ReadResponse(pooledSocket);
+        var startResult = await saslStart.ReadResponseAsync(pooledSocket);
         if (startResult.Success)
         {
             tracingScope?.SetResult(true);
@@ -404,7 +417,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             var saslStep = new SaslStepCommand(saslStart.Data.ToArray());
             await pooledSocket.WriteAsync(saslStep.GetBuffer());
 
-            var saslStepResult = saslStep.ReadResponse(pooledSocket);
+            var saslStepResult = await saslStep.ReadResponseAsync(pooledSocket);
             if (!saslStepResult.Success)
             {
                 throw new AuthenticationException();

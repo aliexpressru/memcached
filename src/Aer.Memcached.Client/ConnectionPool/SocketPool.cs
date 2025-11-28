@@ -158,7 +158,7 @@ internal class SocketPool : IDisposable
         {
             try
             {
-                pooledSocket.Reset();
+                await pooledSocket.ResetAsync(token);
                 result.AvailableSocket = pooledSocket;
 
                 return result;
@@ -230,7 +230,7 @@ internal class SocketPool : IDisposable
 
         try
         {
-            var socket = new PooledSocket(_endPoint, _config.ConnectionTimeout, _logger);
+            var socket = new PooledSocket(_endPoint, _config.ConnectionTimeout, _config.ReceiveTimeout, _logger);
 
             await socket.ConnectAsync(token);
 
