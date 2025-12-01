@@ -83,7 +83,7 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
             {
                 // We need to recreate the socket each time to avoid getting the exception:
                 // System.PlatformNotSupportedException: Sockets on this platform are invalid for use after a failed connection attempt.
-                socket = new PooledSocket(nodeEndPoint, _config.SocketPool.ConnectionTimeout, _logger);
+                socket = new PooledSocket(nodeEndPoint, _config.SocketPool.ConnectionTimeout, _config.SocketPool.ReceiveTimeout, _logger);
 
                 try
                 {

@@ -46,7 +46,7 @@ internal class BinaryResponseReader: IDisposable
     
     public byte DataType { get; private set; }
 
-    public bool Read(PooledSocket socket)
+    public async Task<bool> ReadAsync(PooledSocket socket, CancellationToken token)
     {
         StatusCode = -1;
 
@@ -66,9 +66,9 @@ internal class BinaryResponseReader: IDisposable
         
         try
         {
-            var span = header.AsSpan(0, HeaderLength);
-            socket.Read(span, HeaderLength);
-            DeserializeHeader(span, out dataLength, out extraLength);
+            var memory = header.AsMemory(0, HeaderLength);
+            await socket.ReadAsync(memory, HeaderLength, token);
+            DeserializeHeader(header.AsSpan(0, HeaderLength), out dataLength, out extraLength);
         }
         finally
         {
@@ -78,11 +78,21 @@ internal class BinaryResponseReader: IDisposable
         if (dataLength > 0)
         {
             var bufferData = ArrayPool<byte>.Shared.Rent(dataLength);
-            var span = bufferData.AsSpan(0, dataLength);
-            socket.Read(span, dataLength);
 
-            Extra = new ReadOnlyMemory<byte>(bufferData, 0, extraLength);
-            Data = new ReadOnlyMemory<byte>(bufferData, extraLength, dataLength - extraLength);
+            try
+            {
+                var memory = bufferData.AsMemory(0, dataLength);
+                await socket.ReadAsync(memory, dataLength, token);
+
+                Extra = new ReadOnlyMemory<byte>(bufferData, 0, extraLength);
+                Data = new ReadOnlyMemory<byte>(bufferData, extraLength, dataLength - extraLength);
+            }
+            catch
+            {
+                ArrayPool<byte>.Shared.Return(bufferData);
+
+                throw;
+            }
             
             _rentedBuffersForData.Enqueue(bufferData);
         }
