@@ -145,9 +145,18 @@ public class PooledSocket : IDisposable
         {
             try
             {
-                int currentRead = await _inputStream.ReadAsync(slice, token)
-                    .AsTask()
-                    .WaitAsync(_receiveTimeout, token);
+                var currentReadTask = _inputStream.ReadAsync(slice, token);
+                int currentRead;
+                if (currentReadTask.IsCompleted)
+                {
+                    currentRead = await currentReadTask;
+                }
+                else
+                {
+                    currentRead = await currentReadTask
+                        .AsTask()
+                        .WaitAsync(_receiveTimeout, token);
+                }
                     
                 if (currentRead == count)
                 {
