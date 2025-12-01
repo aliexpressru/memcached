@@ -304,13 +304,11 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 readResult = await command.ReadResponseAsync(socket, token);
             }
-            catch (TimeoutException)
+            catch (TimeoutException ex)
             {
-                _logger.LogError("Read from socket {SocketAddress} timed out", socket.EndPointAddressString);
-
-                var errorMessage = $"Read from socket {socket.EndPointAddressString} timed out";
-                var timeoutResult = CommandExecutionResult.Unsuccessful(command, errorMessage);
-                tracingScope?.SetResult(false, errorMessage);
+                // exception already has a message after logging in PooledSocket.ReadAsync
+                var timeoutResult = CommandExecutionResult.Unsuccessful(command, ex.Message);
+                tracingScope?.SetResult(false, ex.Message);
                 return timeoutResult;
             }
 
@@ -377,12 +375,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             return pooledSocket;
         }
 
-        await AuthenticateAsync(pooledSocket, socketPool);
+        await AuthenticateAsync(pooledSocket, socketPool, token, tracingOptions);
 
         return pooledSocket;
     }
 
-    private async Task AuthenticateAsync(PooledSocket pooledSocket, SocketPool socketPool, TracingOptions tracingOptions = null)
+    private async Task AuthenticateAsync(PooledSocket pooledSocket, SocketPool socketPool, CancellationToken token, TracingOptions tracingOptions = null)
     {
         using var tracingScope = MemcachedTracing.CreateSocketOperationScope(
             _tracer,
@@ -396,7 +394,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         var saslStart = new SaslStartCommand(_authenticationProvider.GetAuthData());
         await pooledSocket.WriteAsync(saslStart.GetBuffer());
 
-        var startResult = await saslStart.ReadResponseAsync(pooledSocket);
+        var startResult = await saslStart.ReadResponseAsync(pooledSocket, token);
         if (startResult.Success)
         {
             tracingScope?.SetResult(true);
@@ -417,7 +415,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             var saslStep = new SaslStepCommand(saslStart.Data.ToArray());
             await pooledSocket.WriteAsync(saslStep.GetBuffer());
 
-            var saslStepResult = await saslStep.ReadResponseAsync(pooledSocket);
+            var saslStepResult = await saslStep.ReadResponseAsync(pooledSocket, token);
             if (!saslStepResult.Success)
             {
                 throw new AuthenticationException();

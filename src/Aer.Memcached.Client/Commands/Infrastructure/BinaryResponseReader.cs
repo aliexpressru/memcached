@@ -78,11 +78,21 @@ internal class BinaryResponseReader: IDisposable
         if (dataLength > 0)
         {
             var bufferData = ArrayPool<byte>.Shared.Rent(dataLength);
-            var memory = bufferData.AsMemory(0, dataLength);
-            await socket.ReadAsync(memory, dataLength, token);
 
-            Extra = new ReadOnlyMemory<byte>(bufferData, 0, extraLength);
-            Data = new ReadOnlyMemory<byte>(bufferData, extraLength, dataLength - extraLength);
+            try
+            {
+                var memory = bufferData.AsMemory(0, dataLength);
+                await socket.ReadAsync(memory, dataLength, token);
+
+                Extra = new ReadOnlyMemory<byte>(bufferData, 0, extraLength);
+                Data = new ReadOnlyMemory<byte>(bufferData, extraLength, dataLength - extraLength);
+            }
+            catch
+            {
+                ArrayPool<byte>.Shared.Return(bufferData);
+
+                throw;
+            }
             
             _rentedBuffersForData.Enqueue(bufferData);
         }
