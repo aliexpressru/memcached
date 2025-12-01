@@ -36,14 +36,14 @@ public abstract class MemcachedCommandBase : IDisposable
         OpCode = opCode;
     }
 
-    internal async Task<CommandResult> ReadResponseAsync(PooledSocket socket, CancellationToken token = default)
+    internal async Task<CommandResult> ReadResponseAsync(PooledSocket socket, CancellationToken token)
     {
         var ret = await ReadResponseCoreAsync(socket, token);
 
         return ret;
     }
 
-    protected abstract Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token = default);
+    protected abstract Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token);
 
     internal abstract IList<ArraySegment<byte>> GetBuffer();
 

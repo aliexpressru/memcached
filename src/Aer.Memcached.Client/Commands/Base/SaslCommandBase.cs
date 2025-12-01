@@ -15,7 +15,7 @@ internal abstract class SaslCommandBase: MemcachedCommandBase
     {
     }
 
-    protected override async Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token = default)
+    protected override async Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token)
     {
         ResponseReader = new BinaryResponseReader();
 

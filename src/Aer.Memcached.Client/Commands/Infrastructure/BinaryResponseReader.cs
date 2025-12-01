@@ -46,7 +46,7 @@ internal class BinaryResponseReader: IDisposable
     
     public byte DataType { get; private set; }
 
-    public async Task<bool> ReadAsync(PooledSocket socket, CancellationToken token = default)
+    public async Task<bool> ReadAsync(PooledSocket socket, CancellationToken token)
     {
         StatusCode = -1;
 

@@ -107,7 +107,7 @@ public class PooledSocket : IDisposable
         }
     }
 
-    public async Task ResetAsync(CancellationToken token = default)
+    public async Task ResetAsync(CancellationToken token)
     {
         int available = _socket.Available;
 
@@ -134,7 +134,7 @@ public class PooledSocket : IDisposable
         }
     }
 
-    public async Task ReadAsync(Memory<byte> buffer, int count, CancellationToken token = default)
+    public async Task ReadAsync(Memory<byte> buffer, int count, CancellationToken token)
     {
         CheckDisposed();
 

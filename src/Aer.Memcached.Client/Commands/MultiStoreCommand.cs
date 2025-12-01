@@ -53,7 +53,7 @@ internal class MultiStoreCommand: MemcachedCommandBase
         return buffers;
     }
 
-    protected override async Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token = default)
+    protected override async Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token)
     {
         var result = new CommandResult();
 

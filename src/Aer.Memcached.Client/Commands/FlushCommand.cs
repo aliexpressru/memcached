@@ -11,7 +11,7 @@ internal class FlushCommand: MemcachedCommandBase
     {
     }
     
-    protected override async Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token = default)
+    protected override async Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token)
     {
         ResponseReader = new BinaryResponseReader();
         var success = await ResponseReader.ReadAsync(socket, token);
