@@ -40,19 +40,19 @@ public class SocketInvalidStateTests
         var serverEndpoint = (IPEndPoint)listener.LocalEndpoint;
 
         // Simulate a server that accepts connection and sends partial response
-        var serverTask = Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             var client = await listener.AcceptTcpClientAsync();
             var stream = client.GetStream();
 
-            // Read the request
-            var requestBuffer = new byte[1024];
-            await stream.ReadAsync(requestBuffer, 0, requestBuffer.Length);
+            // Read the request - binary protocol header is 24 bytes
+            var requestBuffer = new byte[24];
+            await stream.ReadExactlyAsync(requestBuffer, CancellationToken.None);
 
             // Send partial response and then delay (simulating slow/stuck server)
             // This creates a scenario where client times out with unread data in socket
             var partialResponse = new byte[] { 0x81, 0x00, 0x00, 0x00 }; // Binary protocol header start
-            await stream.WriteAsync(partialResponse, 0, partialResponse.Length);
+            await stream.WriteAsync(partialResponse);
             await stream.FlushAsync();
 
             // Delay to cause timeout on client side
@@ -60,24 +60,20 @@ public class SocketInvalidStateTests
 
             // Send rest of response (will remain unread after timeout)
             var remainingData = new byte[100];
-            await stream.WriteAsync(remainingData, 0, remainingData.Length);
+            await stream.WriteAsync(remainingData);
             
             client.Close();
         });
 
-        var config = new MemcachedConfiguration
+        var config = new MemcachedConfiguration.SocketPoolConfiguration
         {
-            SocketPool = new MemcachedConfiguration.SocketPoolConfiguration
-            {
-                ConnectionTimeout = TimeSpan.FromSeconds(2),
-                ReceiveTimeout = TimeSpan.FromMilliseconds(100), // Short timeout to trigger issue
-                MaxPoolSize = 5,
-                SocketPoolingTimeout = TimeSpan.FromSeconds(1)
-            }
+            ConnectionTimeout = TimeSpan.FromSeconds(2),
+            ReceiveTimeout = TimeSpan.FromMilliseconds(100), // Short timeout to trigger issue
+            MaxPoolSize = 5,
+            SocketPoolingTimeout = TimeSpan.FromSeconds(1)
         };
 
-        var poolConfig = Options.Create(config);
-        var pool = new SocketPool(serverEndpoint, config.SocketPool, _poolLogger);
+        var pool = new SocketPool(serverEndpoint, config, _poolLogger);
 
         try
         {
@@ -99,14 +95,15 @@ public class SocketInvalidStateTests
             // Verify socket is marked as having exception
             socket1.IsExceptionDetected.Should().BeFalse("Socket should be marked as dead after timeout");
 
-            // Check if socket has unread data
-            var unreadBytes = socket1.Socket.Available;
+            // Verify that timeout was logged
             _poolLogger.Received().Log(
                 LogLevel.Error,
                 Arg.Any<EventId>(),
                 Arg.Is<object>(v => v.ToString().Contains("timed out")),
                 Arg.Any<Exception>(),
                 Arg.Any<Func<object, Exception, string>>());
+
+            var socket1Id = socket1.InstanceId;
 
             // Act 2 - Return socket to pool (this is what happens with 'using' statement)
             socket1.Dispose(); // Returns to pool or destroys based on IsExceptionDetected
@@ -116,7 +113,7 @@ public class SocketInvalidStateTests
             socket2.Should().NotBeNull();
 
             // Assert - socket2 should be a NEW socket, not the corrupted one
-            socket2.InstanceId.Should().NotBe(socket1.InstanceId, 
+            socket2.InstanceId.Should().NotBe(socket1Id, 
                 "Pool should not return the same socket that timed out");
         }
         finally
@@ -138,19 +135,19 @@ public class SocketInvalidStateTests
         var serverEndpoint = (IPEndPoint)listener.LocalEndpoint;
 
         // Server that sends data
-        var serverTask = Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             var client = await listener.AcceptTcpClientAsync();
             var stream = client.GetStream();
 
-            // Read request
-            var buffer = new byte[1024];
-            await stream.ReadAsync(buffer, 0, buffer.Length);
+            // Read request - binary protocol header is 24 bytes
+            var buffer = new byte[24];
+            await stream.ReadExactlyAsync(buffer, CancellationToken.None);
 
             // Send response that won't be fully read
             var response = new byte[1000];
             response[0] = 0x81; // Binary protocol magic byte
-            await stream.WriteAsync(response, 0, response.Length);
+            await stream.WriteAsync(response);
             await stream.FlushAsync();
 
             await Task.Delay(TimeSpan.FromSeconds(2));
@@ -174,12 +171,16 @@ public class SocketInvalidStateTests
             socket1.Should().NotBeNull();
             var socket1Id = socket1.InstanceId;
 
-            // Send request
-            var request = new byte[] { 0x80, 0x00, 0x00, 0x01 };
+            // Send full binary protocol request header (24 bytes)
+            // Format: magic(1) + opcode(1) + keylen(2) + extlen(1) + datatype(1) + status/reserved(2) + bodylen(4) + opaque(4) + cas(8) = 24 bytes
+            var request = new byte[24];
+            request[0] = 0x80; // Request magic
+            request[1] = 0x00; // Get opcode
+            // Rest zeros
             await socket1.WriteAsync(new[] { new ArraySegment<byte>(request) });
 
             // Wait for server to send response
-            await Task.Delay(100);
+            await Task.Delay(200);
 
             // Socket should have unread data
             var availableBytes = socket1.Socket.Available;
