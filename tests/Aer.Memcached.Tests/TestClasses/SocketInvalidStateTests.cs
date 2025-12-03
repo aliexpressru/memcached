@@ -92,8 +92,8 @@ public class SocketInvalidStateTests
                 await socket1.ReadAsync(buffer.AsMemory(), 1024, CancellationToken.None);
             });
 
-            // Verify socket is marked as having exception
-            socket1.IsExceptionDetected.Should().BeFalse("Socket should be marked as dead after timeout");
+            // Verify socket is marked for destruction
+            socket1.ShouldDestroySocket.Should().BeTrue("Socket should be marked for destruction after timeout");
 
             // Verify that timeout was logged
             _poolLogger.Received().Log(
@@ -106,7 +106,7 @@ public class SocketInvalidStateTests
             var socket1Id = socket1.InstanceId;
 
             // Act 2 - Return socket to pool (this is what happens with 'using' statement)
-            socket1.Dispose(); // Returns to pool or destroys based on IsExceptionDetected
+            socket1.Dispose(); // Returns to pool or destroys based on ShouldDestroySocket
 
             // Act 3 - Try to get another socket from pool
             var socket2 = await pool.GetSocketAsync(CancellationToken.None);

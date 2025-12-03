@@ -25,9 +25,11 @@ public class PooledSocket : IDisposable
     public readonly Guid InstanceId = Guid.NewGuid();
 
     /// <summary>
-    /// This property indicates whether any exceptions were raised during socket operations.
+    /// This property indicates whether the socket should be destroyed instead of being returned to the pool.
+    /// True means the socket is in an invalid state and should be destroyed.
+    /// False means the socket can be safely returned to the pool for reuse.
     /// </summary>
-    public bool IsExceptionDetected { get; private set; }
+    public bool ShouldDestroySocket { get; set; }
     
     public Action<PooledSocket> ReturnToPoolCallback { get; set; }
     
@@ -44,7 +46,7 @@ public class PooledSocket : IDisposable
         ILogger logger)
     {
         _logger = logger;
-        IsExceptionDetected = true;
+        ShouldDestroySocket = false;
 
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         
@@ -174,7 +176,7 @@ public class PooledSocket : IDisposable
             }
             catch (TimeoutException)
             {
-                IsExceptionDetected = false;
+                ShouldDestroySocket = true;
                 _logger.LogError(
                     "Read from socket {EndPoint} timed out after {Timeout}ms",
                     EndPointAddressString,
@@ -185,7 +187,7 @@ public class PooledSocket : IDisposable
             {
                 if (ex is IOException or SocketException)
                 {
-                    IsExceptionDetected = false;
+                    ShouldDestroySocket = true;
                 }
 
                 _logger.LogError(ex, "An exception happened during socket read");
@@ -204,7 +206,7 @@ public class PooledSocket : IDisposable
             var bytesTransferred = await _socket.SendAsync(buffers, SocketFlags.None);
             if (bytesTransferred <= 0)
             {
-                IsExceptionDetected = false;
+                ShouldDestroySocket = true;
                 _logger.LogError(
                     "Failed to write data to the socket {EndPoint}. Bytes transferred until failure: {BytesTransferred}",
                     EndPointAddressString,
@@ -217,7 +219,7 @@ public class PooledSocket : IDisposable
         {
             if (ex is IOException or SocketException)
             {
-                IsExceptionDetected = false;
+                ShouldDestroySocket = true;
             }
 
             _logger.LogError(ex, "An exception happened during socket write");
@@ -283,7 +285,7 @@ public class PooledSocket : IDisposable
 
     public void Dispose()
     {
-        Dispose(false);
+        Dispose(ShouldDestroySocket);
     }
     
     // ReSharper disable once InconsistentNaming | Jsustification - IPEndPoint is the name of the return type

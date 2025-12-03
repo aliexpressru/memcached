@@ -188,16 +188,16 @@ internal class SocketPool : IDisposable
 
     private void ReturnSocketToPool(PooledSocket socket)
     {
-        if (socket.IsExceptionDetected)
+        if (socket.ShouldDestroySocket)
+        {
+            DestroySocket(socket, isIncrementPoolCapacityCounter: true);
+        }
+        else
         {
             _pooledSockets.Push(socket);
 
             // signal the counter so if other thread is waiting for the socket to reuse, it can get one
             _remainingPoolCapacityCounter.Release();
-        }
-        else
-        {
-            DestroySocket(socket, isIncrementPoolCapacityCounter: true);
         }
     }
 
