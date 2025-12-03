@@ -53,7 +53,6 @@ public class PooledSocket : IDisposable
         ILogger logger)
     {
         _logger = logger;
-        ShouldDestroySocket = false;
 
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         

@@ -270,13 +270,15 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             _logger,
             tracingOptions);
 
+        PooledSocket socket = null;
         try
         {
-            using var socket = await GetSocketAsync(node, isAuthenticateSocketIfRequired: true, token, tracingOptions);
+            socket = await GetSocketAsync(node, isAuthenticateSocketIfRequired: true, token, tracingOptions);
             if (socket == null)
             {
                 var failureResult = CommandExecutionResult.Unsuccessful(command, "Socket not found");
                 tracingScope?.SetResult(false, "Socket not found");
+
                 return failureResult;
             }
 
@@ -296,6 +298,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 var errorMessage = $"Write to socket {socket.EndPointAddressString} timed out";
                 var timeoutResult = CommandExecutionResult.Unsuccessful(command, errorMessage);
                 tracingScope?.SetResult(false, errorMessage);
+
                 return timeoutResult;
             }
 
@@ -309,6 +312,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 // TimeoutException during read already marks socket for destruction in PooledSocket.ReadAsync
                 var timeoutResult = CommandExecutionResult.Unsuccessful(command, ex.Message);
                 tracingScope?.SetResult(false, ex.Message);
+
                 return timeoutResult;
             }
             catch (InvalidOperationException ex)
@@ -317,6 +321,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 socket.ShouldDestroySocket = true;
                 var errorResult = CommandExecutionResult.Unsuccessful(command, ex.Message);
                 tracingScope?.SetResult(false, ex.Message);
+
                 return errorResult;
             }
 
@@ -327,16 +332,30 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 : CommandExecutionResult.Unsuccessful(command, readResult.Message);
 
             tracingScope?.SetResult(result.Success, result.ErrorMessage);
+
             return result;
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
         {
+            // Cancellation - destroy socket as we don't know its state
+            // (could be in the middle of read/write operation)
+            if (socket != null)
+            {
+                socket.ShouldDestroySocket = true;
+            }
+
             // just rethrow this exception and don't log any details.
             // it will be handled in MemcachedClient
             throw;
         }
         catch (Exception e)
         {
+            // Unexpected exception - destroy socket as we don't know its state
+            if (socket != null)
+            {
+                socket.ShouldDestroySocket = true;
+            }
+
             _logger.LogError(
                 e,
                 "Error occured during command {Command} on node {Node} execution",
@@ -344,7 +363,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 node.GetKey());
 
             tracingScope?.SetError(e);
+
             return CommandExecutionResult.Unsuccessful(command, e.Message);
+        }
+        finally
+        {
+            socket?.Dispose();
         }
     }
 
