@@ -28,8 +28,15 @@ public class PooledSocket : IDisposable
     /// This property indicates whether the socket should be destroyed instead of being returned to the pool.
     /// True means the socket is in an invalid state and should be destroyed.
     /// False means the socket can be safely returned to the pool for reuse.
+    /// Volatile to ensure thread-safe visibility across async operations.
     /// </summary>
-    public bool ShouldDestroySocket { get; set; }
+    private volatile bool _shouldDestroySocket;
+    
+    public bool ShouldDestroySocket
+    {
+        get => _shouldDestroySocket;
+        set => _shouldDestroySocket = value;
+    }
     
     public Action<PooledSocket> ReturnToPoolCallback { get; set; }
     
