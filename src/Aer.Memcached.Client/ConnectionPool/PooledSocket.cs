@@ -38,6 +38,8 @@ public class PooledSocket : IDisposable
         set => _shouldDestroySocket = value;
     }
     
+    private int _isDisposed; // 0 = false, 1 = true (using int for Interlocked operations)
+    
     public Action<PooledSocket> ReturnToPoolCallback { get; set; }
     
     public bool Authenticated { get; set; }
@@ -255,10 +257,19 @@ public class PooledSocket : IDisposable
         }
     }
 
-    private void Dispose(bool shouldDestroySocket)
+    private void Dispose(bool isDestroyDirectly)
     {
-        if (shouldDestroySocket)
+        // Use Interlocked.CompareExchange for thread-safe check-and-set
+        // Returns the original value - if it was 1 (disposed), we exit
+        if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) == 1)
         {
+            return;
+        }
+        
+        if (isDestroyDirectly)
+        {
+            // Direct destruction without going through pool callback
+            // Used only when socket was never added to pool or during pool disposal
             GC.SuppressFinalize(this);
 
             try
@@ -283,7 +294,7 @@ public class PooledSocket : IDisposable
         }
         else
         {
-            // means we should return socket to the pool
+            // Return socket to pool (pool will decide to destroy or reuse based on ShouldDestroySocket flag)
             var returnToPoolCallback = ReturnToPoolCallback;
             returnToPoolCallback?.Invoke(this);
         }
@@ -291,7 +302,19 @@ public class PooledSocket : IDisposable
 
     public void Dispose()
     {
-        Dispose(ShouldDestroySocket);
+        // Always go through pool callback to properly update counters
+        // Pool's ReturnSocketToPool will check ShouldDestroySocket flag
+        Dispose(isDestroyDirectly: false);
+    }
+
+    /// <summary>
+    /// Resets the disposed flag to allow socket reuse from pool.
+    /// This is called by SocketPool when taking a socket from the pool.
+    /// </summary>
+    internal void ResetDisposedFlag()
+    {
+        Interlocked.Exchange(ref _isDisposed, 0);
+        _shouldDestroySocket = false;
     }
     
     // ReSharper disable once InconsistentNaming | Jsustification - IPEndPoint is the name of the return type
@@ -319,7 +342,7 @@ public class PooledSocket : IDisposable
     
     private void CheckDisposed()
     {
-        if (_socket == null)
+        if (_isDisposed == 1 || _socket == null)
         {
             throw new ObjectDisposedException(nameof(PooledSocket));
         }

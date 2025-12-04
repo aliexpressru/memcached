@@ -144,7 +144,22 @@ internal class SocketPool : IDisposable
             return result;
         }
 
-        if (!await _remainingPoolCapacityCounter.WaitAsync(_config.SocketPoolingTimeout, token))
+        bool waitSucceeded;
+        try
+        {
+            waitSucceeded = await _remainingPoolCapacityCounter.WaitAsync(_config.SocketPoolingTimeout, token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Token was cancelled, treat it as timeout
+            _logger.LogWarning(
+                "Socket pool for endpoint {EndPoint} operation was cancelled",
+                _endPoint.GetEndPointString());
+
+            return result;
+        }
+
+        if (!waitSucceeded)
         {
             _logger.LogWarning(
                 "Socket pool for endpoint {EndPoint} ran out of sockets",
@@ -158,16 +173,20 @@ internal class SocketPool : IDisposable
         {
             try
             {
+                // Reset disposed flag to allow socket reuse
+                pooledSocket.ResetDisposedFlag();
+                
+                // Check for unread data and clear socket state
                 await pooledSocket.ResetAsync(token);
+                
                 result.AvailableSocket = pooledSocket;
-
                 return result;
             }
             catch (Exception e)
             {
                 _logger.LogError(
                     e,
-                    "Failed to reset an acquired socket for endpoint {EndPoint}. Giong to destroy this socket",
+                    "Failed to reset an acquired socket for endpoint {EndPoint}. Going to destroy this socket",
                     pooledSocket.EndPointAddressString);
                 
                 pooledSocket.Destroy();
