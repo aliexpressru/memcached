@@ -79,6 +79,18 @@ internal class SocketPool : IDisposable
             if (result.AvailableSocket != null)
             {
                 tracingScope?.SetResult(true);
+                
+                // Emit recovery event - pool is not exhausted anymore since we got a socket
+                if (MemcachedDiagnosticSource.Instance.IsEnabled())
+                {
+                    MemcachedDiagnosticSource.Instance.Write(
+                        MemcachedDiagnosticSource.SocketPoolRecoveredDiagnosticName,
+                        new
+                        {
+                            endpointAddress = endPointAddressString
+                        });
+                }
+                
                 return result.AvailableSocket;
             }
 
@@ -86,6 +98,19 @@ internal class SocketPool : IDisposable
             {
                 // means socket pool is full or disposed
                 tracingScope?.SetResult(false, "Socket pool is full or disposed");
+                
+                if (!_isDisposed && MemcachedDiagnosticSource.Instance.IsEnabled())
+                {
+                    MemcachedDiagnosticSource.Instance.Write(
+                        MemcachedDiagnosticSource.SocketPoolExhaustedDiagnosticName,
+                        new
+                        {
+                            endpointAddress = endPointAddressString,
+                            maxPoolSize = _config.MaxPoolSize,
+                            usedSocketCount = UsedSocketsCount
+                        });
+                }
+                
                 return null;
             }
 
@@ -99,6 +124,14 @@ internal class SocketPool : IDisposable
                     {
                         enpointAddress = createdSocket.EndPointAddressString,
                         usedSocketCount = UsedSocketsCount
+                    });
+                
+                // Emit recovery event - pool is not exhausted anymore
+                MemcachedDiagnosticSource.Instance.Write(
+                    MemcachedDiagnosticSource.SocketPoolRecoveredDiagnosticName,
+                    new
+                    {
+                        endpointAddress = endPointAddressString
                     });
             }
 
