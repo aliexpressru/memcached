@@ -177,21 +177,8 @@ internal class SocketPool : IDisposable
             return result;
         }
         
-        bool waitSucceeded;
-        try
-        {
-            token.ThrowIfCancellationRequested();
-            waitSucceeded = await _remainingPoolCapacityCounter.WaitAsync(_config.SocketPoolingTimeout, token);
-        }
-        catch (OperationCanceledException)
-        {
-            // Token was cancelled, treat it as timeout
-            _logger.LogWarning(
-                "Socket pool for endpoint {EndPoint} operation was cancelled",
-                _endPoint.GetEndPointString());
-
-            return result;
-        }
+        token.ThrowIfCancellationRequested();
+        bool waitSucceeded = await _remainingPoolCapacityCounter.WaitAsync(_config.SocketPoolingTimeout, token);
 
         if (!waitSucceeded)
         {
@@ -209,10 +196,10 @@ internal class SocketPool : IDisposable
             {
                 // Reset disposed flag to allow socket reuse
                 pooledSocket.ResetDisposedFlag();
-                
+
                 // Check for unread data and clear socket state
                 await pooledSocket.ResetAsync(token);
-                
+
                 result.AvailableSocket = pooledSocket;
                 return result;
             }
@@ -222,7 +209,7 @@ internal class SocketPool : IDisposable
                     e,
                     "Failed to reset an acquired socket for endpoint {EndPoint}. Going to destroy this socket",
                     pooledSocket.EndPointAddressString);
-                
+
                 pooledSocket.Destroy();
 
                 _remainingPoolCapacityCounter.Release();
@@ -231,11 +218,11 @@ internal class SocketPool : IDisposable
             }
         }
 
-        // means there is no available sockets in the pool 
+        // means there is no available sockets in the pool
         // but the maximal capacity is not yet reached
         // so we can create a new socket
         result.CanCreateSocket = true;
-        
+
         return result;
     }
 
@@ -278,6 +265,8 @@ internal class SocketPool : IDisposable
                 "Can't create socket for a broken endpoint {EndPoint}",
                 _endPoint.GetEndPointString());
 
+            // Release semaphore since we're not creating a socket
+            _remainingPoolCapacityCounter.Release();
             return null;
         }
 

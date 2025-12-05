@@ -183,12 +183,21 @@ public class SocketPoolCountersTests
         Assert.AreEqual(0, _socketPool.PooledSocketsCount);
         Assert.AreEqual(0, _socketPool.RemainingPoolCapacity);
 
-        // Act - try to acquire one more (should timeout)
+        // Act - try to acquire one more with external cancellation token
+        // Should throw OperationCanceledException when token expires
         var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-        var extraSocket = await _socketPool.GetSocketAsync(cts.Token);
+        
+        try
+        {
+            await _socketPool.GetSocketAsync(cts.Token);
+            Assert.Fail("Should have thrown OperationCanceledException");
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected - external token was cancelled
+        }
 
-        // Assert - should return null because pool is exhausted
-        Assert.IsNull(extraSocket);
+        // Assert - pool state unchanged (no socket was acquired)
         Assert.AreEqual(_config.MaxPoolSize, _socketPool.UsedSocketsCount);
         Assert.AreEqual(0, _socketPool.RemainingPoolCapacity);
 

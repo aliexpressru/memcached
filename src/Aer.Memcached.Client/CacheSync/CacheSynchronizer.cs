@@ -54,13 +54,9 @@ internal class CacheSynchronizer : ICacheSynchronizer
             return false;
         }
 
-        try
+        if (token.IsCancellationRequested)
         {
-            token.ThrowIfCancellationRequested();
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogInformation("Cache sync was cancelled before starting");
+            _logger.LogDebug("Skipping cache delete sync - parent operation was already cancelled");
             return false;
         }
 
@@ -103,13 +99,9 @@ internal class CacheSynchronizer : ICacheSynchronizer
             return false;
         }
 
-        try
+        if (token.IsCancellationRequested)
         {
-            token.ThrowIfCancellationRequested();
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogInformation("Cache delete sync was cancelled before starting");
+            _logger.LogDebug("Skipping cache delete sync - parent operation was already cancelled");
             return false;
         }
 
