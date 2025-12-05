@@ -186,6 +186,11 @@ internal class CacheSynchronizer : ICacheSynchronizer
 
             await _cacheSyncClient.SyncAsync(syncServer, model, token);
         }
+        catch (OperationCanceledException)
+        {
+            // Don't trigger circuit breaker on cancellation
+            throw;
+        }
         catch (Exception)
         {
             await CheckCircuitBreaker(serverKey, utcNow);
@@ -211,6 +216,11 @@ internal class CacheSynchronizer : ICacheSynchronizer
             }
 
             await _cacheSyncClient.DeleteAsync(syncServer, keys, token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Don't trigger circuit breaker on cancellation
+            throw;
         }
         catch (Exception)
         {

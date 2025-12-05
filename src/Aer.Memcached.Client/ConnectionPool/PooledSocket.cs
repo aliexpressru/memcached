@@ -193,7 +193,9 @@ public class PooledSocket : IDisposable
             }
             catch (Exception ex)
             {
-                if (ex is IOException or SocketException)
+                // Mark socket for destruction on cancellation or IO errors
+                // as they may leave the socket in an invalid state with unread data
+                if (ex is IOException or SocketException or TaskCanceledException or OperationCanceledException)
                 {
                     ShouldDestroySocket = true;
                 }
@@ -225,7 +227,9 @@ public class PooledSocket : IDisposable
         }
         catch (Exception ex)
         {
-            if (ex is IOException or SocketException)
+            // Mark socket for destruction on cancellation or IO errors
+            // as they may leave the socket in an invalid state
+            if (ex is IOException or SocketException or TaskCanceledException or OperationCanceledException)
             {
                 ShouldDestroySocket = true;
             }
