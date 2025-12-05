@@ -176,10 +176,11 @@ internal class SocketPool : IDisposable
 
             return result;
         }
-
+        
         bool waitSucceeded;
         try
         {
+            token.ThrowIfCancellationRequested();
             waitSucceeded = await _remainingPoolCapacityCounter.WaitAsync(_config.SocketPoolingTimeout, token);
         }
         catch (OperationCanceledException)

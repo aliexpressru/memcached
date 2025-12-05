@@ -56,6 +56,16 @@ internal class CacheSynchronizer : ICacheSynchronizer
 
         try
         {
+            token.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Cache sync was cancelled before starting");
+            return false;
+        }
+
+        try
+        {
             var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
             using var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
             var utcNow = DateTimeOffset.UtcNow;
@@ -90,6 +100,16 @@ internal class CacheSynchronizer : ICacheSynchronizer
 
         if (!IsCacheSyncEnabled())
         {
+            return false;
+        }
+
+        try
+        {
+            token.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Cache delete sync was cancelled before starting");
             return false;
         }
 
