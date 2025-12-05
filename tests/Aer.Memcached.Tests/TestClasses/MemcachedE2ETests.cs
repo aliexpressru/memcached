@@ -111,6 +111,7 @@ public class MemcachedE2ETests
         // Explicitly initialize servers to avoid race condition when both servers start simultaneously
         _ = httpServerFixture1.Services;
         _ = httpServerFixture2.Services;
+        await Task.Delay(100); // Give servers time to fully initialize
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -205,6 +206,7 @@ public class MemcachedE2ETests
         // Explicitly initialize servers to avoid race condition when both servers start simultaneously
         _ = httpServerFixture1.Services;
         _ = httpServerFixture2.Services;
+        await Task.Delay(100); // Give servers time to fully initialize
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -319,6 +321,7 @@ public class MemcachedE2ETests
         // Explicitly initialize servers to avoid race condition when both servers start simultaneously
         _ = httpServerFixture1.Services;
         _ = httpServerFixture2.Services;
+        await Task.Delay(100); // Give servers time to fully initialize
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -415,6 +418,7 @@ public class MemcachedE2ETests
         // Explicitly initialize servers to avoid race condition when both servers start simultaneously
         _ = httpServerFixture1.Services;
         _ = httpServerFixture2.Services;
+        await Task.Delay(100); // Give servers time to fully initialize
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -519,6 +523,7 @@ public class MemcachedE2ETests
         // Explicitly initialize servers to avoid race condition when both servers start simultaneously
         _ = httpServerFixture1.Services;
         _ = httpServerFixture2.Services;
+        await Task.Delay(100); // Give servers time to fully initialize
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -648,6 +653,7 @@ public class MemcachedE2ETests
 
         // Explicitly initialize server to avoid race condition
         _ = httpServerFixture2.Services;
+        await Task.Delay(100); // Give servers time to fully initialize
 
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
 

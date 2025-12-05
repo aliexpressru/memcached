@@ -62,14 +62,14 @@ internal class NodeHealthChecker<TNode> : INodeHealthChecker<TNode> where TNode:
         }
 
         // finally - check the property on the pooled socket
-        bool isNodeDead = !pooledSocket.IsExceptionDetected;
+        bool isNodeDead = pooledSocket.ShouldDestroySocket;
 
         return isNodeDead;
     }
 
     /// <summary>
     /// Checks if the socket is dead without using the socket pool.
-    /// Just creates new socket to the specified edndpoint and tries to connect to it.
+    /// Just creates new socket to the specified endpoint and tries to connect to it.
     /// </summary>
     /// <param name="nodeEndPoint">The endpoint to check liveness of.</param>
     private async Task<bool> CheckSocketIsDead(EndPoint nodeEndPoint)

@@ -485,6 +485,7 @@ This library exposes the following memcached metrics
 - `memcached_command_duration_seconds` - memcached command duration in seconds per command
 - `memcached_socket_pool_used_sockets` - number of used socket pool sockets per endpoint
 - `memcached_commands_total` - total executed memcached commands number
+- `memcached_socket_pool_exhausted_state` - socket pool exhaustion state per endpoint (1 = exhausted, absent = ok). **Note:** This metric is only available for OpenTelemetry. When a socket pool reaches its maximum capacity and cannot serve new requests, this metric is set to 1. Once the pool recovers and can serve requests again, the metric is removed.
 
 #### Distributed Tracing
 

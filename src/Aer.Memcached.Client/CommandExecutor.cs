@@ -271,10 +271,6 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             tracingOptions);
 
         PooledSocket socket = null;
-        // Set it to false if we read response successfully
-        // Otherwise some exceptions during reading response may leave socket in invalid state
-        bool shouldDestroySocket = true;
-
         try
         {
             socket = await GetSocketAsync(node, isAuthenticateSocketIfRequired: true, token, tracingOptions);
@@ -282,6 +278,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 var failureResult = CommandExecutionResult.Unsuccessful(command, "Socket not found");
                 tracingScope?.SetResult(false, "Socket not found");
+
                 return failureResult;
             }
 
@@ -297,9 +294,11 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 _logger.LogError("Write to socket {SocketAddress} timed out", socket.EndPointAddressString);
 
+                socket.ShouldDestroySocket = true;
                 var errorMessage = $"Write to socket {socket.EndPointAddressString} timed out";
                 var timeoutResult = CommandExecutionResult.Unsuccessful(command, errorMessage);
                 tracingScope?.SetResult(false, errorMessage);
+
                 return timeoutResult;
             }
 
@@ -307,39 +306,56 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             try
             {
                 readResult = await command.ReadResponseAsync(socket, token);
-                
-                // destroy socket only if exception happened during reading response
-                shouldDestroySocket = false;
             }
             catch (TimeoutException ex)
             {
-                // exception already has a message after logging in PooledSocket.ReadAsync
+                // TimeoutException during read already marks socket for destruction in PooledSocket.ReadAsync
                 var timeoutResult = CommandExecutionResult.Unsuccessful(command, ex.Message);
                 tracingScope?.SetResult(false, ex.Message);
+
                 return timeoutResult;
             }
             catch (InvalidOperationException ex)
             {
+                // Protocol errors mean socket is in invalid state
+                socket.ShouldDestroySocket = true;
                 var errorResult = CommandExecutionResult.Unsuccessful(command, ex.Message);
                 tracingScope?.SetResult(false, ex.Message);
+
                 return errorResult;
             }
 
+            // readResult.Success = false is a normal memcached response (key not found, CAS mismatch, etc.)
+            // Socket is still valid and can be reused
             var result = readResult.Success
                 ? CommandExecutionResult.Successful(command)
                 : CommandExecutionResult.Unsuccessful(command, readResult.Message);
 
             tracingScope?.SetResult(result.Success, result.ErrorMessage);
+
             return result;
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
         {
+            // Cancellation - destroy socket as we don't know its state
+            // (could be in the middle of read/write operation)
+            if (socket != null)
+            {
+                socket.ShouldDestroySocket = true;
+            }
+
             // just rethrow this exception and don't log any details.
             // it will be handled in MemcachedClient
             throw;
         }
         catch (Exception e)
         {
+            // Unexpected exception - destroy socket as we don't know its state
+            if (socket != null)
+            {
+                socket.ShouldDestroySocket = true;
+            }
+
             _logger.LogError(
                 e,
                 "Error occured during command {Command} on node {Node} execution",
@@ -347,20 +363,12 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
                 node.GetKey());
 
             tracingScope?.SetError(e);
+
             return CommandExecutionResult.Unsuccessful(command, e.Message);
         }
         finally
         {
-            if (shouldDestroySocket)
-            {
-                // Destroy socket explicitly to prevent reuse in invalid state
-                socket?.Destroy();
-            }
-            else
-            {
-                // Return socket to pool for reuse (normal Dispose behavior)
-                socket?.Dispose();
-            }
+            socket?.Dispose();
         }
     }
 

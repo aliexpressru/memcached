@@ -58,8 +58,8 @@ public class AsyncOperationsWithTimeoutTests
             exception.Message.Should().Contain("timed out");
             exception.Message.Should().Contain(receiveTimeout.TotalMilliseconds.ToString());
             
-            // Verify that IsExceptionDetected is set to false (marking socket as dead)
-            socket.IsExceptionDetected.Should().BeFalse();
+            // Verify that ShouldDestroySocket is set to true (marking socket for destruction)
+            socket.ShouldDestroySocket.Should().BeTrue();
             
             // Verify that timeout was logged
             _loggerMock.Received(1).Log(
@@ -160,8 +160,8 @@ public class AsyncOperationsWithTimeoutTests
                 m.Contains("connection reset", StringComparison.OrdinalIgnoreCase) ||
                 m.Contains("transport connection", StringComparison.OrdinalIgnoreCase));
             
-            // Verify that IsExceptionDetected is set to false (marking socket as dead)
-            socket.IsExceptionDetected.Should().BeFalse();
+            // Verify that ShouldDestroySocket is set to true (marking socket for destruction)
+            socket.ShouldDestroySocket.Should().BeTrue();
         }
         finally
         {
@@ -217,7 +217,7 @@ public class AsyncOperationsWithTimeoutTests
             await socket.ResetAsync(CancellationToken.None);
 
             // Assert - Socket should still be valid
-            socket.IsExceptionDetected.Should().BeTrue();
+            socket.ShouldDestroySocket.Should().BeFalse();
             
             // Verify warning was logged about unread data
             _loggerMock.Received(1).Log(

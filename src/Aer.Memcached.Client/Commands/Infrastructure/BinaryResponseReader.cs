@@ -50,7 +50,7 @@ internal class BinaryResponseReader: IDisposable
     {
         StatusCode = -1;
 
-        if (!socket.IsExceptionDetected)
+        if (socket.ShouldDestroySocket)
         {
             // We return True here if underlying socket is considered to be dead.
             // This is done to prevent infinite looping on the dead socket while reading from it.

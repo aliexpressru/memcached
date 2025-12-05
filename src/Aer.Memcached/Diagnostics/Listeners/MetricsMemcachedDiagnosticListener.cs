@@ -50,4 +50,26 @@ internal class MetricsMemcachedDiagnosticListener
 
         _metricsProvider.ObserveSocketPoolUsedSocketsCount(enpointAddress, usedSocketCount);
     }
+
+    [DiagnosticName(MemcachedDiagnosticSource.SocketPoolExhaustedDiagnosticName)]
+    public void ObserveSocketPoolExhausted(string endpointAddress, int maxPoolSize, int usedSocketCount)
+    {
+        if (_config.Diagnostics.DisableDiagnostics)
+        {
+            return;
+        }
+
+        _metricsProvider.ObserveSocketPoolExhausted(endpointAddress);
+    }
+
+    [DiagnosticName(MemcachedDiagnosticSource.SocketPoolRecoveredDiagnosticName)]
+    public void ObserveSocketPoolRecovered(string endpointAddress)
+    {
+        if (_config.Diagnostics.DisableDiagnostics)
+        {
+            return;
+        }
+
+        _metricsProvider.ObserveSocketPoolRecovered(endpointAddress);
+    }
 }
