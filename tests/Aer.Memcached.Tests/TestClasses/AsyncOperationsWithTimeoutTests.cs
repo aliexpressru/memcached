@@ -1,6 +1,8 @@
 using System.Net;
+using System.Diagnostics;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.ConnectionPool;
+using Aer.Memcached.Client.Diagnostics;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -16,11 +18,58 @@ namespace Aer.Memcached.Tests.TestClasses;
 public class AsyncOperationsWithTimeoutTests
 {
     private ILogger<PooledSocket> _loggerMock;
+    private List<KeyValuePair<string, object>> _diagnosticEvents;
+    private IDisposable _diagnosticSubscription;
 
     [TestInitialize]
     public void Setup()
     {
         _loggerMock = Substitute.For<ILogger<PooledSocket>>();
+        _diagnosticEvents = new List<KeyValuePair<string, object>>();
+        
+        // Subscribe to diagnostic events
+        _diagnosticSubscription = DiagnosticListener.AllListeners.Subscribe(
+            new DiagnosticListenerObserver(listener =>
+            {
+                if (listener.Name == "Aer.Diagnostics.Memcached")
+                {
+                    listener.Subscribe(new Observer<KeyValuePair<string, object>>(_diagnosticEvents));
+                }
+            }));
+    }
+
+    [TestCleanup]
+    public void Cleanup()
+    {
+        _diagnosticSubscription?.Dispose();
+    }
+    
+    private class DiagnosticListenerObserver : IObserver<DiagnosticListener>
+    {
+        private readonly Action<DiagnosticListener> _onNext;
+
+        public DiagnosticListenerObserver(Action<DiagnosticListener> onNext)
+        {
+            _onNext = onNext;
+        }
+
+        public void OnNext(DiagnosticListener value) => _onNext(value);
+        public void OnError(Exception error) { }
+        public void OnCompleted() { }
+    }
+    
+    private class Observer<T> : IObserver<T>
+    {
+        private readonly List<T> _events;
+
+        public Observer(List<T> events)
+        {
+            _events = events;
+        }
+
+        public void OnNext(T value) => _events.Add(value);
+        public void OnError(Exception error) { }
+        public void OnCompleted() { }
     }
 
     [TestMethod]
@@ -219,13 +268,12 @@ public class AsyncOperationsWithTimeoutTests
             // Assert - Socket should still be valid
             socket.ShouldDestroySocket.Should().BeFalse();
             
-            // Verify warning was logged about unread data
-            _loggerMock.Received(1).Log(
-                LogLevel.Error,
-                Arg.Any<EventId>(),
-                Arg.Is<object>(v => v.ToString().Contains("unread data")),
-                Arg.Any<Exception>(),
-                Arg.Any<Func<object, Exception, string>>());
+            // Verify diagnostic event was emitted for unread data
+            var unreadDataEvents = _diagnosticEvents
+                .Where(e => e.Key == MemcachedDiagnosticSource.SocketUnreadDataDetectedDiagnosticName)
+                .ToList();
+            
+            unreadDataEvents.Should().HaveCount(1, "Should have detected unread data once");
         }
         finally
         {
