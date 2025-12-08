@@ -16,11 +16,13 @@ internal class MemcachedMetricsProvider
     private readonly Histogram<int> _socketPoolUsedSocketsCountsOtel;
     private readonly Counter<int> _commandsTotalOtel;
     private readonly ObservableGauge<int> _socketPoolExhaustedStateOtel;
+    private readonly Counter<int> _socketUnreadDataDetectedOtel;
 
     // Prometheus metrics
     private readonly IMetricFamily<IHistogram> _commandDurationSeconds;
     private readonly IMetricFamily<IHistogram> _socketPoolUsedSocketsCounts;
     private readonly IMetricFamily<ICounter> _commandsTotal;
+    private readonly IMetricFamily<ICounter> _socketUnreadDataDetected;
     
     // Dictionary to track exhaustion state per endpoint (1 = exhausted, key absent = ok)
     // Used only by OpenTelemetry ObservableGauge
@@ -30,6 +32,7 @@ internal class MemcachedMetricsProvider
     private const string SocketPoolUsedSocketsCountsMetricName = "memcached_socket_pool_used_sockets";
     private const string CommandsTotalOtelMetricName = "memcached_commands_total";
     private const string SocketPoolExhaustedStateMetricName = "memcached_socket_pool_exhausted_state";
+    private const string SocketUnreadDataDetectedMetricName = "memcached_socket_unread_data_detected_total";
 
     public static readonly Dictionary<string, double[]> MetricsBuckets = new()
     {
@@ -91,6 +94,11 @@ internal class MemcachedMetricsProvider
                 unit: null,
                 description: "Socket pool exhaustion state (1 = exhausted, absent = ok)");
 
+            _socketUnreadDataDetectedOtel = meter.CreateCounter<int>(
+                name: SocketUnreadDataDetectedMetricName,
+                unit: null,
+                description: "Number of times unread data was detected on socket");
+
             return;
         }
 
@@ -114,6 +122,11 @@ internal class MemcachedMetricsProvider
             CommandsTotalOtelMetricName,
             "",
             labelNames: [CommandNameLabel, IsSuccessfulLabel]);
+
+        _socketUnreadDataDetected = metricFactory.CreateCounter(
+            SocketUnreadDataDetectedMetricName,
+            "",
+            labelNames: [SocketPoolEndpointAddressLabel]);
     }
 
     /// <summary>
@@ -185,5 +198,20 @@ internal class MemcachedMetricsProvider
     {
         // Remove entry from state dictionary - OpenTelemetry ObservableGauge will stop reporting it
         _socketPoolExhaustionState.TryRemove(endpointAddress, out _);
+    }
+
+    /// <summary>
+    /// Observes detection of unread data on socket.
+    /// </summary>
+    /// <param name="endpointAddress">The address of an endpoint where unread data was detected.</param>
+    public void ObserveSocketUnreadDataDetected(string endpointAddress)
+    {
+        _socketUnreadDataDetectedOtel?.Add(
+            1,
+            new KeyValuePair<string, object>(SocketPoolEndpointAddressLabel, endpointAddress));
+
+        _socketUnreadDataDetected
+            ?.WithLabels(endpointAddress)
+            ?.Inc();
     }
 }

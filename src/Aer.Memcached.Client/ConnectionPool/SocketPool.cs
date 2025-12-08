@@ -182,9 +182,24 @@ internal class SocketPool : IDisposable
 
         if (!waitSucceeded)
         {
+            var endpointAddress = _endPoint.GetEndPointString();
+            
             _logger.LogWarning(
                 "Socket pool for endpoint {EndPoint} ran out of sockets",
-                _endPoint.GetEndPointString());
+                endpointAddress);
+
+            // Emit metric for socket pool exhaustion
+            if (MemcachedDiagnosticSource.Instance.IsEnabled())
+            {
+                MemcachedDiagnosticSource.Instance.Write(
+                    MemcachedDiagnosticSource.SocketPoolExhaustedDiagnosticName,
+                    new
+                    {
+                        endpointAddress,
+                        maxPoolSize = _config.MaxPoolSize,
+                        usedSocketCount = UsedSocketsCount
+                    });
+            }
 
             return result;
         }

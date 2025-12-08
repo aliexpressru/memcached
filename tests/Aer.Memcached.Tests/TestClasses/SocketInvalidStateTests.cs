@@ -1,7 +1,9 @@
 using System.Net;
+using System.Diagnostics;
 using System.Net.Sockets;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Client.ConnectionPool;
+using Aer.Memcached.Client.Diagnostics;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -22,11 +24,58 @@ namespace Aer.Memcached.Tests.TestClasses;
 public class SocketInvalidStateTests
 {
     private ILogger<SocketPool> _poolLogger;
+    private List<KeyValuePair<string, object>> _diagnosticEvents;
+    private IDisposable _diagnosticSubscription;
 
     [TestInitialize]
     public void Setup()
     {
         _poolLogger = Substitute.For<ILogger<SocketPool>>();
+        _diagnosticEvents = new List<KeyValuePair<string, object>>();
+        
+        // Subscribe to diagnostic events
+        _diagnosticSubscription = DiagnosticListener.AllListeners.Subscribe(
+            new DiagnosticListenerObserver(listener =>
+            {
+                if (listener.Name == "Aer.Diagnostics.Memcached")
+                {
+                    listener.Subscribe(new Observer<KeyValuePair<string, object>>(_diagnosticEvents));
+                }
+            }));
+    }
+
+    [TestCleanup]
+    public void Cleanup()
+    {
+        _diagnosticSubscription?.Dispose();
+    }
+    
+    private class DiagnosticListenerObserver : IObserver<DiagnosticListener>
+    {
+        private readonly Action<DiagnosticListener> _onNext;
+
+        public DiagnosticListenerObserver(Action<DiagnosticListener> onNext)
+        {
+            _onNext = onNext;
+        }
+
+        public void OnNext(DiagnosticListener value) => _onNext(value);
+        public void OnError(Exception error) { }
+        public void OnCompleted() { }
+    }
+    
+    private class Observer<T> : IObserver<T>
+    {
+        private readonly List<T> _events;
+
+        public Observer(List<T> events)
+        {
+            _events = events;
+        }
+
+        public void OnNext(T value) => _events.Add(value);
+        public void OnError(Exception error) { }
+        public void OnCompleted() { }
     }
 
     [TestMethod]
@@ -195,15 +244,12 @@ public class SocketInvalidStateTests
             var socket2 = await pool.GetSocketAsync(CancellationToken.None);
             socket2.Should().NotBeNull();
 
-            // Assert - After the fix, socket2 should be a NEW socket (socket1 was destroyed due to unread data)
-            // Currently this test documents the CURRENT behavior where socket might be reused
-            // After implementing the fix, this should be socket1Id != socket2.InstanceId
-            _poolLogger.Received().Log(
-                LogLevel.Error,
-                Arg.Any<EventId>(),
-                Arg.Is<object>(v => v.ToString().Contains("bytes of unread data")),
-                Arg.Any<Exception>(),
-                Arg.Any<Func<object, Exception, string>>());
+            // Assert - Check that diagnostic event for unread data was emitted
+            var unreadDataEvents = _diagnosticEvents
+                .Where(e => e.Key == MemcachedDiagnosticSource.SocketUnreadDataDetectedDiagnosticName)
+                .ToList();
+            
+            unreadDataEvents.Should().HaveCount(1, "Should have detected unread data once");
         }
         finally
         {
@@ -400,13 +446,12 @@ public class SocketInvalidStateTests
             // Act - call ResetAsync to clear unread data
             await socket.ResetAsync(CancellationToken.None);
 
-            // Assert - should have logged error about unread data
-            _poolLogger.Received().Log(
-                LogLevel.Error,
-                Arg.Any<EventId>(),
-                Arg.Is<object>(v => v.ToString().Contains("bytes of unread data")),
-                Arg.Any<Exception>(),
-                Arg.Any<Func<object, Exception, string>>());
+            // Assert - Check that diagnostic event for unread data was emitted
+            var unreadDataEvents = _diagnosticEvents
+                .Where(e => e.Key == MemcachedDiagnosticSource.SocketUnreadDataDetectedDiagnosticName)
+                .ToList();
+            
+            unreadDataEvents.Should().HaveCount(1, "Should have detected unread data once");
 
             // Cleanup
             socket.Dispose();

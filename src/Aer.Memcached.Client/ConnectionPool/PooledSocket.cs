@@ -123,11 +123,16 @@ public class PooledSocket : IDisposable
 
         if (available > 0)
         {
-            _logger.LogError(
-                "Socket bound to {EndPoint} has {AvailableDataCount} bytes of unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
-                EndPointAddressString,
-                available,
-                InstanceId);
+            // Emit metric for unread data on socket (not logging as this can happen during cancellation)
+            if (MemcachedDiagnosticSource.Instance.IsEnabled())
+            {
+                MemcachedDiagnosticSource.Instance.Write(
+                    MemcachedDiagnosticSource.SocketUnreadDataDetectedDiagnosticName,
+                    new
+                    {
+                        endpointAddress = EndPointAddressString
+                    });
+            }
 
             // clear socket - read data from it and throw it away
             
@@ -193,9 +198,9 @@ public class PooledSocket : IDisposable
             }
             catch (Exception ex)
             {
-                // Mark socket for destruction on cancellation or IO errors
-                // as they may leave the socket in an invalid state with unread data
-                if (ex is IOException or SocketException or TaskCanceledException or OperationCanceledException)
+                // Mark socket for destruction on IO errors as they may leave the socket in an invalid state with unread data
+                // Don't mark for destruction on cancellation exceptions to avoid avalanche socket destruction
+                if (ex is IOException or SocketException)
                 {
                     ShouldDestroySocket = true;
                 }
@@ -227,9 +232,9 @@ public class PooledSocket : IDisposable
         }
         catch (Exception ex)
         {
-            // Mark socket for destruction on cancellation or IO errors
-            // as they may leave the socket in an invalid state
-            if (ex is IOException or SocketException or TaskCanceledException or OperationCanceledException)
+            // Mark socket for destruction on IO errors as they may leave the socket in an invalid state
+            // Don't mark for destruction on cancellation exceptions to avoid avalanche socket destruction
+            if (ex is IOException or SocketException)
             {
                 ShouldDestroySocket = true;
             }

@@ -14,6 +14,7 @@ public class MemcachedDiagnosticSource: DiagnosticListener
     public const string SocketPoolUsedSocketCountDiagnosticName = SourceName + ".SocketPool.UsedSocketCount";
     public const string SocketPoolExhaustedDiagnosticName = SourceName + ".SocketPool.Exhausted";
     public const string SocketPoolRecoveredDiagnosticName = SourceName + ".SocketPool.Recovered";
+    public const string SocketUnreadDataDetectedDiagnosticName = SourceName + ".Socket.UnreadDataDetected";
 
     public static MemcachedDiagnosticSource Instance { get; } = new();
     

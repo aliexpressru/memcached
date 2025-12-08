@@ -290,16 +290,15 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 await writeSocketTask.WaitAsync(_config.SocketPool.ReceiveTimeout, token);
             }
-            catch (TimeoutException)
+            catch (Exception ex)
             {
-                _logger.LogError("Write to socket {SocketAddress} timed out", socket.EndPointAddressString);
-
-                socket.ShouldDestroySocket = true;
-                var errorMessage = $"Write to socket {socket.EndPointAddressString} timed out";
-                var timeoutResult = CommandExecutionResult.Unsuccessful(command, errorMessage);
+                // Exception already logged in PooledSocket.WriteAsync
+                // Socket destruction is already handled in PooledSocket.WriteAsync based on exception type
+                var errorMessage = $"Write to socket {socket.EndPointAddressString} failed: {ex.Message}";
+                var errorResult = CommandExecutionResult.Unsuccessful(command, errorMessage);
                 tracingScope?.SetResult(false, errorMessage);
 
-                return timeoutResult;
+                return errorResult;
             }
 
             CommandResult readResult;
@@ -307,18 +306,8 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             {
                 readResult = await command.ReadResponseAsync(socket, token);
             }
-            catch (TimeoutException ex)
+            catch (Exception ex)
             {
-                // TimeoutException during read already marks socket for destruction in PooledSocket.ReadAsync
-                var timeoutResult = CommandExecutionResult.Unsuccessful(command, ex.Message);
-                tracingScope?.SetResult(false, ex.Message);
-
-                return timeoutResult;
-            }
-            catch (InvalidOperationException ex)
-            {
-                // Protocol errors mean socket is in invalid state
-                socket.ShouldDestroySocket = true;
                 var errorResult = CommandExecutionResult.Unsuccessful(command, ex.Message);
                 tracingScope?.SetResult(false, ex.Message);
 
@@ -337,25 +326,10 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         }
         catch (OperationCanceledException) when (_config.IsTerseCancellationLogging)
         {
-            // Cancellation - destroy socket as we don't know its state
-            // (could be in the middle of read/write operation)
-            if (socket != null)
-            {
-                socket.ShouldDestroySocket = true;
-            }
-
-            // just rethrow this exception and don't log any details.
-            // it will be handled in MemcachedClient
             throw;
         }
         catch (Exception e)
         {
-            // Unexpected exception - destroy socket as we don't know its state
-            if (socket != null)
-            {
-                socket.ShouldDestroySocket = true;
-            }
-
             _logger.LogError(
                 e,
                 "Error occured during command {Command} on node {Node} execution",

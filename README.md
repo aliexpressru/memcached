@@ -486,6 +486,7 @@ This library exposes the following memcached metrics
 - `memcached_socket_pool_used_sockets` - number of used socket pool sockets per endpoint
 - `memcached_commands_total` - total executed memcached commands number
 - `memcached_socket_pool_exhausted_state` - socket pool exhaustion state per endpoint (1 = exhausted, absent = ok). **Note:** This metric is only available for OpenTelemetry. When a socket pool reaches its maximum capacity and cannot serve new requests, this metric is set to 1. Once the pool recovers and can serve requests again, the metric is removed.
+- `memcached_socket_unread_data_detected_total` - counter of unread data detections on sockets per endpoint. Indicates sockets left in invalid state (e.g., after timeout or error). Available for both OpenTelemetry and Prometheus.
 
 #### Distributed Tracing
 

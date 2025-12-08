@@ -72,4 +72,15 @@ internal class MetricsMemcachedDiagnosticListener
 
         _metricsProvider.ObserveSocketPoolRecovered(endpointAddress);
     }
+
+    [DiagnosticName(MemcachedDiagnosticSource.SocketUnreadDataDetectedDiagnosticName)]
+    public void ObserveSocketUnreadDataDetected(string endpointAddress)
+    {
+        if (_config.Diagnostics.DisableDiagnostics)
+        {
+            return;
+        }
+
+        _metricsProvider.ObserveSocketUnreadDataDetected(endpointAddress);
+    }
 }
