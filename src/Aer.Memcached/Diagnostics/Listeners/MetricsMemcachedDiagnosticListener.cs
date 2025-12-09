@@ -59,7 +59,7 @@ internal class MetricsMemcachedDiagnosticListener
             return;
         }
 
-        _metricsProvider.ObserveSocketPoolExhausted(endpointAddress);
+        _metricsProvider.ObserveSocketPoolExhausted(endpointAddress, maxPoolSize, usedSocketCount);
     }
 
     [DiagnosticName(MemcachedDiagnosticSource.SocketPoolRecoveredDiagnosticName)]

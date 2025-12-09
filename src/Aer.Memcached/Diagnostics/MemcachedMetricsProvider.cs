@@ -26,7 +26,9 @@ internal class MemcachedMetricsProvider
     
     // Dictionary to track exhaustion state per endpoint (1 = exhausted, key absent = ok)
     // Used only by OpenTelemetry ObservableGauge
-    private readonly ConcurrentDictionary<string, int> _socketPoolExhaustionState = new();
+    private readonly ConcurrentDictionary<string, SocketPoolExhaustionInfo> _socketPoolExhaustionState = new();
+    
+    private record SocketPoolExhaustionInfo(int MaxPoolSize, int UsedSocketCount);
 
     private const string CommandDurationSecondsMetricName = "memcached_command_duration_seconds";
     private const string SocketPoolUsedSocketsCountsMetricName = "memcached_socket_pool_used_sockets";
@@ -86,8 +88,13 @@ internal class MemcachedMetricsProvider
                     foreach (var kvp in _socketPoolExhaustionState)
                     {
                         measurements.Add(new Measurement<int>(
-                            kvp.Value,
-                            new KeyValuePair<string, object>(SocketPoolEndpointAddressLabel, kvp.Key)));
+                            1, // exhausted state
+                            new KeyValuePair<string, object>[]
+                            {
+                                new(SocketPoolEndpointAddressLabel, kvp.Key),
+                                new("max_pool_size", kvp.Value.MaxPoolSize),
+                                new("used_socket_count", kvp.Value.UsedSocketCount)
+                            }));
                     }
                     return measurements;
                 },
@@ -184,10 +191,12 @@ internal class MemcachedMetricsProvider
     /// Marks socket pool as exhausted.
     /// </summary>
     /// <param name="endpointAddress">The address of an endpoint where socket pool was exhausted.</param>
-    public void ObserveSocketPoolExhausted(string endpointAddress)
+    /// <param name="maxPoolSize">Maximum pool size configured for the pool.</param>
+    /// <param name="usedSocketCount">Current number of used sockets.</param>
+    public void ObserveSocketPoolExhausted(string endpointAddress, int maxPoolSize, int usedSocketCount)
     {
-        // Set state to exhausted (1) - OpenTelemetry ObservableGauge will read this
-        _socketPoolExhaustionState[endpointAddress] = 1;
+        // Set state to exhausted with additional info - OpenTelemetry ObservableGauge will read this
+        _socketPoolExhaustionState[endpointAddress] = new SocketPoolExhaustionInfo(maxPoolSize, usedSocketCount);
     }
 
     /// <summary>

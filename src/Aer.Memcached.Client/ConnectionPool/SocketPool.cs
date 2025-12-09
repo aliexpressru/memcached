@@ -98,19 +98,7 @@ internal class SocketPool : IDisposable
             {
                 // means socket pool is full or disposed
                 tracingScope?.SetResult(false, "Socket pool is full or disposed");
-                
-                if (!_isDisposed && MemcachedDiagnosticSource.Instance.IsEnabled())
-                {
-                    MemcachedDiagnosticSource.Instance.Write(
-                        MemcachedDiagnosticSource.SocketPoolExhaustedDiagnosticName,
-                        new
-                        {
-                            endpointAddress = endPointAddressString,
-                            maxPoolSize = _config.MaxPoolSize,
-                            usedSocketCount = UsedSocketsCount
-                        });
-                }
-                
+
                 return null;
             }
 
@@ -183,7 +171,7 @@ internal class SocketPool : IDisposable
         if (!waitSucceeded)
         {
             var endpointAddress = _endPoint.GetEndPointString();
-            
+
             _logger.LogWarning(
                 "Socket pool for endpoint {EndPoint} ran out of sockets",
                 endpointAddress);
