@@ -525,6 +525,32 @@ builder.Services.AddOpenTelemetry()
 - Traces all memcached commands with operation name, server address, and replica information
 - Works with Jaeger, Zipkin, Azure Application Insights, AWS X-Ray, and other OTLP-compatible backends
 
+#### TracingOptions - Per-Operation Tracing Control
+
+All memcached operations support optional `TracingOptions` parameter for granular tracing control.
+
+**Example:**
+
+```csharp
+// Disable tracing for fire-and-forget operation
+_ = Task.Run(async () => 
+{
+    await _memcachedClient.MultiStoreAsync(
+        keyValues: data,
+        expirationTime: TimeSpan.FromMinutes(30),
+        token: CancellationToken.None,
+        tracingOptions: TracingOptions.Disabled
+    );
+});
+```
+
+**Options:**
+- `TracingOptions.Enabled` - Force enable tracing
+- `TracingOptions.Disabled` - Force disable tracing
+- `null` (default) - Use global `EnableTracing` setting
+
+**Note:** Global `EnableTracing = false` disables tracing regardless of `TracingOptions`.
+
 #### Disagnostic information
 
 `MemcachedClient` writes memcached nodes rebuild process state to diagnostics. This state includes the nodes that are currently in use and socket pools statistics. To disable this data logging specify:

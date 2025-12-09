@@ -55,7 +55,7 @@ internal class MemcachedMetricsProvider
 
             _commandDurationSecondsOtel = meter.CreateHistogram<double>(
                 name: CommandDurationSecondsMetricName,
-                unit: "second",
+                unit: null,
                 description: "Memcached command duration in seconds");
 
             _socketPoolUsedSocketsCountsOtel = meter.CreateHistogram<int>(

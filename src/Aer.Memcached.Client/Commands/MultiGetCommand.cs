@@ -76,7 +76,7 @@ internal class MultiGetCommand: MemcachedCommandBase
         return buffers;
     }
 
-    protected override CommandResult ReadResponseCore(PooledSocket socket)
+    protected override async Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token)
     {
         Result = new Dictionary<string, CacheItemResult>();
         
@@ -86,7 +86,7 @@ internal class MultiGetCommand: MemcachedCommandBase
 
         ResponseReader = new BinaryResponseReader();
         
-        while (ResponseReader.Read(socket))
+        while (await ResponseReader.ReadAsync(socket, token))
         {
             if (ResponseReader.IsSocketDead)
             {

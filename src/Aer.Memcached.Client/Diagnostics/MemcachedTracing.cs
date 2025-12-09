@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Aer.ConsistentHash.Abstractions;
 using Aer.Memcached.Client.Commands.Base;
+using Aer.Memcached.Client.Models;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry.Trace;
 
 namespace Aer.Memcached.Client.Diagnostics;
@@ -25,6 +27,25 @@ internal static class MemcachedTracing
     private const string CacheSyncKeysCountAttribute = "memcached.cache_sync.keys_count";
 
     /// <summary>
+    /// Determines whether tracing should be enabled based on tracer availability, 
+    /// current activity context, and tracing options.
+    /// </summary>
+    private static bool ShouldEnableTracing(Tracer tracer, TracingOptions tracingOptions)
+    {
+        if (tracer == null || Activity.Current == null)
+        {
+            return false;
+        }
+
+        if (tracingOptions?.ManualDisableTracing == true)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Creates a tracing scope for a memcached command.
     /// Returns null if tracing is not enabled.
     /// </summary>
@@ -33,9 +54,11 @@ internal static class MemcachedTracing
         MemcachedCommandBase command,
         INode node,
         bool isReplicated,
-        int replicaCount)
+        int replicaCount,
+        ILogger logger = null,
+        TracingOptions tracingOptions = null)
     {
-        if (tracer == null || Activity.Current == null)
+        if (!ShouldEnableTracing(tracer, tracingOptions))
         {
             return null;
         }
@@ -64,9 +87,15 @@ internal static class MemcachedTracing
 
             return new TracingScope(span);
         }
-        catch (ObjectDisposedException)
+        catch (Exception ex)
         {
-            // Activity source might be disposed if request is already completed
+            // Tracing should never break the application
+            // Common cases:
+            // - ObjectDisposedException: Activity source disposed when request completed
+            // - NullReferenceException: HTTP context disposed during fire-and-forget operations
+            logger?.LogWarning(ex, 
+                "Failed to create tracing scope for command {OpCode} on node {NodeKey}. Tracing will be disabled for this operation.",
+                command?.OpCode, node?.GetKey());
             return null;
         }
     }
@@ -80,9 +109,11 @@ internal static class MemcachedTracing
         string operationName,
         string serverAddress,
         int? maxPoolSize = null,
-        int? usedCount = null)
+        int? usedCount = null,
+        ILogger logger = null,
+        TracingOptions tracingOptions = null)
     {
-        if (tracer == null || Activity.Current == null)
+        if (!ShouldEnableTracing(tracer, tracingOptions))
         {
             return null;
         }
@@ -109,8 +140,12 @@ internal static class MemcachedTracing
 
             return new TracingScope(span);
         }
-        catch (ObjectDisposedException)
+        catch (Exception ex)
         {
+            // Tracing should never break the application
+            logger?.LogWarning(ex,
+                "Failed to create tracing scope for socket operation {OperationName} on {ServerAddress}. Tracing will be disabled for this operation.",
+                operationName, serverAddress);
             return null;
         }
     }
@@ -123,9 +158,11 @@ internal static class MemcachedTracing
         Tracer tracer,
         string operationName,
         string syncServer,
-        int? keysCount = null)
+        int? keysCount = null,
+        ILogger logger = null,
+        TracingOptions tracingOptions = null)
     {
-        if (tracer == null || Activity.Current == null)
+        if (!ShouldEnableTracing(tracer, tracingOptions))
         {
             return null;
         }
@@ -147,8 +184,12 @@ internal static class MemcachedTracing
 
             return new TracingScope(span);
         }
-        catch (ObjectDisposedException)
+        catch (Exception ex)
         {
+            // Tracing should never break the application
+            logger?.LogWarning(ex,
+                "Failed to create tracing scope for cache sync operation {OperationName} on {SyncServer}. Tracing will be disabled for this operation.",
+                operationName, syncServer);
             return null;
         }
     }

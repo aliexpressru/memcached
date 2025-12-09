@@ -14,7 +14,7 @@ public abstract class MemcachedCommandBase : IDisposable
     /// </summary>
     public const int MemcachedKeyLengthMaxLengthBytes = 250;
 
-    private static readonly IHashCalculator _hashCalculator = new HashCalculator();
+    private static readonly IHashCalculator HashCalculator = new HashCalculator();
 
     private bool _isDisposed;
 
@@ -36,14 +36,14 @@ public abstract class MemcachedCommandBase : IDisposable
         OpCode = opCode;
     }
 
-    internal CommandResult ReadResponse(PooledSocket socket)
+    internal async Task<CommandResult> ReadResponseAsync(PooledSocket socket, CancellationToken token)
     {
-        var ret = ReadResponseCore(socket);
+        var ret = await ReadResponseCoreAsync(socket, token);
 
         return ret;
     }
 
-    protected abstract CommandResult ReadResponseCore(PooledSocket socket);
+    protected abstract Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token);
 
     internal abstract IList<ArraySegment<byte>> GetBuffer();
 
@@ -51,9 +51,10 @@ public abstract class MemcachedCommandBase : IDisposable
         throw new NotSupportedException(
             $"{nameof(Clone)} method is not supported for command of type {GetType()}.");
 
+
     internal static string GetSafeLengthKey(string possiblyTooLongKey) =>
         Encoding.UTF8.GetByteCount(possiblyTooLongKey) > MemcachedKeyLengthMaxLengthBytes
-            ? _hashCalculator.DigestValue(possiblyTooLongKey)
+            ? HashCalculator.DigestValue(possiblyTooLongKey)
             : possiblyTooLongKey;
 
     public override string ToString()

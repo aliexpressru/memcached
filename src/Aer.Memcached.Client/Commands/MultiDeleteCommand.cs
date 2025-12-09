@@ -49,13 +49,13 @@ internal class MultiDeleteCommand: MemcachedCommandBase
         return buffers;
     }
 
-    protected override CommandResult ReadResponseCore(PooledSocket socket)
+    protected override async Task<CommandResult> ReadResponseCoreAsync(PooledSocket socket, CancellationToken token)
     {
         var result = new CommandResult();
 
         ResponseReader = new BinaryResponseReader();
 
-        while (ResponseReader.Read(socket))
+        while (await ResponseReader.ReadAsync(socket, token))
         {
             if (ResponseReader.IsSocketDead)
             {

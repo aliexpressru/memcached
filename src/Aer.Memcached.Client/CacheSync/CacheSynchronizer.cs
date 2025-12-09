@@ -36,7 +36,6 @@ internal class CacheSynchronizer : ICacheSynchronizer
         _serverBySwitchOffTime = new ConcurrentDictionary<string, DateTimeOffset>();
     }
 
-
     /// <inheritdoc />
     public bool IsCacheSyncEnabled() => _syncServersProvider.IsConfigured();
 
@@ -58,7 +57,7 @@ internal class CacheSynchronizer : ICacheSynchronizer
         try
         {
             var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
-            var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
+            using var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
             var utcNow = DateTimeOffset.UtcNow;
 
             if (model.KeyValues.Count == 0)
@@ -97,9 +96,9 @@ internal class CacheSynchronizer : ICacheSynchronizer
         try
         {
             var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
-            var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
+            using var syncCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, source.Token);
             var utcNow = DateTimeOffset.UtcNow;
-            
+
             await Task.WhenAll(_syncServers
                 .Select(syncServer =>
                     SyncDelete(syncServer, keys, utcNow, syncCancellationTokenSource.Token)));
@@ -174,7 +173,7 @@ internal class CacheSynchronizer : ICacheSynchronizer
             throw;
         }
     }
-    
+
     private async Task SyncDelete(
         MemcachedConfiguration.SyncServer syncServer,
         IEnumerable<string> keys,

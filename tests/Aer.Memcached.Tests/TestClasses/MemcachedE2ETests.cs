@@ -108,6 +108,10 @@ public class MemcachedE2ETests
             });
         });
 
+        // Explicitly initialize servers to avoid race condition when both servers start simultaneously
+        _ = httpServerFixture1.Services;
+        _ = httpServerFixture2.Services;
+
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
 
@@ -197,7 +201,10 @@ public class MemcachedE2ETests
                 });
             });
         });
-        ;
+
+        // Explicitly initialize servers to avoid race condition when both servers start simultaneously
+        _ = httpServerFixture1.Services;
+        _ = httpServerFixture2.Services;
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -309,6 +316,10 @@ public class MemcachedE2ETests
         });
         ;
 
+        // Explicitly initialize servers to avoid race condition when both servers start simultaneously
+        _ = httpServerFixture1.Services;
+        _ = httpServerFixture2.Services;
+
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
 
@@ -401,6 +412,10 @@ public class MemcachedE2ETests
         });
         ;
 
+        // Explicitly initialize servers to avoid race condition when both servers start simultaneously
+        _ = httpServerFixture1.Services;
+        _ = httpServerFixture2.Services;
+
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
 
@@ -433,7 +448,7 @@ public class MemcachedE2ETests
             // ignored
         }
     }
-
+    
     [TestMethodWithIgnoreIfSupport]
     [IgnoreIf(nameof(IsWindows))]
     public async Task WepApi_E2E_MultiStoreAndGet_WithCacheSync_ComplexModel_Success()
@@ -500,6 +515,10 @@ public class MemcachedE2ETests
                 });
             });
         });
+
+        // Explicitly initialize servers to avoid race condition when both servers start simultaneously
+        _ = httpServerFixture1.Services;
+        _ = httpServerFixture2.Services;
 
         var client1 = new MemcachedWebApiClient(httpServerFixture1.CreateDefaultClient());
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
@@ -626,7 +645,9 @@ public class MemcachedE2ETests
                 });
             });
         });
-        ;
+
+        // Explicitly initialize server to avoid race condition
+        _ = httpServerFixture2.Services;
 
         var client2 = new MemcachedWebApiClient(httpServerFixture2.CreateDefaultClient());
 

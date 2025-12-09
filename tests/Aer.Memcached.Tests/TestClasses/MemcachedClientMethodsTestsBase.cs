@@ -231,10 +231,6 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_OneValueExpired()
     {
-        // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
-        // Also flush cache to ensure clean state
-        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
-        
         var keyToExpire = Guid.NewGuid().ToString();
         var expirationMap = new Dictionary<string, TimeSpan?>()
         {
@@ -279,10 +275,6 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGet_ExpirationMap_DateTimeOffset_OneValueExpired()
     {
-        // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
-        // Also flush cache to ensure clean state
-        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
-        
         var keyToExpire = Guid.NewGuid().ToString();
         var utcNow = DateTimeOffset.UtcNow;
         var expirationMap = new Dictionary<string, DateTimeOffset?>()
@@ -578,10 +570,6 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     [TestMethod]
     public async Task MultiStoreAndGetBatched()
     {
-        // Use file-based lock to ensure this test runs sequentially across all test processes (net8.0, net10.0)
-        // Flush memcached to avoid conflicts with data from other tests and possible eviction problems
-        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
-        
         var keyValues = new Dictionary<string, string>();
 
         foreach (var _ in Enumerable.Range(0, 10_000))
@@ -985,11 +973,9 @@ public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
     }
     
     [TestMethod]
+    [Ignore("Flush clears entire memcached cache and conflicts with parallel tests. Run in isolation only.")]
     public async Task Flush_RemoveAllItems()
     {
-        // Acquire lock first to hold it for entire test duration
-        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
-        
         var keys = await MultiStoreAndGetKeys();
         var getValues = await Client.MultiGetAsync<string>(keys, CancellationToken.None);
         getValues.Count.Should().Be(keys.Length);

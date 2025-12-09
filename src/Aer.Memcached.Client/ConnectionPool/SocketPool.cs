@@ -59,7 +59,7 @@ internal class SocketPool : IDisposable
         _remainingPoolCapacityCounter = new SemaphoreSlim(_config.MaxPoolSize, _config.MaxPoolSize);
     }
 
-    public async Task<PooledSocket> GetSocketAsync(CancellationToken token)
+    public async Task<PooledSocket> GetSocketAsync(CancellationToken token, Models.TracingOptions tracingOptions = null)
     {
         var endPointAddressString = _endPoint.GetEndPointString();
         
@@ -68,7 +68,9 @@ internal class SocketPool : IDisposable
             "socket.acquire",
             endPointAddressString,
             _config.MaxPoolSize,
-            UsedSocketsCount);
+            UsedSocketsCount,
+            _logger,
+            tracingOptions);
 
         try
         {
@@ -156,7 +158,7 @@ internal class SocketPool : IDisposable
         {
             try
             {
-                pooledSocket.Reset();
+                await pooledSocket.ResetAsync(token);
                 result.AvailableSocket = pooledSocket;
 
                 return result;
@@ -228,7 +230,7 @@ internal class SocketPool : IDisposable
 
         try
         {
-            var socket = new PooledSocket(_endPoint, _config.ConnectionTimeout, _logger);
+            var socket = new PooledSocket(_endPoint, _config.ConnectionTimeout, _config.ReceiveTimeout, _logger);
 
             await socket.ConnectAsync(token);
 

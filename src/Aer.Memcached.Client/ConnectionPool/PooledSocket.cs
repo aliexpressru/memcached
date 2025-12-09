@@ -15,6 +15,7 @@ public class PooledSocket : IDisposable
     private Socket _socket;
     private readonly EndPoint _endpoint;
     private readonly TimeSpan _connectionTimeout;
+    private readonly TimeSpan _receiveTimeout;
 
     private NetworkStream _inputStream;
     
@@ -38,7 +39,8 @@ public class PooledSocket : IDisposable
 
     public PooledSocket(
         EndPoint endpoint, 
-        TimeSpan connectionTimeout, 
+        TimeSpan connectionTimeout,
+        TimeSpan receiveTimeout,
         ILogger logger)
     {
         _logger = logger;
@@ -53,6 +55,10 @@ public class PooledSocket : IDisposable
         _connectionTimeout = connectionTimeout == TimeSpan.MaxValue
             ? Timeout.InfiniteTimeSpan
             : connectionTimeout;
+
+        _receiveTimeout = receiveTimeout == TimeSpan.MaxValue
+            ? Timeout.InfiniteTimeSpan
+            : receiveTimeout;
 
         _socket = socket;
         _endpoint = endpoint;
@@ -101,7 +107,7 @@ public class PooledSocket : IDisposable
         }
     }
 
-    public void Reset()
+    public async Task ResetAsync(CancellationToken token)
     {
         int available = _socket.Available;
 
@@ -119,7 +125,7 @@ public class PooledSocket : IDisposable
 
             try
             {
-                Read(data.AsSpan(0, available), available);
+                await ReadAsync(data.AsMemory(0, available), available, token);
             }
             finally
             {
@@ -127,8 +133,8 @@ public class PooledSocket : IDisposable
             }
         }
     }
-    
-    public void Read(Span<byte> buffer, int count)
+
+    public async Task ReadAsync(Memory<byte> buffer, int count, CancellationToken token)
     {
         CheckDisposed();
 
@@ -139,7 +145,19 @@ public class PooledSocket : IDisposable
         {
             try
             {
-                int currentRead = _inputStream.Read(slice);
+                var currentReadTask = _inputStream.ReadAsync(slice, token);
+                int currentRead;
+                if (currentReadTask.IsCompleted)
+                {
+                    currentRead = await currentReadTask;
+                }
+                else
+                {
+                    currentRead = await currentReadTask
+                        .AsTask()
+                        .WaitAsync(_receiveTimeout, token);
+                }
+                    
                 if (currentRead == count)
                 {
                     break;
@@ -153,6 +171,15 @@ public class PooledSocket : IDisposable
                 read += currentRead;
 
                 slice = buffer[read..];
+            }
+            catch (TimeoutException)
+            {
+                IsExceptionDetected = false;
+                _logger.LogError(
+                    "Read from socket {EndPoint} timed out after {Timeout}ms",
+                    EndPointAddressString,
+                    _receiveTimeout.TotalMilliseconds);
+                throw new TimeoutException($"Read from socket {EndPointAddressString} timed out after {_receiveTimeout.TotalMilliseconds}ms.");
             }
             catch (Exception ex)
             {
