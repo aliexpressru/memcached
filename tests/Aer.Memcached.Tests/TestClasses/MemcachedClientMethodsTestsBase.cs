@@ -23,10 +23,12 @@ namespace Aer.Memcached.Tests.TestClasses;
 public class MemcachedClientMethodsTestsBase : MemcachedClientTestsBase
 {
     public MemcachedClientMethodsTestsBase(
-        ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson) : base(
+        ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson,
+        EnabledOperations enabledOperations = EnabledOperations.All) : base(
         isSingleNodeCluster: true,
         binarySerializerType: binarySerializerType,
-        isAllowLongKeys: true)
+        isAllowLongKeys: true,
+        enabledOperations: enabledOperations)
     { }
 
     [TestMethod]

@@ -36,18 +36,22 @@ public class MemcachedClientValueResult<T>
     /// </summary>
     public bool IsEmptyResult { get; }
 
+    public bool OperationIgnored { get; }
+
     internal MemcachedClientValueResult(
         bool success,
         T result = default,
         bool isEmptyResult = true,
         string errorMessage = null,
-        bool isRequestCancelled = false)
+        bool isRequestCancelled = false,
+        bool operationIgnored = false)
     {
         Success = success;
         Result = result;
         ErrorMessage = errorMessage;
         IsEmptyResult = isEmptyResult;
         RequestCancelled = isRequestCancelled;
+        OperationIgnored = operationIgnored;
     }
 
     /// <summary>
@@ -91,4 +95,9 @@ public class MemcachedClientValueResult<T>
             isRequestCancelled: true,
             result: defaultResultValue,
             errorMessage: operationName);
+
+    /// <summary>
+    /// Creates an instance of <see cref="MemcachedClientValueResult{T}"/> that indicates ignored operation.
+    /// </summary>
+    public static MemcachedClientValueResult<T> Ignored() => new(success: true, operationIgnored: true);
 }

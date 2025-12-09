@@ -48,6 +48,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.Configure<MemcachedConfiguration>(configuration.GetSection(nameof(MemcachedConfiguration)));
+        services.Configure<MemcachedConfiguration.RuntimeConfiguration>(configuration.GetSection($"{nameof(MemcachedConfiguration)}:{nameof(MemcachedConfiguration.RuntimeConfig)}"));
         services.Configure<HashRingSettings>(configuration.GetSection($"{nameof(MemcachedConfiguration)}:{nameof(MemcachedConfiguration.HashRing)}"));
         services.AddSingleton<IHashCalculator, HashCalculator>();
         services.AddSingleton<INodeProvider<Pod>, HeadlessServiceDnsLookupNodeProvider>();

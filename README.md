@@ -731,6 +731,32 @@ Please note that all hashing algorithms, icluding `xxHash128`, has a potential t
 
 Nonetheless, it worth noting that every case for this option should be considered and tested individually.
 
+### Run time configuration
+
+You can configure on run time which operations should be processed, others will be ignored. The result models `MemcachedClientResult` and `MemcachedClientValueResult<T>` will contain properties `Success` and `OperationIgnored` are set to `true`
+
+```json
+{
+  "MemcachedConfiguration": {
+    "RuntimeConfig": {
+      "EnabledOperations": "All"
+    }
+  }
+}
+```
+
+The `EnabledOperations` can have the following values.
+
+- `All` - The default flag, it means that all operations will be processed.
+- `None` - No one operation will be processed.
+- `Get` - Combination of `GetAsync`,`GetAndTouchAsync`,`MultiGetAsync` and `MultiGetSafeAsync` operations. 
+- `Store` - Combination of `StoreAsync`,`MultiStoreAsync` and `MultiStoreSynchronizeDataAsync` operations.
+- `Delete` - Combination of `DeleteAsync` and `MultiDeleteAsync` operations.
+- `Counter` - Combination of `IncrAsync` and `DecrAsync` operations.
+- `FlushAsync` - For `FlushAsync` operation.
+
+Or any combination of available operations.
+
 ## Monitoring
 
 Other than logs check Prometheus \ OpenTelemetry metrics.

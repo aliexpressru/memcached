@@ -179,7 +179,7 @@ public interface IMemcachedClient
 		CancellationToken token);
 
 	/// <summary>
-	/// Increments value by key.
+	/// Decrements value by key.
 	/// </summary>
 	/// <param name="key">Key.</param>
 	/// <param name="amountToSubtract">Amount to subtract.</param>
