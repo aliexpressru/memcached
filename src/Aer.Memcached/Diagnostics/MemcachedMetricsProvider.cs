@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using Aer.Memcached.Client.Config;
 using Aer.Memcached.Diagnostics.Configuration;
@@ -14,15 +15,26 @@ internal class MemcachedMetricsProvider
     private readonly Histogram<double> _commandDurationSecondsOtel;
     private readonly Histogram<int> _socketPoolUsedSocketsCountsOtel;
     private readonly Counter<int> _commandsTotalOtel;
+    private readonly ObservableGauge<int> _socketPoolExhaustedStateOtel;
+    private readonly Counter<int> _socketUnreadDataDetectedOtel;
 
     // Prometheus metrics
     private readonly IMetricFamily<IHistogram> _commandDurationSeconds;
     private readonly IMetricFamily<IHistogram> _socketPoolUsedSocketsCounts;
     private readonly IMetricFamily<ICounter> _commandsTotal;
+    private readonly IMetricFamily<ICounter> _socketUnreadDataDetected;
+    
+    // Dictionary to track exhaustion state per endpoint (1 = exhausted, key absent = ok)
+    // Used only by OpenTelemetry ObservableGauge
+    private readonly ConcurrentDictionary<string, SocketPoolExhaustionInfo> _socketPoolExhaustionState = new();
+    
+    private record SocketPoolExhaustionInfo(int MaxPoolSize, int UsedSocketCount);
 
     private const string CommandDurationSecondsMetricName = "memcached_command_duration_seconds";
     private const string SocketPoolUsedSocketsCountsMetricName = "memcached_socket_pool_used_sockets";
     private const string CommandsTotalOtelMetricName = "memcached_commands_total";
+    private const string SocketPoolExhaustedStateMetricName = "memcached_socket_pool_exhausted_state";
+    private const string SocketUnreadDataDetectedMetricName = "memcached_socket_unread_data_detected_total";
 
     public static readonly Dictionary<string, double[]> MetricsBuckets = new()
     {
@@ -68,6 +80,32 @@ internal class MemcachedMetricsProvider
                 unit: null,
                 description: "Number of total executed memcached commands");
 
+            _socketPoolExhaustedStateOtel = meter.CreateObservableGauge(
+                name: SocketPoolExhaustedStateMetricName,
+                observeValues: () =>
+                {
+                    var measurements = new List<Measurement<int>>();
+                    foreach (var kvp in _socketPoolExhaustionState)
+                    {
+                        measurements.Add(new Measurement<int>(
+                            1, // exhausted state
+                            new KeyValuePair<string, object>[]
+                            {
+                                new(SocketPoolEndpointAddressLabel, kvp.Key),
+                                new("max_pool_size", kvp.Value.MaxPoolSize),
+                                new("used_socket_count", kvp.Value.UsedSocketCount)
+                            }));
+                    }
+                    return measurements;
+                },
+                unit: null,
+                description: "Socket pool exhaustion state (1 = exhausted, absent = ok)");
+
+            _socketUnreadDataDetectedOtel = meter.CreateCounter<int>(
+                name: SocketUnreadDataDetectedMetricName,
+                unit: null,
+                description: "Number of times unread data was detected on socket");
+
             return;
         }
 
@@ -91,6 +129,11 @@ internal class MemcachedMetricsProvider
             CommandsTotalOtelMetricName,
             "",
             labelNames: [CommandNameLabel, IsSuccessfulLabel]);
+
+        _socketUnreadDataDetected = metricFactory.CreateCounter(
+            SocketUnreadDataDetectedMetricName,
+            "",
+            labelNames: [SocketPoolEndpointAddressLabel]);
     }
 
     /// <summary>
@@ -142,5 +185,42 @@ internal class MemcachedMetricsProvider
         _socketPoolUsedSocketsCounts
             ?.WithLabels(endpointAddress)
             ?.Observe(usedSocketCount);
+    }
+
+    /// <summary>
+    /// Marks socket pool as exhausted.
+    /// </summary>
+    /// <param name="endpointAddress">The address of an endpoint where socket pool was exhausted.</param>
+    /// <param name="maxPoolSize">Maximum pool size configured for the pool.</param>
+    /// <param name="usedSocketCount">Current number of used sockets.</param>
+    public void ObserveSocketPoolExhausted(string endpointAddress, int maxPoolSize, int usedSocketCount)
+    {
+        // Set state to exhausted with additional info - OpenTelemetry ObservableGauge will read this
+        _socketPoolExhaustionState[endpointAddress] = new SocketPoolExhaustionInfo(maxPoolSize, usedSocketCount);
+    }
+
+    /// <summary>
+    /// Marks socket pool as recovered (not exhausted).
+    /// </summary>
+    /// <param name="endpointAddress">The address of an endpoint where socket pool recovered.</param>
+    public void ObserveSocketPoolRecovered(string endpointAddress)
+    {
+        // Remove entry from state dictionary - OpenTelemetry ObservableGauge will stop reporting it
+        _socketPoolExhaustionState.TryRemove(endpointAddress, out _);
+    }
+
+    /// <summary>
+    /// Observes detection of unread data on socket.
+    /// </summary>
+    /// <param name="endpointAddress">The address of an endpoint where unread data was detected.</param>
+    public void ObserveSocketUnreadDataDetected(string endpointAddress)
+    {
+        _socketUnreadDataDetectedOtel?.Add(
+            1,
+            new KeyValuePair<string, object>(SocketPoolEndpointAddressLabel, endpointAddress));
+
+        _socketUnreadDataDetected
+            ?.WithLabels(endpointAddress)
+            ?.Inc();
     }
 }

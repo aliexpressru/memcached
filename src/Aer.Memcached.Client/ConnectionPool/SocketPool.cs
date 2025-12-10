@@ -79,6 +79,18 @@ internal class SocketPool : IDisposable
             if (result.AvailableSocket != null)
             {
                 tracingScope?.SetResult(true);
+                
+                // Emit recovery event - pool is not exhausted anymore since we got a socket
+                if (MemcachedDiagnosticSource.Instance.IsEnabled())
+                {
+                    MemcachedDiagnosticSource.Instance.Write(
+                        MemcachedDiagnosticSource.SocketPoolRecoveredDiagnosticName,
+                        new
+                        {
+                            endpointAddress = endPointAddressString
+                        });
+                }
+                
                 return result.AvailableSocket;
             }
 
@@ -86,6 +98,7 @@ internal class SocketPool : IDisposable
             {
                 // means socket pool is full or disposed
                 tracingScope?.SetResult(false, "Socket pool is full or disposed");
+
                 return null;
             }
 
@@ -99,6 +112,14 @@ internal class SocketPool : IDisposable
                     {
                         enpointAddress = createdSocket.EndPointAddressString,
                         usedSocketCount = UsedSocketsCount
+                    });
+                
+                // Emit recovery event - pool is not exhausted anymore
+                MemcachedDiagnosticSource.Instance.Write(
+                    MemcachedDiagnosticSource.SocketPoolRecoveredDiagnosticName,
+                    new
+                    {
+                        endpointAddress = endPointAddressString
                     });
             }
 
@@ -143,12 +164,30 @@ internal class SocketPool : IDisposable
 
             return result;
         }
+        
+        token.ThrowIfCancellationRequested();
+        bool waitSucceeded = await _remainingPoolCapacityCounter.WaitAsync(_config.SocketPoolingTimeout, token);
 
-        if (!await _remainingPoolCapacityCounter.WaitAsync(_config.SocketPoolingTimeout, token))
+        if (!waitSucceeded)
         {
+            var endpointAddress = _endPoint.GetEndPointString();
+
             _logger.LogWarning(
                 "Socket pool for endpoint {EndPoint} ran out of sockets",
-                _endPoint.GetEndPointString());
+                endpointAddress);
+
+            // Emit metric for socket pool exhaustion
+            if (MemcachedDiagnosticSource.Instance.IsEnabled())
+            {
+                MemcachedDiagnosticSource.Instance.Write(
+                    MemcachedDiagnosticSource.SocketPoolExhaustedDiagnosticName,
+                    new
+                    {
+                        endpointAddress,
+                        maxPoolSize = _config.MaxPoolSize,
+                        usedSocketCount = UsedSocketsCount
+                    });
+            }
 
             return result;
         }
@@ -158,18 +197,22 @@ internal class SocketPool : IDisposable
         {
             try
             {
-                await pooledSocket.ResetAsync(token);
-                result.AvailableSocket = pooledSocket;
+                // Reset disposed flag to allow socket reuse
+                pooledSocket.ResetDisposedFlag();
 
+                // Check for unread data and clear socket state
+                await pooledSocket.ResetAsync(token);
+
+                result.AvailableSocket = pooledSocket;
                 return result;
             }
             catch (Exception e)
             {
                 _logger.LogError(
                     e,
-                    "Failed to reset an acquired socket for endpoint {EndPoint}. Giong to destroy this socket",
+                    "Failed to reset an acquired socket for endpoint {EndPoint}. Going to destroy this socket",
                     pooledSocket.EndPointAddressString);
-                
+
                 pooledSocket.Destroy();
 
                 _remainingPoolCapacityCounter.Release();
@@ -178,26 +221,26 @@ internal class SocketPool : IDisposable
             }
         }
 
-        // means there is no available sockets in the pool 
+        // means there is no available sockets in the pool
         // but the maximal capacity is not yet reached
         // so we can create a new socket
         result.CanCreateSocket = true;
-        
+
         return result;
     }
 
     private void ReturnSocketToPool(PooledSocket socket)
     {
-        if (socket.IsExceptionDetected)
+        if (socket.ShouldDestroySocket)
+        {
+            DestroySocket(socket, isIncrementPoolCapacityCounter: true);
+        }
+        else
         {
             _pooledSockets.Push(socket);
 
             // signal the counter so if other thread is waiting for the socket to reuse, it can get one
             _remainingPoolCapacityCounter.Release();
-        }
-        else
-        {
-            DestroySocket(socket, isIncrementPoolCapacityCounter: true);
         }
     }
 
@@ -225,6 +268,8 @@ internal class SocketPool : IDisposable
                 "Can't create socket for a broken endpoint {EndPoint}",
                 _endPoint.GetEndPointString());
 
+            // Release semaphore since we're not creating a socket
+            _remainingPoolCapacityCounter.Release();
             return null;
         }
 
