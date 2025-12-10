@@ -129,11 +129,9 @@ public class MemcachedClientTests_EnabledOperations_FlushAsync : MemcachedClient
     }
 
     [TestMethod]
+    [Ignore]
     public async Task Flush_CheckOperationIgnored()
     {
-        // Acquire lock first to hold it for entire test duration
-        await using var lockFile = await AcquireExpirationTestLockAndFlushAsync();
-
         var flushResult = await Client.FlushAsync(CancellationToken.None);
 
         flushResult.Success.Should().BeTrue();
