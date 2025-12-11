@@ -99,5 +99,5 @@ public class MemcachedClientValueResult<T>
     /// <summary>
     /// Creates an instance of <see cref="MemcachedClientValueResult{T}"/> that indicates ignored operation.
     /// </summary>
-    public static MemcachedClientValueResult<T> Ignored() => new(success: true, operationIgnored: true);
+    internal static MemcachedClientValueResult<T> Ignored() => new(success: true, operationIgnored: true);
 }

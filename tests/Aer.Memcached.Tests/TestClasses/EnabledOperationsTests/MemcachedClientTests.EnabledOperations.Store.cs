@@ -1,5 +1,4 @@
 using Aer.Memcached.Client.Config;
-using Aer.Memcached.Tests.Base;
 using Aer.Memcached.Tests.Model.StoredObjects;
 using AutoFixture;
 using FluentAssertions;
@@ -8,16 +7,15 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Aer.Memcached.Tests.TestClasses.EnabledOperationsTests;
 
 [TestClass]
-public class MemcachedClientTests_EnabledOperations_Store : MemcachedClientTestsBase
+public class MemcachedClientTests_EnabledOperations_Store : MemcachedClientTests_EnabledOperations_Base
 {
     public MemcachedClientTests_EnabledOperations_Store() : base(
-        isSingleNodeCluster: true,
-        enabledOperations: EnabledOperations.Store)
+       EnabledOperations.Store)
     {
     }
 
     [TestMethod]
-    public async Task StoreAndGet_CheckOperationIgnored()
+    public override async Task StoreAndGet_CheckOperationIgnored()
     {
         var key = Guid.NewGuid().ToString();
         var value = Fixture.Create<ObjectWithCollections>();
@@ -37,7 +35,7 @@ public class MemcachedClientTests_EnabledOperations_Store : MemcachedClientTests
     }
 
     [TestMethod]
-    public async Task MultiStoreAndMultiGet_CheckOperationIgnored()
+    public override async Task MultiStoreAndMultiGet_CheckOperationIgnored()
     {
         var key = Guid.NewGuid().ToString();
         const string value = "test";
@@ -56,84 +54,5 @@ public class MemcachedClientTests_EnabledOperations_Store : MemcachedClientTests
         storeResult.OperationIgnored.Should().BeFalse();
 
         getValue.Count.Should().Be(0);
-    }
-
-    [TestMethod]
-    public async Task GetAndTouch_CheckOperationIgnored()
-    {
-        var key = Guid.NewGuid().ToString();
-
-        var getValue = await Client.GetAndTouchAsync<ObjectWithCollections>(key,
-            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
-
-        getValue.Success.Should().BeTrue();
-        getValue.Result.Should().BeNull();
-        getValue.IsEmptyResult.Should().BeTrue();
-        getValue.OperationIgnored.Should().BeTrue();
-    }
-
-    [TestMethod]
-    public async Task Dect_CheckOperationIgnored()
-    {
-        var key = GetTooLongKey();
-        ulong initialValue = 15;
-
-        var incrValue = await Client.DecrAsync(
-            key,
-            1,
-            initialValue,
-            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
-
-        incrValue.Success.Should().BeTrue();
-        incrValue.IsEmptyResult.Should().BeTrue();
-        incrValue.OperationIgnored.Should().BeTrue();
-        incrValue.Result.Should().Be(default);
-    }
-
-    [TestMethod]
-    public async Task Incr_CheckOperationIgnored()
-    {
-        var key = GetTooLongKey();
-        ulong initialValue = 15;
-
-        var incrValue = await Client.IncrAsync(
-            key,
-            1,
-            initialValue,
-            TimeSpan.FromSeconds(CacheItemExpirationSeconds), CancellationToken.None);
-
-        incrValue.Success.Should().BeTrue();
-        incrValue.IsEmptyResult.Should().BeTrue();
-        incrValue.OperationIgnored.Should().BeTrue();
-        incrValue.Result.Should().Be(default);
-    }
-
-    [TestMethod]
-    public async Task Delete_CheckOperationIgnored()
-    {
-        const string key = "test";
-
-        var deleteResult = await Client.DeleteAsync(key, CancellationToken.None);
-
-        deleteResult.Success.Should().BeTrue();
-        deleteResult.OperationIgnored.Should().BeTrue();
-    }
-
-    [TestMethod]
-    public async Task MultiDelete_CheckOperationIgnored()
-    {
-        var deleteResult = await Client.MultiDeleteAsync([], CancellationToken.None);
-
-        deleteResult.Success.Should().BeTrue();
-        deleteResult.OperationIgnored.Should().BeTrue();
-    }
-
-    [TestMethod]
-    public async Task Flush_CheckOperationIgnored()
-    {
-        var flushResult = await Client.FlushAsync(CancellationToken.None);
-
-        flushResult.Success.Should().BeTrue();
-        flushResult.OperationIgnored.Should().BeTrue();
     }
 }

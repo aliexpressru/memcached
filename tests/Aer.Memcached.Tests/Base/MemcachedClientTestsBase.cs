@@ -40,7 +40,8 @@ public abstract class MemcachedClientTestsBase
 		bool isSingleNodeCluster, 
 		ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson,
 		bool isAllowLongKeys = false,
-		EnabledOperations enabledOperations = EnabledOperations.All)
+		EnabledOperations enabledOperations = EnabledOperations.All,
+        IOptionsMonitor<MemcachedConfiguration.RuntimeConfiguration> optionsMonitorMock = null)
 	{
 		BinarySerializerType = binarySerializerType;
 		
@@ -68,12 +69,15 @@ public abstract class MemcachedClientTestsBase
 		
 		var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
 		var memcachedClientLogger = loggerFactory.CreateLogger<MemcachedClient<Pod>>();
-		
-		var optionsMonitorMock = Substitute.For<IOptionsMonitor<MemcachedConfiguration.RuntimeConfiguration>>();
-		optionsMonitorMock.CurrentValue.Returns(new MemcachedConfiguration.RuntimeConfiguration
+
+		if (optionsMonitorMock is null)
 		{
-			EnabledOperations = enabledOperations
-		});
+			optionsMonitorMock = Substitute.For<IOptionsMonitor<MemcachedConfiguration.RuntimeConfiguration>>();
+			optionsMonitorMock.CurrentValue.Returns(new MemcachedConfiguration.RuntimeConfiguration
+			{
+				EnabledOperations = enabledOperations
+			});
+		}
 		
 		var config = new MemcachedConfiguration()
 		{
