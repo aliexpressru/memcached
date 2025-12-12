@@ -54,6 +54,12 @@ internal class CacheSynchronizer : ICacheSynchronizer
             return false;
         }
 
+        if (token.IsCancellationRequested)
+        {
+            _logger.LogDebug("Skipping cache delete sync - parent operation was already cancelled");
+            return false;
+        }
+
         try
         {
             var source = new CancellationTokenSource(_config.SyncSettings.TimeToSync);
@@ -90,6 +96,12 @@ internal class CacheSynchronizer : ICacheSynchronizer
 
         if (!IsCacheSyncEnabled())
         {
+            return false;
+        }
+
+        if (token.IsCancellationRequested)
+        {
+            _logger.LogDebug("Skipping cache delete sync - parent operation was already cancelled");
             return false;
         }
 
@@ -166,6 +178,11 @@ internal class CacheSynchronizer : ICacheSynchronizer
 
             await _cacheSyncClient.SyncAsync(syncServer, model, token);
         }
+        catch (OperationCanceledException)
+        {
+            // Don't trigger circuit breaker on cancellation
+            throw;
+        }
         catch (Exception)
         {
             await CheckCircuitBreaker(serverKey, utcNow);
@@ -191,6 +208,11 @@ internal class CacheSynchronizer : ICacheSynchronizer
             }
 
             await _cacheSyncClient.DeleteAsync(syncServer, keys, token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Don't trigger circuit breaker on cancellation
+            throw;
         }
         catch (Exception)
         {

@@ -25,9 +25,20 @@ public class PooledSocket : IDisposable
     public readonly Guid InstanceId = Guid.NewGuid();
 
     /// <summary>
-    /// This property indicates whether any exceptions were raised during socket operations.
+    /// This property indicates whether the socket should be destroyed instead of being returned to the pool.
+    /// True means the socket is in an invalid state and should be destroyed.
+    /// False means the socket can be safely returned to the pool for reuse.
+    /// Volatile to ensure thread-safe visibility across async operations.
     /// </summary>
-    public bool IsExceptionDetected { get; private set; }
+    private volatile bool _shouldDestroySocket;
+    
+    public bool ShouldDestroySocket
+    {
+        get => _shouldDestroySocket;
+        set => _shouldDestroySocket = value;
+    }
+    
+    private int _isDisposed; // 0 = false, 1 = true (using int for Interlocked operations)
     
     public Action<PooledSocket> ReturnToPoolCallback { get; set; }
     
@@ -44,7 +55,6 @@ public class PooledSocket : IDisposable
         ILogger logger)
     {
         _logger = logger;
-        IsExceptionDetected = true;
 
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         
@@ -113,11 +123,16 @@ public class PooledSocket : IDisposable
 
         if (available > 0)
         {
-            _logger.LogError(
-                "Socket bound to {EndPoint} has {AvailableDataCount} bytes of unread data! This is probably a bug in the code. InstanceID was {InstanceId}",
-                EndPointAddressString,
-                available,
-                InstanceId);
+            // Emit metric for unread data on socket (not logging as this can happen during cancellation)
+            if (MemcachedDiagnosticSource.Instance.IsEnabled())
+            {
+                MemcachedDiagnosticSource.Instance.Write(
+                    MemcachedDiagnosticSource.SocketUnreadDataDetectedDiagnosticName,
+                    new
+                    {
+                        endpointAddress = EndPointAddressString
+                    });
+            }
 
             // clear socket - read data from it and throw it away
             
@@ -174,7 +189,7 @@ public class PooledSocket : IDisposable
             }
             catch (TimeoutException)
             {
-                IsExceptionDetected = false;
+                ShouldDestroySocket = true;
                 _logger.LogError(
                     "Read from socket {EndPoint} timed out after {Timeout}ms",
                     EndPointAddressString,
@@ -183,9 +198,11 @@ public class PooledSocket : IDisposable
             }
             catch (Exception ex)
             {
+                // Mark socket for destruction on IO errors as they may leave the socket in an invalid state with unread data
+                // Don't mark for destruction on cancellation exceptions to avoid avalanche socket destruction
                 if (ex is IOException or SocketException)
                 {
-                    IsExceptionDetected = false;
+                    ShouldDestroySocket = true;
                 }
 
                 _logger.LogError(ex, "An exception happened during socket read");
@@ -204,7 +221,7 @@ public class PooledSocket : IDisposable
             var bytesTransferred = await _socket.SendAsync(buffers, SocketFlags.None);
             if (bytesTransferred <= 0)
             {
-                IsExceptionDetected = false;
+                ShouldDestroySocket = true;
                 _logger.LogError(
                     "Failed to write data to the socket {EndPoint}. Bytes transferred until failure: {BytesTransferred}",
                     EndPointAddressString,
@@ -215,9 +232,11 @@ public class PooledSocket : IDisposable
         }
         catch (Exception ex)
         {
+            // Mark socket for destruction on IO errors as they may leave the socket in an invalid state
+            // Don't mark for destruction on cancellation exceptions to avoid avalanche socket destruction
             if (ex is IOException or SocketException)
             {
-                IsExceptionDetected = false;
+                ShouldDestroySocket = true;
             }
 
             _logger.LogError(ex, "An exception happened during socket write");
@@ -247,10 +266,19 @@ public class PooledSocket : IDisposable
         }
     }
 
-    private void Dispose(bool shouldDestroySocket)
+    private void Dispose(bool isDestroyDirectly)
     {
-        if (shouldDestroySocket)
+        // Use Interlocked.CompareExchange for thread-safe check-and-set
+        // Returns the original value - if it was 1 (disposed), we exit
+        if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) == 1)
         {
+            return;
+        }
+        
+        if (isDestroyDirectly)
+        {
+            // Direct destruction without going through pool callback
+            // Used only when socket was never added to pool or during pool disposal
             GC.SuppressFinalize(this);
 
             try
@@ -275,7 +303,7 @@ public class PooledSocket : IDisposable
         }
         else
         {
-            // means we should return socket to the pool
+            // Return socket to pool (pool will decide to destroy or reuse based on ShouldDestroySocket flag)
             var returnToPoolCallback = ReturnToPoolCallback;
             returnToPoolCallback?.Invoke(this);
         }
@@ -283,7 +311,19 @@ public class PooledSocket : IDisposable
 
     public void Dispose()
     {
-        Dispose(false);
+        // Always go through pool callback to properly update counters
+        // Pool's ReturnSocketToPool will check ShouldDestroySocket flag
+        Dispose(isDestroyDirectly: false);
+    }
+
+    /// <summary>
+    /// Resets the disposed flag to allow socket reuse from pool.
+    /// This is called by SocketPool when taking a socket from the pool.
+    /// </summary>
+    internal void ResetDisposedFlag()
+    {
+        Interlocked.Exchange(ref _isDisposed, 0);
+        _shouldDestroySocket = false;
     }
     
     // ReSharper disable once InconsistentNaming | Jsustification - IPEndPoint is the name of the return type
@@ -311,7 +351,7 @@ public class PooledSocket : IDisposable
     
     private void CheckDisposed()
     {
-        if (_socket == null)
+        if (_isDisposed == 1 || _socket == null)
         {
             throw new ObjectDisposedException(nameof(PooledSocket));
         }
