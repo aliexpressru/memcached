@@ -84,6 +84,11 @@ public class MemcachedConfiguration
     /// Sync settings to store data in multiple clusters.
     /// </summary>
     public SynchronizationSettings SyncSettings { get; set; }
+    
+    /// <summary>
+    /// The configuration that can be changed during the run time of the application.
+    /// </summary>
+    public RuntimeConfiguration RuntimeConfig { get; set; }
 
     /// <summary>
     /// The type of complex object binary serializer to use.
@@ -392,5 +397,13 @@ public class MemcachedConfiguration
         /// When <see cref="MaxErrors"/> reached switch of sync to a server for <see cref="SwitchOffTime"/>.
         /// </summary>
         public TimeSpan SwitchOffTime { get; set; } = TimeSpan.FromMinutes(5);
+    }
+
+    public class RuntimeConfiguration
+    {
+        /// <summary>
+        /// The operations of memcached that can be processed.
+        /// </summary>
+        public EnabledOperations EnabledOperations { get; set; } = EnabledOperations.All;
     }
 }

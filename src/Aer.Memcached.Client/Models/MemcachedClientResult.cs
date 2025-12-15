@@ -23,12 +23,17 @@ public class MemcachedClientResult
     /// If any errors occured on memcached side, this property contains the error message.
     /// </summary>
     public string ErrorMessage { get; }
-    
+
     /// <summary>
     /// If set to <c>true</c>, then no errors occured on cached sync side.
     /// It is set as <c>false</c> when cache sync is not enabled.
     /// </summary>
     public bool SyncSuccess { get; set; }
+
+    /// <summary>
+    /// If set to <c>true</c>, then operation was disabled.
+    /// </summary>
+    public bool OperationDisabled { get; }
 
     /// <summary>
     /// Gets an instance of <see cref="MemcachedClientResult"/> with a successful result.
@@ -38,22 +43,29 @@ public class MemcachedClientResult
     internal MemcachedClientResult(
         bool success,
         string errorMessage = null,
-        bool isRequestCancelled = false)
+        bool isRequestCancelled = false,
+        bool operationDisabled = false)
     {
         Success = success;
         ErrorMessage = errorMessage;
         RequestCancelled = isRequestCancelled;
+        OperationDisabled = operationDisabled;
     }
 
     /// <summary>
     /// Creates an instance of <see cref="MemcachedClientResult"/> with an unsuccessful result.
     /// </summary>
     /// <param name="errorMessage">The unsuccessful result error message.</param>
-    public static MemcachedClientResult Unsuccessful(string errorMessage) 
+    public static MemcachedClientResult Unsuccessful(string errorMessage)
         => new(success: false, errorMessage);
 
     /// <summary>
     /// Gets an instance of <see cref="MemcachedClientResult"/> that indicates request cancellation.
     /// </summary>
     internal static MemcachedClientResult Cancelled(string operationName) => new(success: false, isRequestCancelled: true, errorMessage: operationName);
+
+    /// <summary>
+    /// Gets an instance of <see cref="MemcachedClientResult"/> that indicates ignored operation.
+    /// </summary>
+    internal static MemcachedClientResult Disabled() => new(success: true, operationDisabled: true);
 }

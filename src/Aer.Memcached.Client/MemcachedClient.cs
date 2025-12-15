@@ -34,6 +34,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
     private readonly BinarySerializer _binarySerializer;
     private readonly ILogger _logger;
     private readonly MemcachedConfiguration _memcachedConfiguration;
+    private readonly IOptionsMonitor<MemcachedConfiguration.RuntimeConfiguration> _runtimeConfiguration;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MemcachedClient{TNode}"/> class.
@@ -45,6 +46,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
     /// <param name="binarySerializer">The value item binary serializer.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="memcachedConfiguration">The memcached configuration.</param>
+    /// <param name="runtimeConfiguration">Run time configuration.</param>
     public MemcachedClient(
         INodeLocator<TNode> nodeLocator,
         ICommandExecutor<TNode> commandExecutor,
@@ -52,7 +54,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
         ICacheSynchronizer cacheSynchronizer,
         BinarySerializer binarySerializer,
         ILogger<MemcachedClient<TNode>> logger,
-        IOptions<MemcachedConfiguration> memcachedConfiguration)
+        IOptions<MemcachedConfiguration> memcachedConfiguration,
+        IOptionsMonitor<MemcachedConfiguration.RuntimeConfiguration> runtimeConfiguration = null)
     {
         _nodeLocator = nodeLocator;
         _commandExecutor = commandExecutor;
@@ -61,6 +64,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         _binarySerializer = binarySerializer;
         _logger = logger;
         _memcachedConfiguration = memcachedConfiguration.Value;
+        _runtimeConfiguration = runtimeConfiguration;
     }
 
     /// <inheritdoc />
@@ -75,6 +79,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.Store))
+            {
+                return MemcachedClientResult.Disabled();
+            }
+
             var node = _nodeLocator.GetNode(key);
             if (node == null)
             {
@@ -142,6 +151,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.MultiStoreAsync))
+            {
+                return MemcachedClientResult.Disabled();
+            }
+
             var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
             if (nodes.Keys.Count == 0)
             {
@@ -151,8 +165,8 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var utcNow = DateTimeOffset.UtcNow;
 
-            var keyToExpirationMap = expirationMap == null 
-                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime) 
+            var keyToExpirationMap = expirationMap == null
+                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime)
                 : _expirationCalculator.GetExpiration(expirationMap);
 
             var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
@@ -207,13 +221,18 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.MultiStoreAsync))
+            {
+                return MemcachedClientResult.Disabled();
+            }
+
             if (keyValues is null or { Count: 0 })
             {
                 return MemcachedClientResult.Successful;
             }
 
-            var keyToExpirationMap = expirationMap == null 
-                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime) 
+            var keyToExpirationMap = expirationMap == null
+                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime)
                 : _expirationCalculator.GetExpiration(expirationMap);
 
             // this check is first since it shortcuts all the following logic
@@ -229,7 +248,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return MemcachedClientResult.Unsuccessful(
                     $"Memcached nodes for keys {string.Join(",", keyValues.Keys)} not found");
             }
-            
+
             var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
             foreach (var keyValue in keyValues)
             {
@@ -264,7 +283,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 $"An exception happened during {nameof(MultiStoreAsync)} execution.\nException details: {e}");
         }
     }
-    
+
     /// <inheritdoc />
     public async Task<MemcachedClientResult> MultiStoreSynchronizeDataAsync(
         IDictionary<string, byte[]> keyValues,
@@ -277,13 +296,18 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.MultiStoreSynchronizeDataAsync))
+            {
+                return MemcachedClientResult.Disabled();
+            }
+
             if (keyValues is null or { Count: 0 })
             {
                 return MemcachedClientResult.Successful;
             }
 
-            var keyToExpirationMap = expirationMap == null 
-                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime) 
+            var keyToExpirationMap = expirationMap == null
+                ? _expirationCalculator.GetExpiration(keyValues.Keys, expirationTime)
                 : _expirationCalculator.GetExpiration(expirationMap);
 
             // this check is first since it shortcuts all the following logic
@@ -299,7 +323,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 return MemcachedClientResult.Unsuccessful(
                     $"Memcached nodes for keys {string.Join(",", keyValues.Keys)} not found");
             }
-            
+
             var serializedKeyValues = new Dictionary<string, CacheItemForRequest>();
             foreach (var keyValue in keyValues)
             {
@@ -307,10 +331,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
             }
 
             await MultiStoreInternalAsync(
-                nodes, 
-                keyToExpirationMap, 
-                serializedKeyValues, 
-                token, 
+                nodes,
+                keyToExpirationMap,
+                serializedKeyValues,
+                token,
                 batchingOptions: batchingOptions,
                 tracingOptions: tracingOptions);
 
@@ -332,6 +356,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.Get))
+            {
+                return MemcachedClientValueResult<T>.Disabled();
+            }
+
             var node = _nodeLocator.GetNode(key);
             if (node == null)
             {
@@ -385,6 +414,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.GetAndTouchAsync))
+            {
+                return MemcachedClientValueResult<T>.Disabled();
+            }
+
             var node = _nodeLocator.GetNode(key);
             if (node == null)
             {
@@ -434,6 +468,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 $"An exception happened during {nameof(GetAndTouchAsync)} execution.\nException details: {e}");
         }
     }
+
     /// <inheritdoc />
     public async Task<MemcachedClientValueResult<IDictionary<string, T>>> MultiGetSafeAsync<T>(
         IEnumerable<string> keys,
@@ -444,11 +479,16 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.MultiGetSafeAsync))
+            {
+                return MemcachedClientValueResult<IDictionary<string, T>>.Disabled();
+            }
+
             var getKeysResult = await MultiGetAsync<T>(keys, token, batchingOptions, replicationFactor, tracingOptions);
 
             return MemcachedClientValueResult<IDictionary<string, T>>.Successful(
                 getKeysResult,
-                isResultEmpty: getKeysResult is null or {Count: 0});
+                isResultEmpty: getKeysResult is null or { Count: 0 });
         }
         catch (OperationCanceledException) when (_memcachedConfiguration.IsTerseCancellationLogging)
         {
@@ -474,6 +514,10 @@ public class MemcachedClient<TNode> : IMemcachedClient
         uint replicationFactor = 0,
         TracingOptions tracingOptions = null)
     {
+        if (ShouldIgnoreOperation(EnabledOperations.MultiGetAsync))
+        {
+            return new Dictionary<string, T>();
+        }
 
         var nodes = _nodeLocator.GetNodes(keys, replicationFactor);
         if (nodes.Keys.Count == 0)
@@ -513,7 +557,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
 
             var command = taskResult.GetCommandAs<MultiGetCommand>();
 
-            if (command.Result is null or {Count: 0})
+            if (command.Result is null or { Count: 0 })
             {
                 // skip results that are empty  
                 continue;
@@ -552,6 +596,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.DeleteAsync))
+            {
+                return MemcachedClientResult.Disabled();
+            }
+
             var node = _nodeLocator.GetNode(key);
             if (node == null)
             {
@@ -596,6 +645,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.MultiDeleteAsync))
+            {
+                return MemcachedClientResult.Disabled();
+            }
+
             // to avoid multiple enumeration
             var keysList = keys.ToList();
 
@@ -661,6 +715,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.IncrAsync))
+            {
+                return MemcachedClientValueResult<ulong>.Disabled();
+            }
+
             var node = _nodeLocator.GetNode(key);
             if (node == null)
             {
@@ -711,6 +770,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.DecrAsync))
+            {
+                return MemcachedClientValueResult<ulong>.Disabled();
+            }
+
             var node = _nodeLocator.GetNode(key);
             if (node == null)
             {
@@ -754,6 +818,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
     {
         try
         {
+            if (ShouldIgnoreOperation(EnabledOperations.FlushAsync))
+            {
+                return MemcachedClientResult.Disabled();
+            }
+
             var nodes = _nodeLocator.GetAllNodes();
             if (nodes == null
                 || nodes.Length == 0)
@@ -852,7 +921,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
             commandBase.Dispose();
         }
     }
-    
+
     /// <inheritdoc />
     public bool IsCacheSyncEnabled() => _cacheSynchronizer != null
                                         && _cacheSynchronizer.IsCacheSyncEnabled();
@@ -1032,5 +1101,11 @@ public class MemcachedClient<TNode> : IMemcachedClient
                 key,
                 deleteResult.ErrorMessage);
         }
+    }
+
+    private bool ShouldIgnoreOperation(EnabledOperations operation)
+    {
+        return !_runtimeConfiguration?.CurrentValue?.EnabledOperations.HasFlag(operation) ??
+               false;
     }
 }
