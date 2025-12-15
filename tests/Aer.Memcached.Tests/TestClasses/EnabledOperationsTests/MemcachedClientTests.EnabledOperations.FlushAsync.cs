@@ -18,6 +18,6 @@ public class MemcachedClientTests_EnabledOperations_FlushAsync : MemcachedClient
         var flushResult = await Client.FlushAsync(CancellationToken.None);
 
         flushResult.Success.Should().BeTrue();
-        flushResult.OperationIgnored.Should().BeFalse();
+        flushResult.OperationDisabled.Should().BeFalse();
     }
 }

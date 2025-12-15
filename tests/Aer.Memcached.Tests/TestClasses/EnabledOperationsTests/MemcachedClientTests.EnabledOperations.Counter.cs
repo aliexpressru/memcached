@@ -25,7 +25,7 @@ public class MemcachedClientTests_EnabledOperations_Counter : MemcachedClientTes
 
         decrValue.Success.Should().BeFalse();
         decrValue.IsEmptyResult.Should().BeTrue();
-        decrValue.OperationIgnored.Should().BeFalse();
+        decrValue.OperationDisabled.Should().BeFalse();
         decrValue.Result.Should().Be(0);
     }
 
@@ -43,7 +43,7 @@ public class MemcachedClientTests_EnabledOperations_Counter : MemcachedClientTes
 
         incrValue.Success.Should().BeFalse();
         incrValue.IsEmptyResult.Should().BeTrue();
-        incrValue.OperationIgnored.Should().BeFalse();
+        incrValue.OperationDisabled.Should().BeFalse();
         incrValue.Result.Should().Be(0);
     }
 }

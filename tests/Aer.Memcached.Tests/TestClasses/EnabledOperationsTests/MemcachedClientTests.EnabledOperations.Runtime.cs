@@ -37,12 +37,12 @@ public class MemcachedClientTests_EnabledOperations_Runtime : MemcachedClientTes
         var getValue = await Client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
 
         storeResult.Success.Should().BeTrue();
-        storeResult.OperationIgnored.Should().BeFalse();
+        storeResult.OperationDisabled.Should().BeFalse();
 
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeNull();
         getValue.IsEmptyResult.Should().BeTrue();
-        getValue.OperationIgnored.Should().BeTrue();
+        getValue.OperationDisabled.Should().BeTrue();
 
         _optionsMonitorMock.CurrentValue.Returns(new MemcachedConfiguration.RuntimeConfiguration
         {
@@ -54,7 +54,7 @@ public class MemcachedClientTests_EnabledOperations_Runtime : MemcachedClientTes
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.IsEmptyResult.Should().BeFalse();
-        getValue.OperationIgnored.Should().BeFalse();
+        getValue.OperationDisabled.Should().BeFalse();
     }
     
     [TestMethod]
@@ -74,17 +74,17 @@ public class MemcachedClientTests_EnabledOperations_Runtime : MemcachedClientTes
         var deleteResult = await Client.DeleteAsync(key, CancellationToken.None);
         
         deleteResult.Success.Should().BeTrue();
-        deleteResult.OperationIgnored.Should().BeTrue();
+        deleteResult.OperationDisabled.Should().BeTrue();
 
         var getValue = await Client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
 
         storeResult.Success.Should().BeTrue();
-        storeResult.OperationIgnored.Should().BeFalse();
+        storeResult.OperationDisabled.Should().BeFalse();
 
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeEquivalentTo(value);
         getValue.IsEmptyResult.Should().BeFalse();
-        getValue.OperationIgnored.Should().BeFalse();
+        getValue.OperationDisabled.Should().BeFalse();
         
         _optionsMonitorMock.CurrentValue.Returns(new MemcachedConfiguration.RuntimeConfiguration
         {
@@ -94,13 +94,13 @@ public class MemcachedClientTests_EnabledOperations_Runtime : MemcachedClientTes
         deleteResult = await Client.DeleteAsync(key, CancellationToken.None);
 
         deleteResult.Success.Should().BeTrue();
-        deleteResult.OperationIgnored.Should().BeFalse();
+        deleteResult.OperationDisabled.Should().BeFalse();
 
         getValue = await Client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
 
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeNull();
         getValue.IsEmptyResult.Should().BeTrue();
-        getValue.OperationIgnored.Should().BeFalse();
+        getValue.OperationDisabled.Should().BeFalse();
     }
 }

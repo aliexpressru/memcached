@@ -26,12 +26,12 @@ public class MemcachedClientTests_EnabledOperations_Store : MemcachedClientTests
         var getValue = await Client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
 
         storeResult.Success.Should().BeTrue();
-        storeResult.OperationIgnored.Should().BeFalse();
+        storeResult.OperationDisabled.Should().BeFalse();
 
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeNull();
         getValue.IsEmptyResult.Should().BeTrue();
-        getValue.OperationIgnored.Should().BeTrue();
+        getValue.OperationDisabled.Should().BeTrue();
     }
 
     [TestMethod]
@@ -51,7 +51,7 @@ public class MemcachedClientTests_EnabledOperations_Store : MemcachedClientTests
         var getValue = await Client.MultiGetAsync<string>([key], CancellationToken.None);
 
         storeResult.Success.Should().BeTrue();
-        storeResult.OperationIgnored.Should().BeFalse();
+        storeResult.OperationDisabled.Should().BeFalse();
 
         getValue.Count.Should().Be(0);
     }

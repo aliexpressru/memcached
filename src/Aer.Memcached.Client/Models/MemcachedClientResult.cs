@@ -31,9 +31,9 @@ public class MemcachedClientResult
     public bool SyncSuccess { get; set; }
 
     /// <summary>
-    /// If set to <c>true</c>, then operation was ignored.
+    /// If set to <c>true</c>, then operation was disabled.
     /// </summary>
-    public bool OperationIgnored { get; }
+    public bool OperationDisabled { get; }
 
     /// <summary>
     /// Gets an instance of <see cref="MemcachedClientResult"/> with a successful result.
@@ -44,12 +44,12 @@ public class MemcachedClientResult
         bool success,
         string errorMessage = null,
         bool isRequestCancelled = false,
-        bool operationIgnored = false)
+        bool operationDisabled = false)
     {
         Success = success;
         ErrorMessage = errorMessage;
         RequestCancelled = isRequestCancelled;
-        OperationIgnored = operationIgnored;
+        OperationDisabled = operationDisabled;
     }
 
     /// <summary>
@@ -67,5 +67,5 @@ public class MemcachedClientResult
     /// <summary>
     /// Gets an instance of <see cref="MemcachedClientResult"/> that indicates ignored operation.
     /// </summary>
-    internal static MemcachedClientResult Ignored() => new(success: true, operationIgnored: true);
+    internal static MemcachedClientResult Disabled() => new(success: true, operationDisabled: true);
 }

@@ -26,12 +26,12 @@ public class MemcachedClientTests_EnabledOperations_Base : MemcachedClientTestsB
         var getValue = await Client.GetAsync<ObjectWithCollections>(key, CancellationToken.None);
 
         storeResult.Success.Should().BeTrue();
-        storeResult.OperationIgnored.Should().BeTrue();
+        storeResult.OperationDisabled.Should().BeTrue();
 
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeNull();
         getValue.IsEmptyResult.Should().BeTrue();
-        getValue.OperationIgnored.Should().BeTrue();
+        getValue.OperationDisabled.Should().BeTrue();
     }
 
     [TestMethod]
@@ -51,7 +51,7 @@ public class MemcachedClientTests_EnabledOperations_Base : MemcachedClientTestsB
         var getValue = await Client.MultiGetAsync<string>([key], CancellationToken.None);
 
         storeResult.Success.Should().BeTrue();
-        storeResult.OperationIgnored.Should().BeTrue();
+        storeResult.OperationDisabled.Should().BeTrue();
 
         getValue.Count.Should().Be(0);
     }
@@ -67,7 +67,7 @@ public class MemcachedClientTests_EnabledOperations_Base : MemcachedClientTestsB
         getValue.Success.Should().BeTrue();
         getValue.Result.Should().BeNull();
         getValue.IsEmptyResult.Should().BeTrue();
-        getValue.OperationIgnored.Should().BeTrue();
+        getValue.OperationDisabled.Should().BeTrue();
     }
 
     [TestMethod]
@@ -84,7 +84,7 @@ public class MemcachedClientTests_EnabledOperations_Base : MemcachedClientTestsB
 
         incrValue.Success.Should().BeTrue();
         incrValue.IsEmptyResult.Should().BeTrue();
-        incrValue.OperationIgnored.Should().BeTrue();
+        incrValue.OperationDisabled.Should().BeTrue();
         incrValue.Result.Should().Be(default);
     }
 
@@ -102,7 +102,7 @@ public class MemcachedClientTests_EnabledOperations_Base : MemcachedClientTestsB
 
         incrValue.Success.Should().BeTrue();
         incrValue.IsEmptyResult.Should().BeTrue();
-        incrValue.OperationIgnored.Should().BeTrue();
+        incrValue.OperationDisabled.Should().BeTrue();
         incrValue.Result.Should().Be(default);
     }
 
@@ -114,7 +114,7 @@ public class MemcachedClientTests_EnabledOperations_Base : MemcachedClientTestsB
         var deleteResult = await Client.DeleteAsync(key, CancellationToken.None);
 
         deleteResult.Success.Should().BeTrue();
-        deleteResult.OperationIgnored.Should().BeTrue();
+        deleteResult.OperationDisabled.Should().BeTrue();
     }
 
     [TestMethod]
@@ -123,7 +123,7 @@ public class MemcachedClientTests_EnabledOperations_Base : MemcachedClientTestsB
         var deleteResult = await Client.MultiDeleteAsync([], CancellationToken.None);
 
         deleteResult.Success.Should().BeTrue();
-        deleteResult.OperationIgnored.Should().BeTrue();
+        deleteResult.OperationDisabled.Should().BeTrue();
     }
 
     [TestMethod]
@@ -132,6 +132,6 @@ public class MemcachedClientTests_EnabledOperations_Base : MemcachedClientTestsB
         var flushResult = await Client.FlushAsync(CancellationToken.None);
 
         flushResult.Success.Should().BeTrue();
-        flushResult.OperationIgnored.Should().BeTrue();
+        flushResult.OperationDisabled.Should().BeTrue();
     }
 }

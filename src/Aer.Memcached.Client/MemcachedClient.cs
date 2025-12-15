@@ -81,7 +81,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.Store))
             {
-                return MemcachedClientResult.Ignored();
+                return MemcachedClientResult.Disabled();
             }
 
             var node = _nodeLocator.GetNode(key);
@@ -153,7 +153,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.MultiStoreAsync))
             {
-                return MemcachedClientResult.Ignored();
+                return MemcachedClientResult.Disabled();
             }
 
             var nodes = _nodeLocator.GetNodes(keyValues.Keys, replicationFactor);
@@ -223,7 +223,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.MultiStoreAsync))
             {
-                return MemcachedClientResult.Ignored();
+                return MemcachedClientResult.Disabled();
             }
 
             if (keyValues is null or { Count: 0 })
@@ -298,7 +298,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.MultiStoreSynchronizeDataAsync))
             {
-                return MemcachedClientResult.Ignored();
+                return MemcachedClientResult.Disabled();
             }
 
             if (keyValues is null or { Count: 0 })
@@ -358,7 +358,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.Get))
             {
-                return MemcachedClientValueResult<T>.Ignored();
+                return MemcachedClientValueResult<T>.Disabled();
             }
 
             var node = _nodeLocator.GetNode(key);
@@ -416,7 +416,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.GetAndTouchAsync))
             {
-                return MemcachedClientValueResult<T>.Ignored();
+                return MemcachedClientValueResult<T>.Disabled();
             }
 
             var node = _nodeLocator.GetNode(key);
@@ -481,7 +481,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.MultiGetSafeAsync))
             {
-                return MemcachedClientValueResult<IDictionary<string, T>>.Ignored();
+                return MemcachedClientValueResult<IDictionary<string, T>>.Disabled();
             }
 
             var getKeysResult = await MultiGetAsync<T>(keys, token, batchingOptions, replicationFactor, tracingOptions);
@@ -598,7 +598,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.DeleteAsync))
             {
-                return MemcachedClientResult.Ignored();
+                return MemcachedClientResult.Disabled();
             }
 
             var node = _nodeLocator.GetNode(key);
@@ -647,7 +647,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.MultiDeleteAsync))
             {
-                return MemcachedClientResult.Ignored();
+                return MemcachedClientResult.Disabled();
             }
 
             // to avoid multiple enumeration
@@ -717,7 +717,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.IncrAsync))
             {
-                return MemcachedClientValueResult<ulong>.Ignored();
+                return MemcachedClientValueResult<ulong>.Disabled();
             }
 
             var node = _nodeLocator.GetNode(key);
@@ -772,7 +772,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.DecrAsync))
             {
-                return MemcachedClientValueResult<ulong>.Ignored();
+                return MemcachedClientValueResult<ulong>.Disabled();
             }
 
             var node = _nodeLocator.GetNode(key);
@@ -820,7 +820,7 @@ public class MemcachedClient<TNode> : IMemcachedClient
         {
             if (ShouldIgnoreOperation(EnabledOperations.FlushAsync))
             {
-                return MemcachedClientResult.Ignored();
+                return MemcachedClientResult.Disabled();
             }
 
             var nodes = _nodeLocator.GetAllNodes();

@@ -12,24 +12,24 @@ public class MemcachedClientTests_EnabledOperations_Delete : MemcachedClientTest
     }
 
     [TestMethod]
-    public async Task Delete_CheckOperationIgnored()
+    public override async Task Delete_CheckOperationIgnored()
     {
         var key = Guid.NewGuid().ToString();
 
         var deleteResult = await Client.DeleteAsync(key, CancellationToken.None);
 
         deleteResult.Success.Should().BeTrue();
-        deleteResult.OperationIgnored.Should().BeFalse();
+        deleteResult.OperationDisabled.Should().BeFalse();
     }
 
     [TestMethod]
-    public async Task MultiDelete_CheckOperationIgnored()
+    public override async Task MultiDelete_CheckOperationIgnored()
     {
         var key = Guid.NewGuid().ToString();
 
         var deleteResult = await Client.MultiDeleteAsync([key], CancellationToken.None);
 
         deleteResult.Success.Should().BeTrue();
-        deleteResult.OperationIgnored.Should().BeFalse();
+        deleteResult.OperationDisabled.Should().BeFalse();
     }
 }
