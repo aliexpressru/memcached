@@ -1,0 +1,30 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+trim_trailing_whitespace = true
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+[*.cs]
+max_line_length = 130
+
+# suppress primary ctor suggestion
+dotnet_diagnostic.IDE0290.severity = silent
+
+# Heap allocations viewer
+dotnet_diagnostic.HAA0101.severity = silent
+dotnet_diagnostic.HAA0102.severity = suggestion
+dotnet_diagnostic.HAA0301.severity = suggestion
+dotnet_diagnostic.HAA0302.severity = silent
+dotnet_diagnostic.HAA0303.severity = suggestion
+dotnet_diagnostic.HAA0401.severity = silent
+dotnet_diagnostic.HAA0501.severity = silent
+dotnet_diagnostic.HAA0502.severity = silent
+dotnet_diagnostic.HAA0503.severity = silent
+dotnet_diagnostic.HAA0504.severity = silent
+dotnet_diagnostic.HAA0505.severity = silent
+dotnet_diagnostic.HAA0601.severity = silent
+dotnet_diagnostic.HAA0603.severity = silent
