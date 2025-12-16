@@ -32,6 +32,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
     private readonly ConcurrentDictionary<TNode, SocketPool> _socketPools;
     private readonly INodeLocator<TNode> _nodeLocator;
     private readonly Tracer _tracer;
+    private readonly bool _enableTracing;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommandExecutor{TNode}"/> class.
@@ -53,6 +54,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         _logger = logger;
         _nodeLocator = nodeLocator;
         _tracer = tracer;
+        _enableTracing = _config.Diagnostics.EnableTracing;
         _socketPools = new ConcurrentDictionary<TNode, SocketPool>(NodeEqualityComparer<TNode>.Instance);
     }
 
@@ -164,6 +166,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             replicatedNode.PrimaryNode,
             true,
             replicatedNode.ReplicaNodes.Count,
+            _enableTracing,
             _logger,
             tracingOptions);
 
@@ -267,6 +270,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             node,
             false,
             0,
+            _enableTracing,
             _logger,
             tracingOptions);
 
@@ -355,8 +359,8 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
         var socketPool = _socketPools.GetOrAdd(
             node,
             valueFactory: static (n, args) =>
-                new SocketPool(n.GetEndpoint(), args.Config.SocketPool, args.Logger, args.Tracer),
-            factoryArgument: (Config: _config, Logger: _logger, Tracer: _tracer)
+                new SocketPool(n.GetEndpoint(), args.Config.SocketPool, args.Logger, args.Tracer, args.EnableTracing),
+            factoryArgument: (Config: _config, Logger: _logger, Tracer: _tracer, EnableTracing: _enableTracing)
         );
 
         if (socketPool.IsEndPointBroken)
@@ -394,6 +398,7 @@ public class CommandExecutor<TNode> : ICommandExecutor<TNode>
             _tracer,
             "socket.authenticate",
             pooledSocket.EndPointAddressString,
+            _enableTracing,
             _config.SocketPool.MaxPoolSize,
             socketPool.UsedSocketsCount,
             _logger,
