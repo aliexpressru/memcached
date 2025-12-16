@@ -199,7 +199,7 @@ public interface IMemcachedClient
 		TracingOptions tracingOptions = null);
 
 	/// <summary>
-	/// Increments value by key.
+	/// Decrements value by key.
 	/// </summary>
 	/// <param name="key">Key.</param>
 	/// <param name="amountToSubtract">Amount to subtract.</param>

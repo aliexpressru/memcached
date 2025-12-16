@@ -13,6 +13,7 @@ using AutoFixture;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 
 namespace Aer.Memcached.Tests.Base;
 
@@ -38,7 +39,9 @@ public abstract class MemcachedClientTestsBase
 	protected MemcachedClientTestsBase(
 		bool isSingleNodeCluster, 
 		ObjectBinarySerializerType binarySerializerType = ObjectBinarySerializerType.Bson,
-		bool isAllowLongKeys = false)
+		bool isAllowLongKeys = false,
+		EnabledOperations enabledOperations = EnabledOperations.All,
+        IOptionsMonitor<MemcachedConfiguration.RuntimeConfiguration> optionsMonitorMock = null)
 	{
 		BinarySerializerType = binarySerializerType;
 		
@@ -66,6 +69,15 @@ public abstract class MemcachedClientTestsBase
 		
 		var commandExecutorLogger = loggerFactory.CreateLogger<CommandExecutor<Pod>>();
 		var memcachedClientLogger = loggerFactory.CreateLogger<MemcachedClient<Pod>>();
+
+		if (optionsMonitorMock is null)
+		{
+			optionsMonitorMock = Substitute.For<IOptionsMonitor<MemcachedConfiguration.RuntimeConfiguration>>();
+			optionsMonitorMock.CurrentValue.Returns(new MemcachedConfiguration.RuntimeConfiguration
+			{
+				EnabledOperations = enabledOperations
+			});
+		}
 		
 		var config = new MemcachedConfiguration()
 		{
@@ -80,6 +92,10 @@ public abstract class MemcachedClientTestsBase
 			IsAllowLongKeys = isAllowLongKeys,
             SyncSettings = new (){
                 SyncEndpointsAuthAllowAnonymous = false
+            },
+            RuntimeConfig = new MemcachedConfiguration.RuntimeConfiguration
+            {
+	            EnabledOperations = enabledOperations
             }
 		};
 		
@@ -113,7 +129,8 @@ public abstract class MemcachedClientTestsBase
 				)
 			),
 			memcachedClientLogger,
-			configWrapper
+			configWrapper,
+			optionsMonitorMock
 		);
 
 		Fixture = new Fixture();

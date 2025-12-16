@@ -36,18 +36,25 @@ public class MemcachedClientValueResult<T>
     /// </summary>
     public bool IsEmptyResult { get; }
 
+    /// <summary>
+    /// If set to <c>true</c>, then operation was disabled.
+    /// </summary>
+    public bool OperationDisabled { get; }
+
     internal MemcachedClientValueResult(
         bool success,
         T result = default,
         bool isEmptyResult = true,
         string errorMessage = null,
-        bool isRequestCancelled = false)
+        bool isRequestCancelled = false,
+        bool operationDisabled = false)
     {
         Success = success;
         Result = result;
         ErrorMessage = errorMessage;
         IsEmptyResult = isEmptyResult;
         RequestCancelled = isRequestCancelled;
+        OperationDisabled = operationDisabled;
     }
 
     /// <summary>
@@ -91,4 +98,9 @@ public class MemcachedClientValueResult<T>
             isRequestCancelled: true,
             result: defaultResultValue,
             errorMessage: operationName);
+
+    /// <summary>
+    /// Creates an instance of <see cref="MemcachedClientValueResult{T}"/> that indicates disabled operation.
+    /// </summary>
+    internal static MemcachedClientValueResult<T> Disabled() => new(success: true, operationDisabled: true);
 }
