@@ -25,6 +25,7 @@ internal class SocketPool : IDisposable
     private readonly MemcachedConfiguration.SocketPoolConfiguration _config;
     private readonly ILogger _logger;
     private readonly Tracer _tracer;
+    private readonly bool _enableTracing;
 
     // this semaphore is used to count the available number of sockets in this pool
     // each time the socket is created - ths semaphore gets decremented
@@ -48,7 +49,7 @@ internal class SocketPool : IDisposable
     /// </summary>
     public bool IsEndPointBroken => _isEndPointBroken;
 
-    public SocketPool(EndPoint endPoint, MemcachedConfiguration.SocketPoolConfiguration config, ILogger logger, Tracer tracer = null)
+    public SocketPool(EndPoint endPoint, MemcachedConfiguration.SocketPoolConfiguration config, ILogger logger, Tracer tracer = null, bool enableTracing = false)
     {
         config.Validate();
 
@@ -56,6 +57,7 @@ internal class SocketPool : IDisposable
         _config = config;
         _logger = logger;
         _tracer = tracer;
+        _enableTracing = enableTracing;
         _remainingPoolCapacityCounter = new SemaphoreSlim(_config.MaxPoolSize, _config.MaxPoolSize);
     }
 
@@ -67,6 +69,7 @@ internal class SocketPool : IDisposable
             _tracer,
             "socket.acquire",
             endPointAddressString,
+            _enableTracing,
             _config.MaxPoolSize,
             UsedSocketsCount,
             _logger,

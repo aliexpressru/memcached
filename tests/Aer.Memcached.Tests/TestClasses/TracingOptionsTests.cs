@@ -27,6 +27,7 @@ public class TracingOptionsTests
     private ServiceProvider _serviceProvider;
     private readonly List<Activity> _capturedActivities;
     private TracerProvider _tracerProvider;
+    private ActivitySource _activitySource;
     private ActivityListener _activityListener;
 
     public TracingOptionsTests()
@@ -41,6 +42,7 @@ public class TracingOptionsTests
         _serviceProvider?.Dispose();
         _tracerProvider?.Dispose();
         _activityListener?.Dispose();
+        _activitySource?.Dispose();
         _capturedActivities.Clear();
     }
 
@@ -75,6 +77,7 @@ public class TracingOptionsTests
         var value = _fixture.Create<string>();
 
         using var activity = new Activity("test-parent").Start();
+        activity.Should().NotBeNull("Parent activity should be created");
 
         // Act
         var result = await client.StoreAsync(
@@ -84,9 +87,14 @@ public class TracingOptionsTests
             CancellationToken.None,
             tracingOptions: TracingOptions.Enabled);
 
+        // Assert
         result.Success.Should().BeTrue();
-        _capturedActivities.Should().NotBeEmpty();
-        _capturedActivities.Should().Contain(a => a.DisplayName.Contains("Set"));
+
+        // Verify that spans were created when TracingOptions.Enabled is passed
+        _capturedActivities.Should().NotBeEmpty(
+            "spans should be created when EnableTracing=true and TracingOptions.Enabled");
+        _capturedActivities.Should().Contain(a => a.DisplayName.Contains("memcached"),
+            "should contain memcached operation spans");
     }
 
     [TestMethod]
@@ -98,6 +106,7 @@ public class TracingOptionsTests
         var value = _fixture.Create<string>();
 
         using var activity = new Activity("test-parent").Start();
+        activity.Should().NotBeNull("Parent activity should be created");
 
         // Act
         var result = await client.StoreAsync(
@@ -106,8 +115,15 @@ public class TracingOptionsTests
             TimeSpan.FromSeconds(60),
             CancellationToken.None);
 
+        // Assert
         result.Success.Should().BeTrue();
-        _capturedActivities.Should().NotBeEmpty();
+
+        // Verify that with EnableTracing = true and Activity.Current != null,
+        // the default behavior enables tracing (spans should be created without explicit TracingOptions)
+        _capturedActivities.Should().NotBeEmpty(
+            "spans should be created by default when EnableTracing=true");
+        _capturedActivities.Should().Contain(a => a.DisplayName.Contains("memcached"),
+            "should contain memcached operation spans");
     }
 
     [TestMethod]
@@ -142,7 +158,7 @@ public class TracingOptionsTests
 
         await client.StoreAsync(key, value, TimeSpan.FromSeconds(60), CancellationToken.None,
             tracingOptions: TracingOptions.Disabled);
-        
+
         _capturedActivities.Clear();
 
         // Act
@@ -168,7 +184,7 @@ public class TracingOptionsTests
 
         await client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(60), CancellationToken.None,
             tracingOptions: TracingOptions.Disabled);
-        
+
         _capturedActivities.Clear();
 
         // Act
@@ -191,7 +207,7 @@ public class TracingOptionsTests
 
         await client.StoreAsync(key, value, TimeSpan.FromSeconds(60), CancellationToken.None,
             tracingOptions: TracingOptions.Disabled);
-        
+
         _capturedActivities.Clear();
 
         // Act
@@ -254,7 +270,7 @@ public class TracingOptionsTests
 
         await client.StoreAsync(key, value, TimeSpan.FromSeconds(60), CancellationToken.None,
             tracingOptions: TracingOptions.Disabled);
-        
+
         _capturedActivities.Clear();
 
         // Act
@@ -283,7 +299,7 @@ public class TracingOptionsTests
         var fireAndForgetTask = Task.Run(async () =>
         {
             await Task.Delay(100);
-            
+
             await client.MultiStoreAsync(
                 keyValues,
                 TimeSpan.FromMinutes(30),
@@ -323,7 +339,7 @@ public class TracingOptionsTests
         // Arrange
         var client = CreateClientWithTracing(enableTracing: true);
         var keyValues = new Dictionary<string, string>();
-        
+
         for (int i = 0; i < 10; i++)
         {
             keyValues[Guid.NewGuid().ToString()] = _fixture.Create<string>();
@@ -353,7 +369,7 @@ public class TracingOptionsTests
         // Arrange
         var client = CreateClientWithTracing(enableTracing: true);
         var keyValues = new Dictionary<string, string>();
-        
+
         for (int i = 0; i < 10; i++)
         {
             keyValues[Guid.NewGuid().ToString()] = _fixture.Create<string>();
@@ -367,7 +383,7 @@ public class TracingOptionsTests
 
         await client.MultiStoreAsync(keyValues, TimeSpan.FromSeconds(60), CancellationToken.None,
             tracingOptions: TracingOptions.Disabled);
-        
+
         _capturedActivities.Clear();
 
         // Act
@@ -433,6 +449,7 @@ public class TracingOptionsTests
         var value = _fixture.Create<string>();
 
         using var activity = new Activity("test-parent").Start();
+        activity.Should().NotBeNull("Parent activity should be created");
 
         // Act
         var result = await client.StoreAsync(
@@ -441,8 +458,14 @@ public class TracingOptionsTests
             TimeSpan.FromSeconds(60),
             CancellationToken.None);
 
+        // Assert
         result.Success.Should().BeTrue();
-        _capturedActivities.Should().NotBeEmpty();
+
+        // Verify that spans are created by default when EnableTracing = true
+        _capturedActivities.Should().NotBeEmpty(
+            "spans should be created by default when EnableTracing=true in configuration");
+        _capturedActivities.Should().Contain(a => a.DisplayName.Contains("memcached"),
+            "should contain memcached operation spans");
     }
 
     [TestMethod]
@@ -480,7 +503,8 @@ public class TracingOptionsTests
             Diagnostics = new MemcachedConfiguration.MemcachedDiagnosticsSettings
             {
                 DisableDiagnostics = true,
-                DisableRebuildNodesStateLogging = true
+                DisableRebuildNodesStateLogging = true,
+                EnableTracing = enableTracing
             },
             BinarySerializerType = ObjectBinarySerializerType.Bson
         };
@@ -493,23 +517,41 @@ public class TracingOptionsTests
 
         ServiceCollection sc = new ServiceCollection();
         sc.AddSingleton<IObjectBinarySerializer, TestObjectBinarySerializer>();
-        
+
         if (enableTracing)
         {
+            // Create ActivitySource with "Aer.Memcached" name - this is what OpenTelemetry will use
+            // to create activities when tracer.StartActiveSpan() is called
+            _activitySource = new ActivitySource("Aer.Memcached");
+
+            // Set up ActivityListener to capture all activities from "Aer.Memcached" source
             _activityListener = new ActivityListener
             {
                 ShouldListenTo = source => source.Name == "Aer.Memcached",
-                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-                ActivityStopped = activity => _capturedActivities.Add(activity)
+                // Use AllDataAndRecorded instead of AllData to ensure activities are both:
+                // 1. Recorded (Activity.IsAllDataRequested = true) - enables all data to be captured
+                // 2. Exportable (Activity.Recorded = true) - makes them visible to exporters and listeners
+                // This is required for ActivityListener.ActivityStopped to receive the activities
+                Sample = (ref ActivityCreationOptions<ActivityContext> options) => ActivitySamplingResult.AllDataAndRecorded,
+                ActivityStopped = activity =>
+                {
+                    // Capture all stopped activities from Aer.Memcached source
+                    if (activity.Source.Name == "Aer.Memcached")
+                    {
+                        _capturedActivities.Add(activity);
+                    }
+                }
             };
             ActivitySource.AddActivityListener(_activityListener);
 
+            // Configure OpenTelemetry TracerProvider
             _tracerProvider = Sdk.CreateTracerProviderBuilder()
                 .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("test-service"))
-                .AddSource("Aer.Memcached")
+                .AddSource("Aer.Memcached") // Listen to activities from "Aer.Memcached" source
                 .Build();
 
             sc.AddSingleton(_tracerProvider);
+            // GetTracer with "Aer.Memcached" name - this must match the ActivitySource name
             sc.AddSingleton(_ => _tracerProvider.GetTracer("Aer.Memcached"));
         }
 

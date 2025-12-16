@@ -32,6 +32,7 @@ internal class CacheSyncClient: ICacheSyncClient
     private readonly MemcachedConfiguration _config;
     private readonly ILogger<CacheSyncClient> _logger;
     private readonly Tracer _tracer;
+    private readonly bool _enableTracing;
     private readonly RetryPolicy _retryPolicy;
 
     public CacheSyncClient(
@@ -44,6 +45,7 @@ internal class CacheSyncClient: ICacheSyncClient
         _config = config.Value;
         _logger = logger;
         _tracer = tracer;
+        _enableTracing = _config.Diagnostics.EnableTracing;
 
         _retryPolicy = Policy.Handle<Exception>()
             .Retry(_config.SyncSettings?.RetryCount ?? 3);
@@ -59,6 +61,7 @@ internal class CacheSyncClient: ICacheSyncClient
             _tracer,
             "cache.sync",
             syncServer.Address,
+            _enableTracing,
             data?.KeyValues?.Count,
             _logger);
 
@@ -96,6 +99,7 @@ internal class CacheSyncClient: ICacheSyncClient
             _tracer,
             "cache.delete",
             syncServer.Address,
+            _enableTracing,
             keysList?.Count,
             _logger);
 

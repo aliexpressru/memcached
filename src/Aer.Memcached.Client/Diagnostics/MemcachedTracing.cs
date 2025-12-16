@@ -27,16 +27,24 @@ internal static class MemcachedTracing
     private const string CacheSyncKeysCountAttribute = "memcached.cache_sync.keys_count";
 
     /// <summary>
-    /// Determines whether tracing should be enabled based on tracer availability, 
+    /// Determines whether tracing should be enabled based on global EnableTracing configuration,
     /// current activity context, and tracing options.
     /// </summary>
-    private static bool ShouldEnableTracing(Tracer tracer, TracingOptions tracingOptions)
+    private static bool ShouldEnableTracing(TracingOptions tracingOptions, bool enableTracing)
     {
-        if (tracer == null || Activity.Current == null)
+        // Global EnableTracing = false always disables tracing, regardless of Tracer availability
+        if (!enableTracing)
+        {
+            return false;
+        }
+        
+        // No parent activity context - nothing to trace to
+        if (Activity.Current == null)
         {
             return false;
         }
 
+        // Manual per-operation disable
         if (tracingOptions?.ManualDisableTracing == true)
         {
             return false;
@@ -55,10 +63,11 @@ internal static class MemcachedTracing
         INode node,
         bool isReplicated,
         int replicaCount,
+        bool enableTracing,
         ILogger logger = null,
         TracingOptions tracingOptions = null)
     {
-        if (!ShouldEnableTracing(tracer, tracingOptions))
+        if (!ShouldEnableTracing(tracingOptions, enableTracing))
         {
             return null;
         }
@@ -108,12 +117,13 @@ internal static class MemcachedTracing
         Tracer tracer,
         string operationName,
         string serverAddress,
+        bool enableTracing,
         int? maxPoolSize = null,
         int? usedCount = null,
         ILogger logger = null,
         TracingOptions tracingOptions = null)
     {
-        if (!ShouldEnableTracing(tracer, tracingOptions))
+        if (!ShouldEnableTracing(tracingOptions, enableTracing))
         {
             return null;
         }
@@ -158,11 +168,12 @@ internal static class MemcachedTracing
         Tracer tracer,
         string operationName,
         string syncServer,
+        bool enableTracing,
         int? keysCount = null,
         ILogger logger = null,
         TracingOptions tracingOptions = null)
     {
-        if (!ShouldEnableTracing(tracer, tracingOptions))
+        if (!ShouldEnableTracing(tracingOptions, enableTracing))
         {
             return null;
         }
