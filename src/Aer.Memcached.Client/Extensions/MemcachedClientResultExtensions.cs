@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Aer.Memcached.Client.Extensions;
 
 /// <summary>
-/// Contains extension methods for value and generic client results. 
+/// Contains extension methods for value and generic client results.
 /// </summary>
 [SuppressMessage("ReSharper", "UnusedMember.Global")]
 [SuppressMessage("ReSharper", "MemberCanBeInternal")]
@@ -17,12 +17,11 @@ public static class MemcachedClientResultExtensions
 
     internal static MemcachedClientResult WithSyncSuccess(this MemcachedClientResult result, bool syncSuccess)
     {
-        result.SyncSuccess = syncSuccess;
-        return result;
+        return result.CopyWithSyncSuccess(syncSuccess);
     }
 
     /// <summary>
-    /// Checks client method result and logs error if client method call returned non-successful result. 
+    /// Checks client method result and logs error if client method call returned non-successful result.
     /// </summary>
     /// <param name="target">The client result to check.</param>
     /// <param name="logger">The logger to log error to.</param>
@@ -75,7 +74,7 @@ public static class MemcachedClientResultExtensions
     }
 
     /// <summary>
-    /// Checks client method result and logs error if client method call returned non-successful result. 
+    /// Checks client method result and logs error if client method call returned non-successful result.
     /// </summary>
     /// <param name="target">The client result to check.</param>
     /// <param name="logger">The logger to log error to.</param>
