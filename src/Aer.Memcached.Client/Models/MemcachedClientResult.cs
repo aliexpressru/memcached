@@ -28,7 +28,7 @@ public class MemcachedClientResult
     /// If set to <c>true</c>, then no errors occured on cached sync side.
     /// It is set as <c>false</c> when cache sync is not enabled.
     /// </summary>
-    public bool SyncSuccess { get; set; }
+    public bool SyncSuccess { get; private init; }
 
     /// <summary>
     /// If set to <c>true</c>, then operation was disabled.
@@ -68,4 +68,22 @@ public class MemcachedClientResult
     /// Gets an instance of <see cref="MemcachedClientResult"/> that indicates ignored operation.
     /// </summary>
     internal static MemcachedClientResult Disabled() => new(success: true, operationDisabled: true);
+
+    /// <summary>
+    /// Creates a deep copy of the current <see cref="MemcachedClientResult"/> instance
+    /// with a new <see cref="SyncSuccess"/> value.
+    /// </summary>
+    /// <param name="syncSuccess">The new SyncSuccess value for the copy.</param>
+    /// <returns>A new instance with the specified SyncSuccess value.</returns>
+    public MemcachedClientResult CopyWithSyncSuccess(bool syncSuccess)
+    {
+        return new MemcachedClientResult(
+            success: Success,
+            errorMessage: ErrorMessage,
+            isRequestCancelled: RequestCancelled,
+            operationDisabled: OperationDisabled)
+        {
+            SyncSuccess = syncSuccess
+        };
+    }
 }
