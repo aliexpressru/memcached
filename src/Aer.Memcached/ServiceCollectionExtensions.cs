@@ -268,7 +268,7 @@ public static class ServiceCollectionExtensions
                     var task =
                         genericMethod.Invoke(
                             memcachedClient,
-                            parameters: [request.Keys, token, null, (uint) 0]) as Task;
+                            parameters: [request.Keys, token, null, (uint) 0, null]) as Task;
                     if (task == null)
                     {
                         return Results.Ok($"Method for the type {resolvedType} is not found");
@@ -280,7 +280,10 @@ public static class ServiceCollectionExtensions
                 }
                 catch (Exception e)
                 {
-                    return Results.BadRequest(e);
+                    return Results.BadRequest(new {
+                        Error = e.Message,
+                        Detail = e.InnerException?.Message
+                    });
                 }
             }
         ).AllowAnonymousIfConfigured(config);
