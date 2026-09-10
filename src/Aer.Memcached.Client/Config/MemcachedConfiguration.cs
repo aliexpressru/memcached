@@ -23,27 +23,27 @@ public class MemcachedConfiguration
     /// The default sync endpoint.
     /// </summary>
     public const string DefaultSyncEndpoint = "/memcached/multi-store";
-    
+
     /// <summary>
     /// The default delete endpoint.
     /// </summary>
     public const string DefaultDeleteEndpoint = "/memcached/multi-delete";
-    
+
     /// <summary>
     /// The default flush endpoint.
     /// </summary>
     public const string DefaultFlushEndpoint = "/memcached/flush";
-    
+
     /// <summary>
     /// The default get endpoint.
     /// </summary>
     public const string DefaultGetEndpoint = "/memcached/multi-get-typed";
-    
+
     /// <summary>
     /// List of servers with hosted memcached.
     /// </summary>
     public Server[] Servers { get; set; }
-    
+
     /// <summary>
     /// Headless service to lookup all the memcached ip addresses.
     /// Use either <see cref="MemcachedConfiguration.Servers"/> or <see cref="HeadlessServiceAddress"/>
@@ -64,7 +64,7 @@ public class MemcachedConfiguration
     /// Configuration of maintainer.
     /// </summary>
     public MaintainerConfiguration MemcachedMaintainer { get; set; } = MaintainerConfiguration.DefaultConfiguration();
-    
+
     /// <summary>
     /// Authentication configuration.
     /// </summary>
@@ -74,17 +74,17 @@ public class MemcachedConfiguration
     /// Internal workings diagnostics configuration.
     /// </summary>
     public MemcachedDiagnosticsSettings Diagnostics { get; set; } = new();
-    
+
     /// <summary>
     /// Enables additional jitter for key expiration if property is not null.
     /// </summary>
     public ExpirationJitterSettings ExpirationJitter { get; set; }
-    
+
     /// <summary>
     /// Sync settings to store data in multiple clusters.
     /// </summary>
     public SynchronizationSettings SyncSettings { get; set; }
-    
+
     /// <summary>
     /// The configuration that can be changed during the run time of the application.
     /// </summary>
@@ -103,7 +103,7 @@ public class MemcachedConfiguration
     /// <summary>
     /// Set to <c>true</c> to allow long memcached keys. Memcached has a by-design limitation on key length - 250 bytes.
     /// If this option is set to <c>true</c> - allow storing keys that exceed this length by hashing keys to a fixed length.
-    /// If this options is et to <c>false</c> - throws exception when key is too long.  
+    /// If this options is et to <c>false</c> - throws exception when key is too long.
     /// </summary>
     public bool IsAllowLongKeys { get; set; }
 
@@ -111,7 +111,7 @@ public class MemcachedConfiguration
     /// If set to <c>true</c>, external cancellations will be logged in terse manner - only as operation name.
     /// </summary>
     public bool IsTerseCancellationLogging { get; set; }
-    
+
     public HashRingSettings HashRing { get; set; }
 
     /// <summary>
@@ -160,11 +160,11 @@ public class MemcachedConfiguration
         /// </summary>
         public bool EnableTracing { get; set; } = false;
     }
-    
+
     public class Server
     {
         public string IpAddress { get; set; }
-        
+
         public int Port { get; set; } = DefaultMemcachedPort;
     }
 
@@ -219,7 +219,7 @@ public class MemcachedConfiguration
             {
                 throw new InvalidOperationException($"{nameof(ConnectionTimeout)} must be > TimeSpan.Zero");
             }
-            
+
             if (ReceiveTimeout <= TimeSpan.Zero)
             {
                 throw new InvalidOperationException($"{nameof(ReceiveTimeout)} must be > TimeSpan.Zero");
@@ -263,16 +263,16 @@ public class MemcachedConfiguration
         /// </summary>
         /// <remarks>The sockets are going to be destroyed on the next maintainer cycle after the specified number.</remarks>
         public int MaintainerCyclesToCloseSocketAfter { get; set; }
-        
+
         /// <summary>
         /// Number of sockets to close per pool on each <see cref="MaintainerCyclesToCloseSocketAfter"/>.
         /// </summary>
         public int NumberOfSocketsToClosePerPool { get; set; } = 1;
-        
+
         /// <summary>
         /// If set to <c>true</c>, node health checker mechanism should use socket pool
         /// to obtain sockets for nodes health checks. If set to <c>false</c>,
-        /// new non-pooled socket will be created for each node health check. 
+        /// new non-pooled socket will be created for each node health check.
         /// </summary>
         public bool UseSocketPoolForNodeHealthChecks { get; set; }
 
@@ -294,10 +294,10 @@ public class MemcachedConfiguration
     public class AuthenticationCredentials
     {
         public string Username { get; set; }
-        
+
         public string Password { get; set; }
     }
-    
+
     public class ExpirationJitterSettings
     {
         /// <summary>
@@ -319,22 +319,22 @@ public class MemcachedConfiguration
         /// Endpoint that is created by current service to allow other services to sync data.
         /// </summary>
         public string SyncEndpoint { get; set; } = DefaultSyncEndpoint;
-        
+
         /// <summary>
         /// Endpoint that is created by current service to allow other services to delete data.
         /// </summary>
         public string DeleteEndpoint { get; set; } = DefaultDeleteEndpoint;
-        
+
         /// <summary>
         /// Endpoint that is created by current service to allow other services to flush data.
         /// </summary>
         public string FlushEndpoint { get; set; } = DefaultFlushEndpoint;
-        
+
         /// <summary>
         /// Endpoint that is created by current service to allow other services to get data.
         /// </summary>
         public string GetEndpoint { get; set; } = DefaultGetEndpoint;
-        
+
         /// <summary>
         /// Name of environment variable to get current cluster name.
         /// It is needed to filter out sync servers and don't try to send data
@@ -345,18 +345,23 @@ public class MemcachedConfiguration
         /// <summary>
         /// Number of retries to send data to a sync server.
         /// </summary>
-        public int RetryCount { get; set; } = 3;
+        public int RetryCount { get; set; } = 1;
+
+        /// <summary>
+        /// Base delay for retry backoff. Default is 50ms.
+        /// </summary>
+        public TimeSpan RetryBaseDelay { get; set; } = TimeSpan.FromMilliseconds(50);
 
         /// <summary>
         /// Time to sync data before a task is cancelled.
         /// </summary>
         public TimeSpan TimeToSync { get; set; } = TimeSpan.FromSeconds(1);
-        
+
         /// <summary>
         /// Sync Servers.
         /// </summary>
         public SyncServer[] SyncServers { get; set; }
-        
+
         /// <summary>
         /// Settings of circuit breaker.
         /// </summary>
@@ -374,7 +379,7 @@ public class MemcachedConfiguration
         /// Http address of a server.
         /// </summary>
         public string Address { get; set; }
-        
+
         /// <summary>
         /// Name of a cluster.
         /// </summary>
