@@ -12,6 +12,7 @@ using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 using OpenTelemetry.Trace;
 using Polly;
+using Polly.Contrib.WaitAndRetry;
 using Polly.Retry;
 
 namespace Aer.Memcached.Client.CacheSync;
@@ -20,23 +21,23 @@ internal class CacheSyncClient: ICacheSyncClient
 {
     private static readonly JsonSerializerSettings JsonSettings = new()
     {
-        Converters = new List<JsonConverter>(new[] {new StringEnumConverter()}),
+        Converters = new List<JsonConverter>([new StringEnumConverter()]),
         NullValueHandling = NullValueHandling.Ignore,
         ContractResolver = new DefaultContractResolver
         {
             NamingStrategy = new CamelCaseNamingStrategy()
         }
     };
-    
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly MemcachedConfiguration _config;
     private readonly ILogger<CacheSyncClient> _logger;
     private readonly Tracer _tracer;
     private readonly bool _enableTracing;
-    private readonly RetryPolicy _retryPolicy;
+    private readonly AsyncRetryPolicy _retryPolicy;
 
     public CacheSyncClient(
-        IHttpClientFactory httpClientFactory, 
+        IHttpClientFactory httpClientFactory,
         IOptions<MemcachedConfiguration> config,
         ILogger<CacheSyncClient> logger,
         Tracer tracer = null)
@@ -47,14 +48,18 @@ internal class CacheSyncClient: ICacheSyncClient
         _tracer = tracer;
         _enableTracing = _config.Diagnostics.EnableTracing;
 
+        var retryCount = _config.SyncSettings?.RetryCount ?? 3;
+        var medianFirstRetryDelay = _config.SyncSettings?.RetryBaseDelay ?? TimeSpan.FromMilliseconds(50);
+
         _retryPolicy = Policy.Handle<Exception>()
-            .Retry(_config.SyncSettings?.RetryCount ?? 3);
+            .WaitAndRetryAsync(
+                Backoff.DecorrelatedJitterBackoffV2(medianFirstRetryDelay, retryCount));
     }
 
     /// <inheritdoc />
     public async Task SyncAsync(
         MemcachedConfiguration.SyncServer syncServer,
-        CacheSyncModel data, 
+        CacheSyncModel data,
         CancellationToken token)
     {
         using var tracingScope = MemcachedTracing.CreateCacheSyncScope(
@@ -71,12 +76,12 @@ internal class CacheSyncClient: ICacheSyncClient
                 JsonConvert.SerializeObject(data, JsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
-            
+
             var baseUri = new Uri(syncServer.Address);
             var endpointUri = new Uri(baseUri, _config.SyncSettings.SyncEndpoint + TypeExtensions.GetTypeName<byte>());
 
             await RequestAsync(content, endpointUri, token);
-            
+
             tracingScope?.SetResult(true);
         }
         catch (Exception e)
@@ -91,7 +96,7 @@ internal class CacheSyncClient: ICacheSyncClient
     /// <inheritdoc />
     public async Task DeleteAsync(
         MemcachedConfiguration.SyncServer syncServer,
-        IEnumerable<string> keys, 
+        IEnumerable<string> keys,
         CancellationToken token)
     {
         var keysList = keys?.ToList();
@@ -109,12 +114,12 @@ internal class CacheSyncClient: ICacheSyncClient
                 JsonConvert.SerializeObject(keysList, JsonSettings),
                 Encoding.UTF8,
                 MediaTypeNames.Application.Json);
-            
+
             var baseUri = new Uri(syncServer.Address);
             var endpointUri = new Uri(baseUri, _config.SyncSettings.DeleteEndpoint);
 
             await RequestAsync(content, endpointUri, token);
-            
+
             tracingScope?.SetResult(true);
         }
         catch (Exception e)
@@ -125,16 +130,16 @@ internal class CacheSyncClient: ICacheSyncClient
             throw;
         }
     }
-    
+
     private async Task RequestAsync(StringContent content, Uri endpointUri, CancellationToken token)
     {
-        await _retryPolicy.Execute(async () =>
+        await _retryPolicy.ExecuteAsync(async ct =>
         {
             var httpClient = _httpClientFactory.CreateClient();
 
-            var response = await httpClient.PostAsync(endpointUri, content, token);
+            var response = await httpClient.PostAsync(endpointUri, content, ct);
 
             response.EnsureSuccessStatusCode();
-        });
+        }, token);
     }
 }
